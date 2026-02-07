@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Exchange code for tokens
+    // Exchange code for X tokens
     const callbackUrl = `${APP_URL}/api/auth/x-callback`;
     const basicAuth = Buffer.from(`${X_CLIENT_ID}:${X_CLIENT_SECRET}`).toString('base64');
 
@@ -65,9 +65,10 @@ export async function GET(req: NextRequest) {
     const tokens = await tokenRes.json();
 
     // Get user info from X
-    const userRes = await fetch('https://api.x.com/2/users/me?user.fields=profile_image_url,name,username', {
-      headers: { Authorization: `Bearer ${tokens.access_token}` },
-    });
+    const userRes = await fetch(
+      'https://api.x.com/2/users/me?user.fields=profile_image_url,name,username',
+      { headers: { Authorization: `Bearer ${tokens.access_token}` } }
+    );
 
     if (!userRes.ok) {
       return NextResponse.redirect(`${APP_URL}/login?error=user_fetch_failed`);
@@ -81,17 +82,16 @@ export async function GET(req: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    // Check if user exists by x_user_id
-    const { data: existingProfile } = await serviceClient
-      .from('profiles')
-      .select('id')
-      .eq('x_user_id', xUser.id)
-      .single();
+    const email = `${xUser.id}@x.helloagain.app`;
+
+    // Check if user exists
+    const { data: existingUsers } = await serviceClient.auth.admin.listUsers();
+    const existingUser = existingUsers?.users?.find(u => u.email === email);
 
     let userId: string;
 
-    if (existingProfile) {
-      userId = existingProfile.id;
+    if (existingUser) {
+      userId = existingUser.id;
       // Update profile
       await serviceClient.from('profiles').update({
         x_handle: xUser.username,
@@ -100,7 +100,6 @@ export async function GET(req: NextRequest) {
       }).eq('id', userId);
     } else {
       // Create new Supabase user
-      const email = `${xUser.id}@x.helloagain.app`;
       const { data: newUser, error: createErr } = await serviceClient.auth.admin.createUser({
         email,
         email_confirm: true,
@@ -129,36 +128,52 @@ export async function GET(req: NextRequest) {
       }, { onConflict: 'id' });
     }
 
-    // Generate a Supabase session for this user
-    const { data: session, error: sessionErr } = await serviceClient.auth.admin.generateLink({
+    // Generate a magic link and extract the token
+    const { data: linkData, error: linkErr } = await serviceClient.auth.admin.generateLink({
       type: 'magiclink',
-      email: `${xUser.id}@x.helloagain.app`,
+      email,
     });
 
-    if (sessionErr || !session) {
-      console.error('[X OAuth] Session generation failed:', sessionErr);
-      return NextResponse.redirect(`${APP_URL}/login?error=session_failed`);
+    if (linkErr || !linkData) {
+      console.error('[X OAuth] Link generation failed:', linkErr);
+      return NextResponse.redirect(`${APP_URL}/login?error=link_failed`);
     }
 
-    // Use the token hash to create a session via verify OTP
-    const tokenHash = new URL(session.properties?.action_link || '').searchParams.get('token_hash');
+    // Extract token_hash from the action link
+    const actionUrl = new URL(linkData.properties?.action_link || '');
+    const tokenHash = actionUrl.searchParams.get('token_hash') || actionUrl.hash;
 
     if (!tokenHash) {
-      return NextResponse.redirect(`${APP_URL}/login?error=no_token_hash`);
+      console.error('[X OAuth] No token_hash in action link:', linkData.properties?.action_link);
+      return NextResponse.redirect(`${APP_URL}/login?error=no_token`);
     }
 
-    // Redirect to a page that verifies the OTP and sets the session
-    const verifyUrl = new URL(`${APP_URL}/api/auth/verify`);
-    verifyUrl.searchParams.set('token_hash', tokenHash);
-    verifyUrl.searchParams.set('type', 'magiclink');
+    // Verify the OTP server-side to get actual session tokens
+    const anonClient = createClient(
+      SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+
+    const { data: verifyData, error: verifyErr } = await anonClient.auth.verifyOtp({
+      token_hash: tokenHash,
+      type: 'magiclink',
+    });
+
+    if (verifyErr || !verifyData.session) {
+      console.error('[X OAuth] OTP verify failed:', verifyErr);
+      return NextResponse.redirect(`${APP_URL}/login?error=verify_failed`);
+    }
+
+    // Redirect to client page with real session tokens
+    const sessionUrl = new URL(`${APP_URL}/auth/set-session`);
+    sessionUrl.searchParams.set('access_token', verifyData.session.access_token);
+    sessionUrl.searchParams.set('refresh_token', verifyData.session.refresh_token);
     if (stateData.extensionId) {
-      verifyUrl.searchParams.set('extension_id', stateData.extensionId);
+      sessionUrl.searchParams.set('extension_id', stateData.extensionId);
     }
 
-    const response = NextResponse.redirect(verifyUrl.toString());
-    // Clear the state cookie
+    const response = NextResponse.redirect(sessionUrl.toString());
     response.cookies.delete('x-oauth-state');
-
     return response;
   } catch (err) {
     console.error('[X OAuth] Unexpected error:', err);

@@ -7,6 +7,7 @@ import { Suspense } from 'react';
 function LoginContent() {
   const searchParams = useSearchParams();
   const extensionId = searchParams.get('extension_id');
+  const error = searchParams.get('error');
 
   const handleLogin = () => {
     const loginUrl = `/api/auth/x-login${extensionId ? `?extension_id=${extensionId}` : ''}`;
@@ -84,6 +85,21 @@ function LoginContent() {
             ? 'Sign in with X to connect your extension'
             : 'Sign in with your X account to continue'}
         </p>
+
+        {error && (
+          <div style={{
+            padding: '12px 16px',
+            borderRadius: '10px',
+            background: 'rgba(239,68,68,0.1)',
+            border: '1px solid rgba(239,68,68,0.2)',
+            color: '#ef4444',
+            fontSize: '13px',
+            marginBottom: '16px',
+            textAlign: 'left',
+          }}>
+            Auth error: {error}
+          </div>
+        )}
 
         {/* X OAuth Button */}
         <motion.button
