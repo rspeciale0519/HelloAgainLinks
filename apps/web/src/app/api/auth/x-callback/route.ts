@@ -139,9 +139,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(`${APP_URL}/login?error=link_failed`);
     }
 
-    // Extract token_hash from the action link
+    // Extract token from the action link (Supabase uses 'token' param, not 'token_hash')
     const actionUrl = new URL(linkData.properties?.action_link || '');
-    const tokenHash = actionUrl.searchParams.get('token_hash') || actionUrl.hash;
+    const tokenHash = actionUrl.searchParams.get('token') || actionUrl.searchParams.get('token_hash');
 
     if (!tokenHash) {
       console.error('[X OAuth] No token_hash in action link:', linkData.properties?.action_link);
