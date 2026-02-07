@@ -5,6 +5,60 @@ import { useEffect, useState } from 'react';
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { useRouter } from 'next/navigation';
 
+function ImportSection() {
+  const [importing, setImporting] = useState(false);
+  const [result, setResult] = useState<{ message: string; status: string } | null>(null);
+
+  const handleImport = async () => {
+    setImporting(true);
+    setResult(null);
+    const supabase = getSupabaseBrowserClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    const res = await fetch('/api/import', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+
+    const data = await res.json();
+    setResult({ message: data.message || data.error || 'Done', status: res.ok ? 'success' : 'error' });
+    setImporting(false);
+  };
+
+  return (
+    <div className="glass glow-border" style={{ padding: '24px', borderRadius: '14px', marginBottom: '20px' }}>
+      <h2 style={{ fontSize: '16px', fontWeight: 600, color: '#f0f0f5', marginBottom: '16px' }}>Import X Bookmarks</h2>
+      <div style={{ fontSize: '14px', color: '#8a8a9a', lineHeight: 1.6, marginBottom: '16px' }}>
+        Pull in all your existing bookmarks from X/Twitter. Duplicates are automatically skipped.
+      </div>
+      {result && (
+        <div style={{
+          padding: '10px 14px', borderRadius: '8px', marginBottom: '16px', fontSize: '13px',
+          background: result.status === 'success' ? 'rgba(0,212,255,0.08)' : 'rgba(239,68,68,0.08)',
+          color: result.status === 'success' ? '#00d4ff' : '#ef4444',
+          border: `1px solid ${result.status === 'success' ? 'rgba(0,212,255,0.15)' : 'rgba(239,68,68,0.15)'}`,
+        }}>
+          {result.message}
+        </div>
+      )}
+      <motion.button
+        whileTap={{ scale: 0.98 }}
+        onClick={handleImport}
+        disabled={importing}
+        style={{
+          padding: '10px 24px', borderRadius: '10px', border: '1px solid rgba(0,212,255,0.15)',
+          background: importing ? 'rgba(0,212,255,0.05)' : 'transparent',
+          color: '#00d4ff', fontSize: '14px', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
+          opacity: importing ? 0.6 : 1,
+        }}
+      >
+        {importing ? '⏳ Importing...' : '📚 Import from X'}
+      </motion.button>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const router = useRouter();
   const [user, setUser] = useState<{ name: string; handle: string; avatar: string; email: string } | null>(null);
@@ -141,6 +195,9 @@ export default function SettingsPage() {
           </button>
         </div>
       </div>
+
+      {/* Import Bookmarks */}
+      <ImportSection />
 
       {/* Chrome Extension */}
       <div className="glass glow-border" style={sectionStyle}>

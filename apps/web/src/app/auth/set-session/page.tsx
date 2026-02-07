@@ -22,13 +22,32 @@ function SetSessionContent() {
     supabase.auth.setSession({
       access_token: accessToken,
       refresh_token: refreshToken,
-    }).then(({ error }) => {
+    }).then(async ({ error, data }) => {
       if (error) {
         console.error('Failed to set session:', error);
         router.push('/login?error=session_failed');
-      } else {
-        router.push('/dashboard');
+        return;
       }
+
+      // Check if first-time user (no bookmarks = new user)
+      if (data.session) {
+        try {
+          const bmRes = await fetch('/api/bookmarks?pageSize=1', {
+            headers: { Authorization: `Bearer ${data.session.access_token}` },
+          });
+          if (bmRes.ok) {
+            const bmData = await bmRes.json();
+            if ((bmData.total || 0) === 0) {
+              router.push('/welcome');
+              return;
+            }
+          }
+        } catch {
+          // If check fails, just go to dashboard
+        }
+      }
+
+      router.push('/dashboard');
     });
   }, [searchParams, router]);
 

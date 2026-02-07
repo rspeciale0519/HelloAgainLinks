@@ -110,13 +110,18 @@ export async function GET(req: NextRequest) {
       userId = newUser.user!.id;
     }
 
-    // Upsert profile
+    // Upsert profile with X tokens for bookmark import
     await serviceClient.from('profiles').upsert({
       id: userId,
       x_user_id: xUser.id,
       x_handle: xUser.username,
       display_name: xUser.name,
       avatar_url: xUser.profile_image_url || null,
+      x_access_token: tokens.access_token,
+      x_refresh_token: tokens.refresh_token || null,
+      x_token_expires_at: tokens.expires_in
+        ? new Date(Date.now() + tokens.expires_in * 1000).toISOString()
+        : null,
     }, { onConflict: 'id' });
 
     // Generate magic link — use hashed_token directly
