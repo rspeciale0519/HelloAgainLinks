@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useCallback } from 'react';
 
 import { useAuth } from '@/lib/use-auth';
+import UserMenu from '@/components/UserMenu';
 
 const navItems = [
   { id: 'home', label: 'Dashboard', href: '/dashboard', icon: '⬡' },
@@ -14,7 +15,6 @@ const navItems = [
   { id: 'lists', label: 'Shared Lists', href: '/dashboard/lists', icon: '📋' },
   { id: 'blend', label: 'Blend', href: '/dashboard/blend', icon: '🔗' },
   { id: 'assistant', label: 'Assistant', href: '/dashboard/assistant', icon: '✨' },
-  { id: 'settings', label: 'Settings', href: '/dashboard/settings', icon: '⚙️' },
 ];
 
 const MOBILE_BREAKPOINT = 768;
@@ -162,44 +162,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               })}
             </div>
 
-            {/* Profile area */}
-            <div
-              style={{
-                padding: '12px 14px',
-                borderTop: '1px solid rgba(0,212,255,0.06)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                marginTop: '12px',
-              }}
-            >
-              {avatarUrl ? (
-                <img
-                  src={avatarUrl}
-                  alt=""
-                  style={{
-                    width: '32px',
-                    height: '32px',
-                    borderRadius: '50%',
-                    border: '1px solid rgba(0,212,255,0.2)',
-                  }}
-                />
-              ) : (
-                <div
-                  style={{
-                    width: '32px',
-                    height: '32px',
-                    borderRadius: '50%',
-                    background: 'rgba(0,212,255,0.1)',
-                    border: '1px solid rgba(0,212,255,0.2)',
-                  }}
-                />
-              )}
-              <div>
-                <div style={{ fontSize: '13px', color: '#f0f0f5', fontWeight: 500 }}>@{displayName}</div>
-                <div style={{ fontSize: '11px', color: '#4a4a5a' }}>Free Plan</div>
-              </div>
-            </div>
+            {/* User menu */}
+            <UserMenu
+              avatarUrl={avatarUrl}
+              displayName={displayName}
+              onNavigate={isMobile ? closeSidebar : undefined}
+            />
           </motion.nav>
         )}
       </AnimatePresence>
