@@ -10,6 +10,7 @@ const navItems = [
   { id: 'bookmarks', label: 'Bookmarks', href: '/dashboard/bookmarks', icon: '🔖' },
   { id: 'tags', label: 'Tags', href: '/dashboard/tags', icon: '🏷️' },
   { id: 'blend', label: 'Blend', href: '/dashboard/blend', icon: '🔗' },
+  { id: 'assistant', label: 'Assistant', href: '/dashboard/assistant', icon: '✨' },
   { id: 'settings', label: 'Settings', href: '/dashboard/settings', icon: '⚙️' },
 ];
 
