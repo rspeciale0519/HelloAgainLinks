@@ -84,51 +84,42 @@ export async function GET(req: NextRequest) {
 
     const email = `${xUser.id}@x.helloagain.app`;
 
-    // Check if user exists
-    const { data: existingUsers } = await serviceClient.auth.admin.listUsers();
-    const existingUser = existingUsers?.users?.find(u => u.email === email);
+    // Upsert user — createUser will fail if exists, that's fine
+    const { data: newUser, error: createErr } = await serviceClient.auth.admin.createUser({
+      email,
+      email_confirm: true,
+      user_metadata: {
+        provider_id: xUser.id,
+        preferred_username: xUser.username,
+        full_name: xUser.name,
+        avatar_url: xUser.profile_image_url,
+      },
+    });
 
     let userId: string;
-
-    if (existingUser) {
-      userId = existingUser.id;
-      // Update profile
-      await serviceClient.from('profiles').update({
-        x_handle: xUser.username,
-        display_name: xUser.name,
-        avatar_url: xUser.profile_image_url || null,
-      }).eq('id', userId);
-    } else {
-      // Create new Supabase user
-      const { data: newUser, error: createErr } = await serviceClient.auth.admin.createUser({
-        email,
-        email_confirm: true,
-        user_metadata: {
-          provider_id: xUser.id,
-          preferred_username: xUser.username,
-          full_name: xUser.name,
-          avatar_url: xUser.profile_image_url,
-        },
-      });
-
-      if (createErr || !newUser.user) {
-        console.error('[X OAuth] User creation failed:', createErr);
-        return NextResponse.redirect(`${APP_URL}/login?error=user_create_failed`);
+    if (createErr) {
+      // User already exists — look up by email
+      const { data: { users } } = await serviceClient.auth.admin.listUsers();
+      const matchedUsers = users?.filter((u: { email?: string }) => u.email === email);
+      if (!matchedUsers?.length) {
+        console.error('[X OAuth] User not found after create fail:', createErr);
+        return NextResponse.redirect(`${APP_URL}/login?error=user_not_found`);
       }
-
-      userId = newUser.user.id;
-
-      // Create profile
-      await serviceClient.from('profiles').upsert({
-        id: userId,
-        x_user_id: xUser.id,
-        x_handle: xUser.username,
-        display_name: xUser.name,
-        avatar_url: xUser.profile_image_url || null,
-      }, { onConflict: 'id' });
+      userId = matchedUsers[0].id;
+    } else {
+      userId = newUser.user!.id;
     }
 
-    // Generate a magic link and extract the token
+    // Upsert profile
+    await serviceClient.from('profiles').upsert({
+      id: userId,
+      x_user_id: xUser.id,
+      x_handle: xUser.username,
+      display_name: xUser.name,
+      avatar_url: xUser.profile_image_url || null,
+    }, { onConflict: 'id' });
+
+    // Generate magic link — use hashed_token directly
     const { data: linkData, error: linkErr } = await serviceClient.auth.admin.generateLink({
       type: 'magiclink',
       email,
@@ -139,23 +130,31 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(`${APP_URL}/login?error=link_failed`);
     }
 
-    // Extract token from the action link (Supabase uses 'token' param, not 'token_hash')
-    const actionUrl = new URL(linkData.properties?.action_link || '');
-    const tokenHash = actionUrl.searchParams.get('token') || actionUrl.searchParams.get('token_hash');
-
-    if (!tokenHash) {
-      console.error('[X OAuth] No token_hash in action link:', linkData.properties?.action_link);
-      return NextResponse.redirect(`${APP_URL}/login?error=no_token`);
+    // Get the token from properties
+    const hashedToken = linkData.properties?.hashed_token;
+    if (!hashedToken) {
+      // Fallback: parse from action_link
+      const actionUrl = new URL(linkData.properties?.action_link || 'http://x');
+      const fallbackToken = actionUrl.searchParams.get('token');
+      if (!fallbackToken) {
+        console.error('[X OAuth] No token found. Properties:', JSON.stringify(linkData.properties));
+        return NextResponse.redirect(`${APP_URL}/login?error=no_token`);
+      }
     }
 
-    // Verify the OTP server-side to get actual session tokens
+    const tokenForVerify = hashedToken || (() => {
+      const u = new URL(linkData.properties?.action_link || 'http://x');
+      return u.searchParams.get('token');
+    })();
+
+    // Verify OTP server-side to get session tokens
     const anonClient = createClient(
       SUPABASE_URL,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
 
     const { data: verifyData, error: verifyErr } = await anonClient.auth.verifyOtp({
-      token_hash: tokenHash,
+      token_hash: tokenForVerify!,
       type: 'magiclink',
     });
 
