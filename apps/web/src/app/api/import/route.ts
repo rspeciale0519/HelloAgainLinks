@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
         console.error('[Import] X API error:', xRes.status, errBody);
 
         if (xRes.status === 429) {
-          // Rate limited — save progress and tell user
+          // Rate limited — save progress and tell user how many are left
           await ctx.serviceClient.from('profiles').update({
             import_status: 'rate_limited',
             import_count: imported,
@@ -93,7 +93,8 @@ export async function POST(req: NextRequest) {
             status: 'rate_limited',
             imported,
             skipped,
-            message: `Imported ${imported} bookmarks. Hit X rate limit — try again in 15 minutes for the rest.`,
+            hasMore: true,
+            message: `Imported ${imported} bookmarks so far. Hit X's rate limit — click "Import" again in 15 minutes to get the next batch. (X Free tier only allows ~100 bookmarks per 15 min.)`,
           });
         }
 

@@ -8,7 +8,7 @@ import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
 export default function WelcomePage() {
   const router = useRouter();
   const [importing, setImporting] = useState(false);
-  const [progress, setProgress] = useState({ status: '', count: 0, message: '' });
+  const [progress, setProgress] = useState({ status: '', count: 0, message: '', hasMore: false });
   const [user, setUser] = useState<{ name: string; handle: string; avatar: string } | null>(null);
 
   useEffect(() => {
@@ -26,13 +26,13 @@ export default function WelcomePage() {
 
   const handleImport = async () => {
     setImporting(true);
-    setProgress({ status: 'importing', count: 0, message: 'Connecting to X...' });
+    setProgress({ status: 'importing', count: 0, message: 'Connecting to X...', hasMore: false });
 
     const supabase = getSupabaseBrowserClient();
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 
-    setProgress({ status: 'importing', count: 0, message: 'Fetching your bookmarks from X...' });
+    setProgress({ status: 'importing', count: 0, message: 'Fetching your bookmarks from X...', hasMore: false });
 
     const res = await fetch('/api/import', {
       method: 'POST',
@@ -45,17 +45,20 @@ export default function WelcomePage() {
         status: data.status,
         count: data.imported,
         message: data.message,
+        hasMore: data.hasMore || false,
       });
 
-      if (data.status === 'complete' || data.status === 'rate_limited') {
+      if (data.status === 'complete') {
         setTimeout(() => router.push('/dashboard'), 2500);
       }
+      // Don't auto-redirect on rate_limited — let them click import again or skip
     } else {
       const err = await res.json().catch(() => ({}));
       setProgress({
         status: 'error',
         count: 0,
         message: err.error || 'Import failed. You can try again from Settings.',
+        hasMore: false,
       });
     }
 
@@ -173,9 +176,37 @@ export default function WelcomePage() {
               {progress.message}
             </div>
 
-            {(progress.status === 'complete' || progress.status === 'rate_limited') && (
+            {progress.status === 'complete' && (
               <div style={{ fontSize: '13px', color: '#4a4a5a', marginTop: '12px' }}>
                 Redirecting to dashboard...
+              </div>
+            )}
+
+            {progress.status === 'rate_limited' && (
+              <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
+                <motion.button
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleImport}
+                  disabled={importing}
+                  style={{
+                    padding: '12px 28px', borderRadius: '12px', border: 'none',
+                    background: 'linear-gradient(135deg, #00d4ff, #0ea5e9)', color: '#0a0a0f',
+                    fontSize: '15px', fontWeight: 600, cursor: 'pointer', fontFamily: "'Inter', sans-serif",
+                    opacity: importing ? 0.5 : 1,
+                  }}
+                >
+                  {importing ? '⏳ Importing...' : '📚 Import Next Batch'}
+                </motion.button>
+                <button
+                  onClick={handleSkip}
+                  style={{
+                    padding: '10px 20px', borderRadius: '10px', border: '1px solid rgba(0,212,255,0.1)',
+                    background: 'transparent', color: '#8a8a9a', fontSize: '13px',
+                    cursor: 'pointer', fontFamily: "'Inter', sans-serif",
+                  }}
+                >
+                  Continue to Dashboard (import more later from Settings)
+                </button>
               </div>
             )}
 
