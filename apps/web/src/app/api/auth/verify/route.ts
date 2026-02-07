@@ -46,22 +46,10 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // Set session cookies
-  const response = NextResponse.redirect(`${APP_URL}/dashboard`);
-  response.cookies.set('ha-access-token', data.session.access_token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: 60 * 60,
-    path: '/',
-  });
-  response.cookies.set('ha-refresh-token', data.session.refresh_token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: 60 * 60 * 24 * 30,
-    path: '/',
-  });
+  // Redirect to client-side page that sets Supabase session in browser
+  const sessionUrl = new URL(`${APP_URL}/auth/set-session`);
+  sessionUrl.searchParams.set('access_token', data.session.access_token);
+  sessionUrl.searchParams.set('refresh_token', data.session.refresh_token);
 
-  return response;
+  return NextResponse.redirect(sessionUrl.toString());
 }

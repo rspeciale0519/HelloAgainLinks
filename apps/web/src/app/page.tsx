@@ -2,8 +2,10 @@
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { useAuth } from '@/lib/use-auth';
 
 export default function LandingPage() {
+  const { user, loading } = useAuth();
   return (
     <div style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden' }}>
       {/* Ambient glow orbs */}
@@ -77,35 +79,56 @@ export default function LandingPage() {
           animate={{ opacity: 1, x: 0 }}
           style={{ display: 'flex', gap: '12px', alignItems: 'center' }}
         >
-          <Link
-            href="/login"
-            style={{
-              color: '#8a8a9a',
-              textDecoration: 'none',
-              fontSize: '14px',
-              padding: '8px 16px',
-              borderRadius: '8px',
-              transition: 'color 0.2s',
-            }}
-          >
-            Sign In
-          </Link>
-          <Link
-            href="/login"
-            style={{
-              background: 'linear-gradient(135deg, #00d4ff, #0ea5e9)',
-              color: '#0a0a0f',
-              textDecoration: 'none',
-              fontSize: '14px',
-              fontWeight: 600,
-              padding: '10px 22px',
-              borderRadius: '10px',
-              boxShadow: '0 0 20px rgba(0,212,255,0.3)',
-              transition: 'all 0.2s',
-            }}
-          >
-            Get Started
-          </Link>
+          {!loading && user ? (
+            <Link
+              href="/dashboard"
+              style={{
+                background: 'linear-gradient(135deg, #00d4ff, #0ea5e9)',
+                color: '#0a0a0f',
+                textDecoration: 'none',
+                fontSize: '14px',
+                fontWeight: 600,
+                padding: '10px 22px',
+                borderRadius: '10px',
+                boxShadow: '0 0 20px rgba(0,212,255,0.3)',
+                transition: 'all 0.2s',
+              }}
+            >
+              Dashboard
+            </Link>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                style={{
+                  color: '#8a8a9a',
+                  textDecoration: 'none',
+                  fontSize: '14px',
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  transition: 'color 0.2s',
+                }}
+              >
+                Sign In
+              </Link>
+              <Link
+                href="/login"
+                style={{
+                  background: 'linear-gradient(135deg, #00d4ff, #0ea5e9)',
+                  color: '#0a0a0f',
+                  textDecoration: 'none',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  padding: '10px 22px',
+                  borderRadius: '10px',
+                  boxShadow: '0 0 20px rgba(0,212,255,0.3)',
+                  transition: 'all 0.2s',
+                }}
+              >
+                Get Started
+              </Link>
+            </>
+          )}
         </motion.div>
       </nav>
 
