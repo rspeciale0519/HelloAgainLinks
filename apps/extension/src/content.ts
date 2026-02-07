@@ -2,6 +2,26 @@
 
 console.log('[HelloAgain] Content script loaded on', window.location.href);
 
+// ── Settings ─────────────────────────────────────────────────
+
+let showHalButton = true;
+
+// Load setting
+chrome.storage.sync.get({ showHalButton: true }, (result) => {
+  showHalButton = result.showHalButton;
+});
+
+// Listen for setting changes
+chrome.storage.onChanged.addListener((changes) => {
+  if (changes.showHalButton) {
+    showHalButton = changes.showHalButton.newValue;
+    // Toggle visibility of all existing HAL buttons
+    document.querySelectorAll('.helloagain-save-wrapper').forEach((el) => {
+      (el as HTMLElement).style.display = showHalButton ? 'flex' : 'none';
+    });
+  }
+});
+
 // ── Toast notification ───────────────────────────────────────
 
 function showToast(message: string, type: 'success' | 'error' = 'success') {
@@ -170,29 +190,41 @@ function enhanceBookmarkButtons(root: HTMLElement) {
     const saveBtn = createSaveButton(article);
     if (saveBtn) {
       const wrapper = document.createElement('div');
-      wrapper.style.display = 'flex';
+      wrapper.className = 'helloagain-save-wrapper';
+      wrapper.style.display = showHalButton ? 'flex' : 'none';
       wrapper.style.alignItems = 'center';
       wrapper.appendChild(saveBtn);
       actionBar.appendChild(wrapper);
     }
 
-    // Also intercept native bookmark click
+    // Intercept native bookmark click — mirror to HAL
     const nativeBookmarkBtn = article.querySelector('[data-testid="bookmark"]');
-    if (nativeBookmarkBtn) {
+    if (nativeBookmarkBtn && !nativeBookmarkBtn.getAttribute('data-hal-mirrored')) {
+      nativeBookmarkBtn.setAttribute('data-hal-mirrored', 'true');
       nativeBookmarkBtn.addEventListener('click', () => {
+        // Only mirror if it's a bookmark action (not un-bookmark)
+        // The "bookmark" testid is for un-bookmarked state; "removeBookmark" is bookmarked
         const data = extractTweetData(article);
         if (data.postId) {
-          chrome.runtime.sendMessage({
-            type: 'SAVE_BOOKMARK',
-            data: {
-              postId: data.postId,
-              content: data.content,
-              author: data.author,
-              authorName: data.authorName,
-              timestamp: data.timestamp,
-              mediaUrls: JSON.stringify(data.mediaUrls),
+          chrome.runtime.sendMessage(
+            {
+              type: 'SAVE_BOOKMARK',
+              data: {
+                postId: data.postId,
+                content: data.content,
+                author: data.author,
+                authorName: data.authorName,
+                timestamp: data.timestamp,
+                mediaUrls: JSON.stringify(data.mediaUrls),
+              },
             },
-          });
+            (response) => {
+              if (response && !response.error) {
+                showToast('Also saved to HAL ✓');
+              }
+              // Silently ignore errors — don't disrupt native bookmark flow
+            }
+          );
         }
       });
     }

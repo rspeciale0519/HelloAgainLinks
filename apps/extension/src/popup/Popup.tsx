@@ -15,6 +15,52 @@ interface BookmarkItem {
   created_at: string;
 }
 
+function HalButtonToggle() {
+  const [showButton, setShowButton] = useState(true);
+
+  useEffect(() => {
+    chrome.storage.sync.get({ showHalButton: true }, (result) => {
+      setShowButton(result.showHalButton);
+    });
+  }, []);
+
+  const handleToggle = () => {
+    const newVal = !showButton;
+    setShowButton(newVal);
+    chrome.storage.sync.set({ showHalButton: newVal });
+  };
+
+  return (
+    <div
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '10px 0', borderTop: '1px solid rgba(0,212,255,0.06)', marginTop: '8px',
+      }}
+    >
+      <div>
+        <div style={{ fontSize: '12px', color: '#8a8a9a' }}>Show HAL button on tweets</div>
+        <div style={{ fontSize: '10px', color: '#4a4a5a' }}>Native bookmarks always mirror to HAL</div>
+      </div>
+      <button
+        onClick={handleToggle}
+        style={{
+          width: '36px', height: '20px', borderRadius: '10px', border: 'none', cursor: 'pointer',
+          background: showButton ? 'rgba(0,212,255,0.5)' : 'rgba(255,255,255,0.1)',
+          position: 'relative', transition: 'background 0.2s',
+        }}
+      >
+        <div style={{
+          width: '16px', height: '16px', borderRadius: '50%',
+          background: showButton ? '#00d4ff' : '#4a4a5a',
+          position: 'absolute', top: '2px',
+          left: showButton ? '18px' : '2px',
+          transition: 'left 0.2s, background 0.2s',
+        }} />
+      </button>
+    </div>
+  );
+}
+
 export function Popup() {
   const [search, setSearch] = useState('');
   const [authenticated, setAuthenticated] = useState(false);
@@ -221,6 +267,9 @@ export function Popup() {
           ))
         )}
       </div>
+
+      {/* Settings */}
+      <HalButtonToggle />
 
       {/* Footer */}
       <div style={{ borderTop: '1px solid rgba(0,212,255,0.06)', paddingTop: '12px', display: 'flex', justifyContent: 'space-between' }}>
