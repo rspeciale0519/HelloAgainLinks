@@ -5,6 +5,9 @@
   "description": "AI-powered bookmark manager for X/Twitter with social features.",
   "permissions": ["activeTab", "storage", "identity", "sidePanel"],
   "host_permissions": ["https://x.com/*", "https://twitter.com/*"],
+  "externally_connectable": {
+    "matches": ["https://helloagain.app/*", "http://localhost:3000/*"]
+  },
   "background": {
     "service_worker": "background.js",
     "type": "module"

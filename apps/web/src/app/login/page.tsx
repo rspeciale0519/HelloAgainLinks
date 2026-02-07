@@ -2,8 +2,27 @@
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
+import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
 
-export default function LoginPage() {
+function LoginContent() {
+  const searchParams = useSearchParams();
+  const extensionId = searchParams.get('extension_id');
+  const redirect = searchParams.get('redirect');
+
+  const handleLogin = async () => {
+    const supabase = getSupabaseBrowserClient();
+    const redirectTo = `${window.location.origin}/api/auth/callback${
+      extensionId ? `?extension_id=${extensionId}` : ''
+    }${redirect ? `${extensionId ? '&' : '?'}redirect=${encodeURIComponent(redirect)}` : ''}`;
+
+    await supabase.auth.signInWithOAuth({
+      provider: 'twitter',
+      options: { redirectTo },
+    });
+  };
+
   return (
     <div
       style={{
@@ -67,28 +86,18 @@ export default function LoginPage() {
           H
         </div>
 
-        <h1
-          style={{
-            fontSize: '24px',
-            fontWeight: 600,
-            color: '#f0f0f5',
-            marginBottom: '8px',
-          }}
-        >
+        <h1 style={{ fontSize: '24px', fontWeight: 600, color: '#f0f0f5', marginBottom: '8px' }}>
           Welcome back
         </h1>
-        <p
-          style={{
-            fontSize: '14px',
-            color: '#8a8a9a',
-            marginBottom: '32px',
-          }}
-        >
-          Sign in with your X account to continue
+        <p style={{ fontSize: '14px', color: '#8a8a9a', marginBottom: '32px' }}>
+          {extensionId
+            ? 'Sign in with X to connect your extension'
+            : 'Sign in with your X account to continue'}
         </p>
 
         {/* X OAuth Button */}
         <motion.button
+          onClick={handleLogin}
           whileHover={{ scale: 1.02, boxShadow: '0 0 25px rgba(0,212,255,0.3)' }}
           whileTap={{ scale: 0.98 }}
           style={{
@@ -115,32 +124,26 @@ export default function LoginPage() {
           Continue with X
         </motion.button>
 
-        <div
-          style={{
-            marginTop: '24px',
-            fontSize: '12px',
-            color: '#4a4a5a',
-            lineHeight: 1.6,
-          }}
-        >
+        <div style={{ marginTop: '24px', fontSize: '12px', color: '#4a4a5a', lineHeight: 1.6 }}>
           By continuing, you agree to our{' '}
           <span style={{ color: '#00d4ff', cursor: 'pointer' }}>Terms</span> and{' '}
           <span style={{ color: '#00d4ff', cursor: 'pointer' }}>Privacy Policy</span>
         </div>
 
         <div style={{ marginTop: '24px' }}>
-          <Link
-            href="/"
-            style={{
-              color: '#8a8a9a',
-              fontSize: '13px',
-              textDecoration: 'none',
-            }}
-          >
+          <Link href="/" style={{ color: '#8a8a9a', fontSize: '13px', textDecoration: 'none' }}>
             ← Back to home
           </Link>
         </div>
       </motion.div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginContent />
+    </Suspense>
   );
 }
