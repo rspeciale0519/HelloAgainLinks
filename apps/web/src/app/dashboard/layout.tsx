@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
@@ -134,7 +133,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </nav>
 
       {/* Main content */}
-      <main style={{ marginLeft: '260px', flex: 1, padding: '32px 40px' }}>
+      <main style={{ marginLeft: '260px', flex: 1, padding: '0 0 0 0' }}>
+        {/* Demo Mode Banner */}
+        <div
+          style={{
+            background: 'linear-gradient(90deg, rgba(0,212,255,0.12), rgba(14,165,233,0.08))',
+            borderBottom: '1px solid rgba(0,212,255,0.15)',
+            padding: '10px 40px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            fontSize: '13px',
+            color: '#00d4ff',
+            fontFamily: "'Inter', sans-serif",
+          }}
+        >
+          <span style={{ fontSize: '16px' }}>🔮</span>
+          <span style={{ fontWeight: 600 }}>Demo Mode</span>
+          <span style={{ color: '#8a8a9a' }}>— You&apos;re viewing a preview with sample data. Auth coming soon.</span>
+        </div>
+      <div style={{ padding: '32px 40px' }}>
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -142,6 +160,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         >
           {children}
         </motion.div>
+      </div>
       </main>
     </div>
   );
