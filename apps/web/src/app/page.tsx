@@ -210,7 +210,7 @@ export default function LandingPage() {
           style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center' }}
         >
           <Link
-            href="/login"
+            href="/install"
             style={{
               background: 'linear-gradient(135deg, #00d4ff, #0ea5e9)',
               color: '#0a0a0f',
