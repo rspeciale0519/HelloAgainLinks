@@ -5,10 +5,13 @@ import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useCallback } from 'react';
 
+import { useAuth } from '@/lib/use-auth';
+
 const navItems = [
   { id: 'home', label: 'Dashboard', href: '/dashboard', icon: '⬡' },
   { id: 'bookmarks', label: 'Bookmarks', href: '/dashboard/bookmarks', icon: '🔖' },
   { id: 'tags', label: 'Tags', href: '/dashboard/tags', icon: '🏷️' },
+  { id: 'lists', label: 'Shared Lists', href: '/dashboard/lists', icon: '📋' },
   { id: 'blend', label: 'Blend', href: '/dashboard/blend', icon: '🔗' },
   { id: 'assistant', label: 'Assistant', href: '/dashboard/assistant', icon: '✨' },
   { id: 'settings', label: 'Settings', href: '/dashboard/settings', icon: '⚙️' },
@@ -21,6 +24,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const { user } = useAuth();
+  const meta = user?.user_metadata || {};
+  const displayName = meta.preferred_username || meta.user_name || 'User';
+  const avatarUrl = meta.avatar_url || meta.picture || '';
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
@@ -166,17 +173,30 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 marginTop: '12px',
               }}
             >
-              <div
-                style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '50%',
-                  background: 'rgba(0,212,255,0.1)',
-                  border: '1px solid rgba(0,212,255,0.2)',
-                }}
-              />
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt=""
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    border: '1px solid rgba(0,212,255,0.2)',
+                  }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    background: 'rgba(0,212,255,0.1)',
+                    border: '1px solid rgba(0,212,255,0.2)',
+                  }}
+                />
+              )}
               <div>
-                <div style={{ fontSize: '13px', color: '#f0f0f5', fontWeight: 500 }}>@user</div>
+                <div style={{ fontSize: '13px', color: '#f0f0f5', fontWeight: 500 }}>@{displayName}</div>
                 <div style={{ fontSize: '11px', color: '#4a4a5a' }}>Free Plan</div>
               </div>
             </div>
@@ -186,21 +206,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Main content */}
       <main style={{ marginLeft: isMobile ? 0 : `${SIDEBAR_WIDTH}px`, flex: 1, padding: '0 0 0 0' }}>
-        {/* Top bar with hamburger (mobile) + Demo banner */}
-        <div
-          style={{
-            background: 'linear-gradient(90deg, rgba(0,212,255,0.12), rgba(14,165,233,0.08))',
-            borderBottom: '1px solid rgba(0,212,255,0.15)',
-            padding: isMobile ? '10px 16px' : '10px 40px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            fontSize: '13px',
-            color: '#00d4ff',
-            fontFamily: "'Inter', sans-serif",
-          }}
-        >
-          {isMobile && (
+        {/* Top bar with hamburger (mobile) */}
+        {isMobile && (
+          <div
+            style={{
+              borderBottom: '1px solid rgba(0,212,255,0.08)',
+              padding: '10px 16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}
+          >
             <button
               onClick={() => setSidebarOpen(true)}
               style={{
@@ -216,13 +232,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             >
               ☰
             </button>
-          )}
-          <span style={{ fontSize: '16px' }}>🔮</span>
-          <span style={{ fontWeight: 600 }}>Demo Mode</span>
-          {!isMobile && (
-            <span style={{ color: '#8a8a9a' }}>— You&apos;re viewing a preview with sample data. Auth coming soon.</span>
-          )}
-        </div>
+            <span style={{ fontSize: '16px', fontWeight: 600, color: '#f0f0f5' }}>HAL</span>
+          </div>
+        )}
         <div style={{ padding: isMobile ? '20px 16px' : '32px 40px' }}>
           <motion.div
             initial={{ opacity: 0, y: 10 }}

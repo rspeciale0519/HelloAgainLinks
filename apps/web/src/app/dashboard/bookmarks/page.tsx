@@ -1,82 +1,189 @@
 'use client';
 
-import { useState } from 'react';
 import { motion } from 'framer-motion';
+import { useEffect, useState, useCallback } from 'react';
+import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
 
-const mockBookmarks = Array.from({ length: 12 }, (_, i) => ({
-  id: `bm-${i}`,
-  author: ['@elonmusk', '@naval', '@paulg', '@sama', '@pmarca', '@balaboris'][i % 6],
-  content: [
-    'The future of neural interfaces and brain-computer interaction...',
-    'How to build wealth through leverage and specific knowledge...',
-    'Why the best startups are often the ones nobody believes in at first...',
-    'AGI timeline predictions and what it means for society...',
-    'Software is eating the world, but AI will eat software...',
-    'Thread on building in public and the power of transparency...',
-  ][i % 6],
-  tags: [['AI', 'Tech'], ['Wealth'], ['Startups', 'Advice'], ['AI', 'Future'], ['Software'], ['Building']][i % 6],
-  time: `${i + 1}d ago`,
-}));
+interface Bookmark {
+  id: string;
+  x_post_id: string;
+  x_author_handle: string;
+  x_author_name: string;
+  content_text: string;
+  media_urls: string[];
+  bookmarked_at: string;
+}
 
 export default function BookmarksPage() {
+  const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
+
+  const fetchBookmarks = useCallback(async () => {
+    setLoading(true);
+    const supabase = getSupabaseBrowserClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    const params = new URLSearchParams({
+      page: page.toString(),
+      pageSize: pageSize.toString(),
+      sort: 'bookmarked_at',
+      order: 'desc',
+    });
+    if (search) params.set('q', search);
+
+    const res = await fetch(`/api/bookmarks?${params}`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      setBookmarks(data.data || []);
+      setTotal(data.total || 0);
+    }
+    setLoading(false);
+  }, [page, search]);
+
+  useEffect(() => { fetchBookmarks(); }, [fetchBookmarks]);
+
+  const timeAgo = (dateStr: string) => {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.floor(hrs / 24)}d ago`;
+  };
+
+  const totalPages = Math.ceil(total / pageSize);
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-        <h1 style={{ fontSize: '28px', fontWeight: 600, color: '#f0f0f5' }}>Bookmarks</h1>
-        <span style={{ fontSize: '14px', color: '#8a8a9a' }}>1,247 saved</span>
+      <div style={{ marginBottom: '24px' }}>
+        <h1 style={{ fontSize: '28px', fontWeight: 600, color: '#f0f0f5', marginBottom: '4px' }}>
+          Bookmarks
+        </h1>
+        <p style={{ color: '#8a8a9a', fontSize: '14px' }}>
+          {total > 0 ? `${total} bookmarks saved` : 'Your saved X bookmarks will appear here.'}
+        </p>
       </div>
 
       {/* Search */}
-      <div style={{ position: 'relative', marginBottom: '24px' }}>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4a4a5a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }}>
-          <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-        </svg>
+      <div style={{ marginBottom: '24px' }}>
         <input
           type="text"
+          placeholder="Search bookmarks..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search bookmarks... try 'that AI thread from last week'"
-          className="glass"
+          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           style={{
             width: '100%',
-            padding: '14px 16px 14px 44px',
-            borderRadius: '12px',
+            maxWidth: '400px',
+            padding: '10px 14px',
+            borderRadius: '10px',
+            border: '1px solid rgba(0,212,255,0.15)',
+            background: 'rgba(15,16,25,0.8)',
             color: '#f0f0f5',
             fontSize: '14px',
             fontFamily: "'Inter', sans-serif",
             outline: 'none',
-            border: '1px solid rgba(0,212,255,0.1)',
-            transition: 'all 0.2s',
           }}
         />
       </div>
 
-      {/* Bookmark grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
-        {mockBookmarks.map((bm, i) => (
-          <motion.div
-            key={bm.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.04 }}
-            className="glass glow-border"
-            style={{ padding: '20px', borderRadius: '14px', cursor: 'pointer' }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-              <span style={{ fontSize: '14px', fontWeight: 600, color: '#00d4ff' }}>{bm.author}</span>
-              <span style={{ fontSize: '12px', color: '#4a4a5a' }}>{bm.time}</span>
+      {/* Bookmarks list */}
+      {loading ? (
+        <div style={{ color: '#4a4a5a', textAlign: 'center', padding: '40px' }}>Loading...</div>
+      ) : bookmarks.length === 0 ? (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="glass glow-border"
+          style={{ padding: '48px', borderRadius: '14px', textAlign: 'center' }}
+        >
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔖</div>
+          <div style={{ fontSize: '18px', color: '#f0f0f5', fontWeight: 600, marginBottom: '8px' }}>
+            {search ? 'No bookmarks match your search' : 'No bookmarks yet'}
+          </div>
+          <div style={{ fontSize: '14px', color: '#8a8a9a' }}>
+            {search ? 'Try a different search term.' : 'Install the Chrome extension and save posts from X.'}
+          </div>
+        </motion.div>
+      ) : (
+        <>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {bookmarks.map((bm, i) => (
+              <motion.a
+                key={bm.id}
+                href={`https://x.com/${bm.x_author_handle}/status/${bm.x_post_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.03 }}
+                className="glass glow-border"
+                style={{
+                  padding: '16px 20px',
+                  borderRadius: '12px',
+                  textDecoration: 'none',
+                  display: 'block',
+                  cursor: 'pointer',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                  <span style={{ fontSize: '14px', fontWeight: 600, color: '#00d4ff' }}>
+                    @{bm.x_author_handle}
+                  </span>
+                  {bm.x_author_name && (
+                    <span style={{ fontSize: '13px', color: '#4a4a5a' }}>{bm.x_author_name}</span>
+                  )}
+                  <span style={{ fontSize: '12px', color: '#4a4a5a', marginLeft: 'auto' }}>
+                    {timeAgo(bm.bookmarked_at)}
+                  </span>
+                </div>
+                <div style={{ fontSize: '14px', color: '#c0c0d0', lineHeight: 1.5 }}>
+                  {bm.content_text}
+                </div>
+              </motion.a>
+            ))}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '24px' }}>
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                style={{
+                  padding: '8px 14px', borderRadius: '8px', border: '1px solid rgba(0,212,255,0.15)',
+                  background: 'transparent', color: page === 1 ? '#4a4a5a' : '#00d4ff',
+                  cursor: page === 1 ? 'default' : 'pointer', fontFamily: "'Inter', sans-serif", fontSize: '13px',
+                }}
+              >
+                ← Prev
+              </button>
+              <span style={{ padding: '8px 14px', color: '#8a8a9a', fontSize: '13px' }}>
+                {page} / {totalPages}
+              </span>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                style={{
+                  padding: '8px 14px', borderRadius: '8px', border: '1px solid rgba(0,212,255,0.15)',
+                  background: 'transparent', color: page === totalPages ? '#4a4a5a' : '#00d4ff',
+                  cursor: page === totalPages ? 'default' : 'pointer', fontFamily: "'Inter', sans-serif", fontSize: '13px',
+                }}
+              >
+                Next →
+              </button>
             </div>
-            <p style={{ fontSize: '14px', color: '#8a8a9a', lineHeight: 1.5, marginBottom: '12px' }}>{bm.content}</p>
-            <div style={{ display: 'flex', gap: '6px' }}>
-              {bm.tags.map((t) => (
-                <span key={t} style={{ padding: '2px 8px', borderRadius: '100px', fontSize: '11px', color: '#00d4ff', background: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.15)' }}>{t}</span>
-              ))}
-            </div>
-          </motion.div>
-        ))}
-      </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
