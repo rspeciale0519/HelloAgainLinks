@@ -165,7 +165,7 @@ export function SidePanel() {
               fontSize: '14px', fontWeight: 700, color: '#0a0a0f',
             }}
           >H</div>
-          <span style={{ fontSize: '15px', fontWeight: 600 }}>HelloAgain</span>
+          <span style={{ fontSize: '15px', fontWeight: 600 }}>Hello Again Links</span>
         </div>
 
         {/* Search */}

@@ -5,8 +5,8 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
 export const metadata: Metadata = {
-  title: 'HelloAgain — Your X Bookmarks, Reimagined',
-  description: 'AI-powered bookmark manager for X/Twitter with social features. Organize, search, and blend your bookmarks.',
+  title: 'Hello Again Links — Your X Bookmarks, Reimagined',
+  description: 'HAL — AI-powered bookmark manager for X/Twitter with social features. Organize, search, and blend your bookmarks.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

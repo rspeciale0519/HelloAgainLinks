@@ -69,7 +69,7 @@ export default function LandingPage() {
             H
           </div>
           <span style={{ fontSize: '20px', fontWeight: 600, color: '#f0f0f5' }}>
-            HelloAgain
+            Hello Again Links
           </span>
         </motion.div>
         <motion.div
@@ -290,7 +290,7 @@ export default function LandingPage() {
           fontSize: '13px',
         }}
       >
-        © 2026 HelloAgain. Built with ❤️ and Grok.
+        © 2026 Hello Again Links. Built with ❤️ and Grok.
       </footer>
     </div>
   );

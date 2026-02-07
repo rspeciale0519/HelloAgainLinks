@@ -88,7 +88,7 @@ export function Popup() {
         >
           H
         </div>
-        <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#f0f0f5', marginBottom: '8px' }}>HelloAgain</h2>
+        <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#f0f0f5', marginBottom: '8px' }}>Hello Again Links</h2>
         <p style={{ fontSize: '13px', color: '#8a8a9a', marginBottom: '24px' }}>Sign in to save and search your X bookmarks</p>
         <motion.button
           whileHover={{ scale: 1.02 }}
@@ -143,7 +143,7 @@ export function Popup() {
           H
         </div>
         <div>
-          <span style={{ fontSize: '14px', fontWeight: 600 }}>{user?.name || 'HelloAgain'}</span>
+          <span style={{ fontSize: '14px', fontWeight: 600 }}>{user?.name || 'HAL'}</span>
           {user?.handle && (
             <div style={{ fontSize: '11px', color: '#4a4a5a' }}>@{user.handle}</div>
           )}

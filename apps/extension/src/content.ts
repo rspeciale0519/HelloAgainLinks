@@ -86,7 +86,7 @@ function createSaveButton(article: Element) {
 
   const btn = document.createElement('button');
   btn.className = 'helloagain-save-btn';
-  btn.title = 'Save to HelloAgain';
+  btn.title = 'Save to HAL';
   btn.innerHTML = `
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
@@ -136,12 +136,12 @@ function createSaveButton(article: Element) {
           if (response.status === 409) {
             showToast('Already saved ✓', 'success');
           } else if (response.status === 401) {
-            showToast('Sign in to HelloAgain first', 'error');
+            showToast('Sign in to Hello Again Links first', 'error');
           } else {
             showToast(response.error, 'error');
           }
         } else {
-          showToast('Saved to HelloAgain ✓');
+          showToast('Saved to HAL ✓');
           btn.innerHTML = `
             <svg width="18" height="18" viewBox="0 0 24 24" fill="#00d4ff" stroke="#00d4ff" stroke-width="2">
               <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>

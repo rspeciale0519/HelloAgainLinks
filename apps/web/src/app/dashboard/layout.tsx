@@ -108,7 +108,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               >
                 H
               </div>
-              <span style={{ fontSize: '16px', fontWeight: 600, color: '#f0f0f5' }}>HelloAgain</span>
+              <span style={{ fontSize: '16px', fontWeight: 600, color: '#f0f0f5' }}>Hello Again Links</span>
             </div>
 
             {/* Nav items */}
