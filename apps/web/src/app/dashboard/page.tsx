@@ -1,29 +1,96 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { useEffect, useState } from 'react';
+import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
 
-const stats = [
-  { label: 'Total Bookmarks', value: '1,247', change: '+23 this week' },
-  { label: 'Tags Created', value: '34', change: '5 auto-generated' },
-  { label: 'Blend Score Avg', value: '72%', change: '3 blends completed' },
-  { label: 'Search Queries', value: '89', change: 'This month' },
-];
+interface Bookmark {
+  id: string;
+  x_author_handle: string;
+  x_author_name: string;
+  content_text: string;
+  bookmarked_at: string;
+}
 
-const recentBookmarks = [
-  { author: '@elonmusk', content: 'Thread on the future of AI and space exploration...', time: '2h ago', tags: ['AI', 'Space'] },
-  { author: '@naval', content: 'How to get rich without getting lucky - a thread...', time: '5h ago', tags: ['Wealth', 'Philosophy'] },
-  { author: '@paulg', content: 'The best essay I\'ve read on startups this year...', time: '1d ago', tags: ['Startups'] },
-];
+interface Tag {
+  name: string;
+  count: number;
+}
 
 export default function DashboardPage() {
+  const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
+  const [bookmarkCount, setBookmarkCount] = useState(0);
+  const [tagCount, setTagCount] = useState(0);
+  const [topTags, setTopTags] = useState<Tag[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<{ name: string; handle: string } | null>(null);
+
+  useEffect(() => {
+    const supabase = getSupabaseBrowserClient();
+
+    async function load() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const meta = session.user.user_metadata || {};
+      setUser({
+        name: meta.full_name || meta.name || '',
+        handle: meta.preferred_username || meta.user_name || '',
+      });
+
+      const token = session.access_token;
+      const headers = { Authorization: `Bearer ${token}` };
+
+      // Fetch recent bookmarks
+      const bmRes = await fetch('/api/bookmarks?pageSize=5&sort=bookmarked_at&order=desc', { headers });
+      if (bmRes.ok) {
+        const data = await bmRes.json();
+        setBookmarks(data.data || []);
+        setBookmarkCount(data.total || data.data?.length || 0);
+      }
+
+      // Fetch tags
+      const tagRes = await fetch('/api/tags', { headers });
+      if (tagRes.ok) {
+        const data = await tagRes.json();
+        const tags = data.tags || data || [];
+        setTagCount(tags.length);
+        setTopTags(tags.slice(0, 5).map((t: { name: string }) => ({ name: t.name, count: 0 })));
+      }
+
+      setLoading(false);
+    }
+
+    load();
+  }, []);
+
+  const timeAgo = (dateStr: string) => {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.floor(hrs / 24)}d ago`;
+  };
+
+  const stats = [
+    { label: 'Total Bookmarks', value: bookmarkCount.toLocaleString(), change: loading ? '...' : 'All time' },
+    { label: 'Tags', value: tagCount.toString(), change: loading ? '...' : 'Categories' },
+    { label: 'Blend Score', value: '—', change: 'Invite a friend!' },
+    { label: 'AI Searches', value: '0', change: 'Pro feature' },
+  ];
+
   return (
     <div>
       <div style={{ marginBottom: '32px' }}>
         <h1 style={{ fontSize: '28px', fontWeight: 600, color: '#f0f0f5', marginBottom: '4px' }}>
-          Dashboard
+          {user ? `Hey, ${user.name || '@' + user.handle}` : 'Dashboard'}
         </h1>
         <p style={{ color: '#8a8a9a', fontSize: '14px' }}>
-          Welcome back. Here&apos;s your bookmark activity.
+          {bookmarkCount > 0
+            ? `You have ${bookmarkCount} bookmarks saved.`
+            : 'Install the Chrome extension to start saving bookmarks from X.'}
         </p>
       </div>
 
@@ -56,60 +123,89 @@ export default function DashboardPage() {
         ))}
       </div>
 
+      {/* Top tags */}
+      {topTags.length > 0 && (
+        <div style={{ marginBottom: '32px' }}>
+          <h2 style={{ fontSize: '16px', fontWeight: 600, color: '#f0f0f5', marginBottom: '12px' }}>
+            Your Tags
+          </h2>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {topTags.map((tag) => (
+              <span
+                key={tag.name}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: '100px',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  color: '#00d4ff',
+                  background: 'rgba(0,212,255,0.08)',
+                  border: '1px solid rgba(0,212,255,0.15)',
+                }}
+              >
+                {tag.name}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Recent bookmarks */}
       <div>
         <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#f0f0f5', marginBottom: '16px' }}>
           Recent Bookmarks
         </h2>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {recentBookmarks.map((bm, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.3 + i * 0.08 }}
-              className="glass glow-border"
-              style={{
-                padding: '16px 20px',
-                borderRadius: '12px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                cursor: 'pointer',
-              }}
-            >
-              <div style={{ flex: 1 }}>
+        {loading ? (
+          <div style={{ color: '#4a4a5a', padding: '20px', textAlign: 'center' }}>Loading...</div>
+        ) : bookmarks.length === 0 ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="glass glow-border"
+            style={{ padding: '40px', borderRadius: '14px', textAlign: 'center' }}
+          >
+            <div style={{ fontSize: '40px', marginBottom: '16px' }}>📚</div>
+            <div style={{ fontSize: '16px', color: '#f0f0f5', fontWeight: 600, marginBottom: '8px' }}>
+              No bookmarks yet
+            </div>
+            <div style={{ fontSize: '14px', color: '#8a8a9a', lineHeight: 1.6 }}>
+              Install the HAL Chrome extension, then browse X/Twitter.<br />
+              Click the bookmark icon on any post to save it here.
+            </div>
+          </motion.div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {bookmarks.map((bm, i) => (
+              <motion.div
+                key={bm.id}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.1 + i * 0.06 }}
+                className="glass glow-border"
+                style={{
+                  padding: '16px 20px',
+                  borderRadius: '12px',
+                  cursor: 'pointer',
+                }}
+              >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                   <span style={{ fontSize: '14px', fontWeight: 600, color: '#00d4ff' }}>
-                    {bm.author}
+                    @{bm.x_author_handle}
                   </span>
-                  <span style={{ fontSize: '12px', color: '#4a4a5a' }}>{bm.time}</span>
-                </div>
-                <div style={{ fontSize: '14px', color: '#8a8a9a', lineHeight: 1.4 }}>
-                  {bm.content}
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: '6px', marginLeft: '16px', flexShrink: 0 }}>
-                {bm.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    style={{
-                      padding: '3px 10px',
-                      borderRadius: '100px',
-                      fontSize: '11px',
-                      fontWeight: 500,
-                      color: '#00d4ff',
-                      background: 'rgba(0,212,255,0.08)',
-                      border: '1px solid rgba(0,212,255,0.15)',
-                    }}
-                  >
-                    {tag}
+                  {bm.x_author_name && (
+                    <span style={{ fontSize: '13px', color: '#4a4a5a' }}>{bm.x_author_name}</span>
+                  )}
+                  <span style={{ fontSize: '12px', color: '#4a4a5a', marginLeft: 'auto' }}>
+                    {timeAgo(bm.bookmarked_at)}
                   </span>
-                ))}
-              </div>
-            </motion.div>
-          ))}
-        </div>
+                </div>
+                <div style={{ fontSize: '14px', color: '#8a8a9a', lineHeight: 1.5 }}>
+                  {bm.content_text.length > 200 ? bm.content_text.slice(0, 200) + '...' : bm.content_text}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
