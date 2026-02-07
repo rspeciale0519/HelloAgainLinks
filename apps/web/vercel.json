@@ -1,0 +1,5 @@
+{
+  "buildCommand": "cd ../.. && pnpm turbo build --filter=@helloagain/web",
+  "installCommand": "cd ../.. && pnpm install",
+  "outputDirectory": ".next"
+}
