@@ -4,23 +4,13 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
-import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
-
 function LoginContent() {
   const searchParams = useSearchParams();
   const extensionId = searchParams.get('extension_id');
-  const redirect = searchParams.get('redirect');
 
-  const handleLogin = async () => {
-    const supabase = getSupabaseBrowserClient();
-    const redirectTo = `${window.location.origin}/api/auth/callback${
-      extensionId ? `?extension_id=${extensionId}` : ''
-    }${redirect ? `${extensionId ? '&' : '?'}redirect=${encodeURIComponent(redirect)}` : ''}`;
-
-    await supabase.auth.signInWithOAuth({
-      provider: 'twitter',
-      options: { redirectTo },
-    });
+  const handleLogin = () => {
+    const loginUrl = `/api/auth/x-login${extensionId ? `?extension_id=${extensionId}` : ''}`;
+    window.location.href = loginUrl;
   };
 
   return (
