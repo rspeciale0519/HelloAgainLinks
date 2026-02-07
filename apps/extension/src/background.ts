@@ -1,6 +1,6 @@
 // HelloAgain — Service Worker (Background Script)
 
-const API_BASE = 'https://helloagain.app'; // TODO: update to real domain
+const API_BASE = 'https://helloagain-three.vercel.app';
 
 interface AuthData {
   access_token: string;

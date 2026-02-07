@@ -56,7 +56,7 @@ export function Popup() {
   }, [search]);
 
   const handleOpenDashboard = useCallback(() => {
-    chrome.tabs.create({ url: 'https://helloagain.app/dashboard' });
+    chrome.tabs.create({ url: 'https://helloagain-three.vercel.app/dashboard' });
   }, []);
 
   if (loading) {
