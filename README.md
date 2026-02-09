@@ -2,6 +2,12 @@
 
 AI-powered bookmark manager for X/Twitter.
 
+## CI/CD
+
+[![Build Android APK](https://github.com/rspeciale0519/HelloAgainLinks/actions/workflows/build-android.yml/badge.svg?branch=develop)](https://github.com/rspeciale0519/HelloAgainLinks/actions/workflows/build-android.yml)
+[![Build iOS (Simulator)](https://github.com/rspeciale0519/HelloAgainLinks/actions/workflows/build-ios.yml/badge.svg?branch=develop)](https://github.com/rspeciale0519/HelloAgainLinks/actions/workflows/build-ios.yml)
+[![Release Mobile Builds](https://github.com/rspeciale0519/HelloAgainLinks/actions/workflows/release-mobile.yml/badge.svg)](https://github.com/rspeciale0519/HelloAgainLinks/actions/workflows/release-mobile.yml)
+
 ## Mobile App (Capacitor)
 
 HAL now supports iOS and Android via Capacitor.
@@ -87,6 +93,25 @@ From repo root:
 - `pnpm mobile:sync` – sync Capacitor native projects
 - `pnpm mobile:open:android` – open Android Studio project
 - `pnpm mobile:open:ios` – open Xcode project
+
+## GitHub Actions mobile builds
+
+### Automatic build triggers
+
+- Push to `develop` triggers:
+  - **Build Android APK** workflow
+  - **Build iOS (Simulator)** workflow
+- Manual run also supported via **Run workflow** button.
+
+### Manual release build
+
+Use **Release Mobile Builds** workflow and provide a `version` (example: `0.1.0`).
+
+This workflow will:
+
+1. Build Android debug APK (`app-debug.apk`)
+2. Build iOS simulator app bundle zip (`hal-ios-simulator-build.zip`)
+3. Create a GitHub Release tagged `v<version>` with both artifacts attached
 
 ## Local mobile workflow
 

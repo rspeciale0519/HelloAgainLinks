@@ -1,0 +1,64 @@
+name: Build iOS (Simulator)
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build web app
+        run: pnpm --filter @helloagain/web run build
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+
+      - name: Sync Capacitor
+        run: pnpm --filter @helloagain/web exec cap sync ios
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Build iOS app for simulator (no signing)
+        working-directory: apps/web
+        run: |
+          xcodebuild \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -derivedDataPath ios/build \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Package iOS build artifact
+        working-directory: apps/web
+        run: |
+          zip -r hal-ios-simulator-build.zip ios/build/Build/Products/Debug-iphonesimulator/App.app
+
+      - name: Upload iOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hal-ios-simulator-build
+          path: apps/web/hal-ios-simulator-build.zip
+          if-no-files-found: error
