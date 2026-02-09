@@ -5,7 +5,11 @@
     "build": "turbo build",
     "dev": "turbo dev",
     "lint": "turbo lint",
-    "clean": "turbo clean"
+    "clean": "turbo clean",
+    "mobile:build": "pnpm --filter @helloagain/web run build && mkdir -p apps/web/out && pnpm --filter @helloagain/web exec cap sync",
+    "mobile:sync": "pnpm --filter @helloagain/web exec cap sync",
+    "mobile:open:android": "pnpm --filter @helloagain/web exec cap open android",
+    "mobile:open:ios": "pnpm --filter @helloagain/web exec cap open ios"
   },
   "devDependencies": {
     "turbo": "^2.4.0",

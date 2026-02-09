@@ -2,7 +2,9 @@
 
 import { motion } from 'framer-motion';
 import { useEffect, useState, useCallback } from 'react';
+import { ImpactStyle } from '@capacitor/haptics';
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { isNativeApp, triggerHaptic } from '@/lib/mobile';
 
 interface Bookmark {
   id: string;
@@ -20,6 +22,9 @@ export default function BookmarksPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isPulling, setIsPulling] = useState(false);
+  const [touchStartY, setTouchStartY] = useState<number | null>(null);
   const pageSize = 20;
 
   const fetchBookmarks = useCallback(async () => {
@@ -43,7 +48,7 @@ export default function BookmarksPage() {
     if (res.ok) {
       const data = await res.json();
       setBookmarks(data.data || []);
-      setTotal(data.total || 0);
+      setTotal(data.count || 0);
     }
     setLoading(false);
   }, [page, search]);
@@ -62,8 +67,32 @@ export default function BookmarksPage() {
 
   const totalPages = Math.ceil(total / pageSize);
 
+  const onTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!isNativeApp() || window.scrollY > 0) return;
+    setTouchStartY(e.touches[0].clientY);
+  };
+
+  const onTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!isNativeApp() || touchStartY === null) return;
+    const distance = e.touches[0].clientY - touchStartY;
+    if (distance > 0 && window.scrollY === 0) {
+      setIsPulling(true);
+      setPullDistance(Math.min(80, distance));
+    }
+  };
+
+  const onTouchEnd = async () => {
+    if (isPulling && pullDistance > 60) {
+      await triggerHaptic(ImpactStyle.Medium);
+      await fetchBookmarks();
+    }
+    setTouchStartY(null);
+    setIsPulling(false);
+    setPullDistance(0);
+  };
+
   return (
-    <div>
+    <div onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
       <div style={{ marginBottom: '24px' }}>
         <h1 style={{ fontSize: '28px', fontWeight: 600, color: '#f0f0f5', marginBottom: '4px' }}>
           Bookmarks
@@ -72,6 +101,12 @@ export default function BookmarksPage() {
           {total > 0 ? `${total} bookmarks saved` : 'Your saved X bookmarks will appear here.'}
         </p>
       </div>
+
+      {isNativeApp() && isPulling && (
+        <div style={{ color: '#8a8a9a', fontSize: '12px', marginBottom: '10px' }}>
+          {pullDistance > 60 ? 'Release to refresh' : 'Pull to refresh'}
+        </div>
+      )}
 
       {/* Search */}
       <div style={{ marginBottom: '24px' }}>
@@ -156,7 +191,7 @@ export default function BookmarksPage() {
           {totalPages > 1 && (
             <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '24px' }}>
               <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
+                onClick={async () => { await triggerHaptic(ImpactStyle.Light); setPage(p => Math.max(1, p - 1)); }}
                 disabled={page === 1}
                 style={{
                   padding: '8px 14px', borderRadius: '8px', border: '1px solid rgba(0,212,255,0.15)',
@@ -170,7 +205,7 @@ export default function BookmarksPage() {
                 {page} / {totalPages}
               </span>
               <button
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                onClick={async () => { await triggerHaptic(ImpactStyle.Light); setPage(p => Math.min(totalPages, p + 1)); }}
                 disabled={page === totalPages}
                 style={{
                   padding: '8px 14px', borderRadius: '8px', border: '1px solid rgba(0,212,255,0.15)',

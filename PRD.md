@@ -333,3 +333,30 @@ The core insight: **bookmarks are the highest-signal user behavior on X.** Likes
 | $9/mo over $5/mo for Pro | Dewey charges $10, Tweetsmash $14; $9 is competitive while sustainable | 2026-02-07 |
 | Blend as first social feature | Highest virality, lowest effort; Spotify Blend precedent validates the concept | 2026-02-07 |
 | 500 bookmark free limit | Generous enough to be useful; creates natural upgrade pressure for power users | 2026-02-07 |
+
+---
+
+## Mobile App Support (Capacitor) — Added
+
+### Goals
+- Ship HAL as iOS/Android app wrapper with native integrations.
+- Allow users to save X links directly from mobile Share Sheet.
+- Keep bookmark ingestion/sync server-side (no app-open dependency).
+
+### Implemented Scope
+1. Capacitor integration (`apps/web`)
+2. Android + iOS native projects
+3. Share Target event ingestion path
+4. Server endpoint for background bookmark sync using stored X OAuth tokens
+5. Mobile UX improvements:
+   - Pull-to-refresh (bookmarks list)
+   - Haptic feedback on key actions
+
+### Functional Requirements
+- Shared X URL → saved as bookmark + AI auto-tag
+- Sync endpoint can run in cron mode using secret header
+- Token refresh handled server-side when token is near expiry
+
+### Non-Functional Requirements
+- No requirement for app to remain open for sync
+- Graceful no-op behavior for native-only features on web

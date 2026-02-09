@@ -629,3 +629,22 @@
 | Export | CSV | CSV + JSON + API |
 
 **Lifetime Deal (Launch):** $79 one-time = Pro forever (limited to first 500 buyers)
+
+---
+
+## Mobile Delivery Track (Capacitor)
+
+### ✅ Completed
+- Added Capacitor to `apps/web`
+- Added Android/iOS platforms
+- Added Share Target plugin + Android intent filters
+- Added shared URL ingestion endpoint (`/api/mobile/share`)
+- Added background sync endpoint (`/api/sync/background`)
+- Added pull-to-refresh + haptic feedback improvements
+- Added mobile scripts and README mobile docs
+
+### 🔜 Next
+- Finalize iOS Share Extension setup/verification in Xcode release pipeline
+- Add background sync scheduler wiring (Vercel Cron/GitHub Actions/worker)
+- Add telemetry for share ingestion success/failure rates
+- Add retry/backoff for sync runs across large user sets

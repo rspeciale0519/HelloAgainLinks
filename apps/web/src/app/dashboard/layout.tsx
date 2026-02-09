@@ -4,8 +4,11 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useCallback } from 'react';
+import { ImpactStyle } from '@capacitor/haptics';
 
 import { useAuth } from '@/lib/use-auth';
+import { MobileShareListener } from '@/components/MobileShareListener';
+import { triggerHaptic } from '@/lib/mobile';
 
 const navItems = [
   { id: 'home', label: 'Dashboard', href: '/dashboard', icon: '⬡' },
@@ -47,6 +50,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
+      <MobileShareListener />
       {/* Overlay backdrop (mobile only) */}
       <AnimatePresence>
         {isMobile && sidebarOpen && (
@@ -218,7 +222,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             }}
           >
             <button
-              onClick={() => setSidebarOpen(true)}
+              onClick={async () => { await triggerHaptic(ImpactStyle.Light); setSidebarOpen(true); }}
               style={{
                 background: 'none',
                 border: 'none',
