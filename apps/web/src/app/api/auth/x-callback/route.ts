@@ -6,6 +6,43 @@ const X_CLIENT_SECRET = process.env.X_CLIENT_SECRET!;
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
+const X_API_DOMAINS = ['https://api.x.com', 'https://api.twitter.com'];
+const USER_FIELDS = 'profile_image_url,name,username';
+
+interface XUserData {
+  id: string;
+  username: string;
+  name: string;
+  profile_image_url?: string;
+}
+
+async function fetchXUser(accessToken: string): Promise<XUserData | null> {
+  for (const domain of X_API_DOMAINS) {
+    try {
+      const res = await fetch(
+        `${domain}/2/users/me?user.fields=${USER_FIELDS}`,
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          cache: 'no-store',
+        }
+      );
+
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data) return json.data as XUserData;
+        console.error(`[X OAuth] ${domain} returned OK but no data:`, JSON.stringify(json));
+        continue;
+      }
+
+      const errBody = await res.text().catch(() => 'no body');
+      console.error(`[X OAuth] ${domain}/2/users/me failed: status=${res.status} body=${errBody}`);
+    } catch (err) {
+      console.error(`[X OAuth] ${domain}/2/users/me threw:`, err);
+    }
+  }
+  return null;
+}
+
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const code = url.searchParams.get('code');
@@ -64,17 +101,16 @@ export async function GET(req: NextRequest) {
 
     const tokens = await tokenRes.json();
 
-    // Get user info from X
-    const userRes = await fetch(
-      'https://api.x.com/2/users/me?user.fields=profile_image_url,name,username',
-      { headers: { Authorization: `Bearer ${tokens.access_token}` } }
-    );
-
-    if (!userRes.ok) {
-      return NextResponse.redirect(`${APP_URL}/login?error=user_fetch_failed`);
+    if (!tokens.access_token) {
+      console.error('[X OAuth] Token response missing access_token:', JSON.stringify(tokens));
+      return NextResponse.redirect(`${APP_URL}/login?error=token_missing`);
     }
 
-    const { data: xUser } = await userRes.json();
+    // Get user info from X — try both API domains (X has intermittent domain issues)
+    const xUser = await fetchXUser(tokens.access_token);
+    if (!xUser) {
+      return NextResponse.redirect(`${APP_URL}/login?error=user_fetch_failed`);
+    }
 
     // Create/update Supabase user via admin API
     const serviceClient = createClient(

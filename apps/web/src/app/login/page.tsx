@@ -97,7 +97,15 @@ function LoginContent() {
             marginBottom: '16px',
             textAlign: 'left',
           }}>
-            Auth error: {error}
+            {error === 'user_fetch_failed'
+              ? 'Unable to fetch your X profile. Please try again — if this persists, the X API may be temporarily unavailable.'
+              : error === 'token_failed'
+                ? 'Failed to authenticate with X. Please try again.'
+                : error === 'token_missing'
+                  ? 'X returned an invalid token. Please try again.'
+                  : error === 'no_state'
+                    ? 'Session expired. Please try logging in again.'
+                    : `Auth error: ${error}`}
           </div>
         )}
 
