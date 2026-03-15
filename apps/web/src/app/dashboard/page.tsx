@@ -46,7 +46,7 @@ export default function DashboardPage() {
       if (bmRes.ok) {
         const data = await bmRes.json();
         setBookmarks(data.data || []);
-        setBookmarkCount(data.total || data.data?.length || 0);
+        setBookmarkCount(data.count ?? data.data?.length ?? 0);
       }
 
       // Fetch tags
@@ -55,7 +55,7 @@ export default function DashboardPage() {
         const data = await tagRes.json();
         const tags = data.tags || data || [];
         setTagCount(tags.length);
-        setTopTags(tags.slice(0, 5).map((t: { name: string }) => ({ name: t.name, count: 0 })));
+        setTopTags(tags.slice(0, 5).map((t: { name: string; bookmark_count?: number }) => ({ name: t.name, count: t.bookmark_count ?? 0 })));
       }
 
       setLoading(false);
@@ -143,7 +143,7 @@ export default function DashboardPage() {
                   border: '1px solid rgba(0,212,255,0.15)',
                 }}
               >
-                {tag.name}
+                {tag.name}{tag.count > 0 && ` (${tag.count})`}
               </span>
             ))}
           </div>
