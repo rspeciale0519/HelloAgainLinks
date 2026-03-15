@@ -16,12 +16,7 @@ interface XUserData {
   profile_image_url?: string;
 }
 
-type FetchXUserResult =
-  | { ok: true; user: XUserData }
-  | { ok: false; detail: string };
-
-async function fetchXUser(accessToken: string): Promise<FetchXUserResult> {
-  let lastDetail = 'unknown';
+async function fetchXUser(accessToken: string): Promise<XUserData | null> {
   for (const domain of X_API_DOMAINS) {
     try {
       const res = await fetch(
@@ -34,21 +29,18 @@ async function fetchXUser(accessToken: string): Promise<FetchXUserResult> {
 
       if (res.ok) {
         const json = await res.json();
-        if (json.data) return { ok: true, user: json.data as XUserData };
-        lastDetail = `${domain}:200_no_data`;
+        if (json.data) return json.data as XUserData;
         console.error(`[X OAuth] ${domain} returned OK but no data:`, JSON.stringify(json));
         continue;
       }
 
       const errBody = await res.text().catch(() => 'no body');
-      lastDetail = `${res.status}:${errBody.slice(0, 200)}`;
       console.error(`[X OAuth] ${domain}/2/users/me failed: status=${res.status} body=${errBody}`);
     } catch (err) {
-      lastDetail = `${domain}:threw:${String(err).slice(0, 100)}`;
       console.error(`[X OAuth] ${domain}/2/users/me threw:`, err);
     }
   }
-  return { ok: false, detail: lastDetail };
+  return null;
 }
 
 export async function GET(req: NextRequest) {
@@ -115,12 +107,10 @@ export async function GET(req: NextRequest) {
     }
 
     // Get user info from X — try both API domains (X has intermittent domain issues)
-    const xResult = await fetchXUser(tokens.access_token);
-    if (!xResult.ok) {
-      const detail = encodeURIComponent(xResult.detail);
-      return NextResponse.redirect(`${APP_URL}/login?error=user_fetch_failed&detail=${detail}`);
+    const xUser = await fetchXUser(tokens.access_token);
+    if (!xUser) {
+      return NextResponse.redirect(`${APP_URL}/login?error=user_fetch_failed`);
     }
-    const xUser = xResult.user;
 
     // Create/update Supabase user via admin API
     const serviceClient = createClient(
@@ -148,9 +138,8 @@ export async function GET(req: NextRequest) {
       const { data: { users } } = await serviceClient.auth.admin.listUsers();
       const matchedUsers = users?.filter((u: { email?: string }) => u.email === email);
       if (!matchedUsers?.length) {
-        const detail = encodeURIComponent(`create:${createErr.message || JSON.stringify(createErr)}`);
         console.error('[X OAuth] User not found after create fail:', createErr);
-        return NextResponse.redirect(`${APP_URL}/login?error=user_not_found&detail=${detail}`);
+        return NextResponse.redirect(`${APP_URL}/login?error=user_not_found`);
       }
       userId = matchedUsers[0].id;
     } else {
