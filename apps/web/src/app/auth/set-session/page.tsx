@@ -18,6 +18,8 @@ function SetSessionContent() {
       return;
     }
 
+    const extensionId = searchParams.get('extension_id');
+
     const supabase = getSupabaseBrowserClient();
     supabase.auth.setSession({
       access_token: accessToken,
@@ -26,6 +28,24 @@ function SetSessionContent() {
       if (error) {
         console.error('Failed to set session:', error);
         router.push('/login?error=session_failed');
+        return;
+      }
+
+      // If login was triggered from the Chrome extension, send auth back to it
+      if (extensionId && data.session) {
+        const profile = data.user?.user_metadata;
+        const tokenData = encodeURIComponent(JSON.stringify({
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+          expires_at: Math.floor(Date.now() / 1000) + 3600,
+          user: {
+            id: data.user?.id || '',
+            handle: profile?.preferred_username || '',
+            name: profile?.full_name || '',
+            avatar: profile?.avatar_url || '',
+          },
+        }));
+        router.push(`/auth/extension-callback?token=${tokenData}&extension_id=${extensionId}`);
         return;
       }
 
