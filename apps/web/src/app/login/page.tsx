@@ -8,6 +8,7 @@ function LoginContent() {
   const searchParams = useSearchParams();
   const extensionId = searchParams.get('extension_id');
   const error = searchParams.get('error');
+  const detail = searchParams.get('detail');
 
   const handleLogin = () => {
     const loginUrl = `/api/auth/x-login${extensionId ? `?extension_id=${extensionId}` : ''}`;
@@ -98,7 +99,7 @@ function LoginContent() {
             textAlign: 'left',
           }}>
             {error === 'user_fetch_failed'
-              ? 'Unable to fetch your X profile. Please try again — if this persists, the X API may be temporarily unavailable.'
+              ? `Unable to fetch your X profile. ${detail ? `(Debug: ${detail})` : 'Please try again.'}`
               : error === 'token_failed'
                 ? 'Failed to authenticate with X. Please try again.'
                 : error === 'token_missing'
