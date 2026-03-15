@@ -7,6 +7,7 @@ import { Suspense } from 'react';
 function ExtensionCallbackContent() {
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<'sending' | 'success' | 'error'>('sending');
+  const [cannotClose, setCannotClose] = useState(false);
 
   useEffect(() => {
     const token = searchParams.get('token');
@@ -28,11 +29,17 @@ function ExtensionCallbackContent() {
           const res = response as { success?: boolean } | null;
           if (res?.success) {
             setStatus('success');
-            setTimeout(() => window.close(), 1500);
+            setTimeout(() => {
+              window.close();
+              setTimeout(() => setCannotClose(true), 500);
+            }, 1500);
           } else {
             localStorage.setItem('helloagain_auth_token', JSON.stringify(data));
             setStatus('success');
-            setTimeout(() => window.close(), 1500);
+            setTimeout(() => {
+              window.close();
+              setTimeout(() => setCannotClose(true), 500);
+            }, 1500);
           }
         });
       } else {
@@ -64,7 +71,9 @@ function ExtensionCallbackContent() {
         {status === 'success' && (
           <>
             <div style={{ fontSize: '32px', marginBottom: '16px' }}>✅</div>
-            <p style={{ color: '#00d4ff', fontWeight: 600 }}>Connected! This window will close.</p>
+            <p style={{ color: '#00d4ff', fontWeight: 600 }}>
+              {cannotClose ? 'Connected! You can close this tab.' : 'Connected! This window will close.'}
+            </p>
           </>
         )}
         {status === 'error' && (
