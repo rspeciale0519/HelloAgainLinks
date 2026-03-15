@@ -8,7 +8,6 @@ function LoginContent() {
   const searchParams = useSearchParams();
   const extensionId = searchParams.get('extension_id');
   const error = searchParams.get('error');
-  const detail = searchParams.get('detail');
 
   const handleLogin = () => {
     const loginUrl = `/api/auth/x-login${extensionId ? `?extension_id=${extensionId}` : ''}`;
@@ -99,14 +98,14 @@ function LoginContent() {
             textAlign: 'left',
           }}>
             {error === 'user_fetch_failed'
-              ? `Unable to fetch your X profile. ${detail ? `(Debug: ${detail})` : 'Please try again.'}`
+              ? 'Unable to fetch your X profile. Please try again.'
               : error === 'token_failed'
                 ? 'Failed to authenticate with X. Please try again.'
                 : error === 'token_missing'
                   ? 'X returned an invalid token. Please try again.'
                   : error === 'no_state'
                     ? 'Session expired. Please try logging in again.'
-                    : `Auth error: ${error}${detail ? ` (Debug: ${detail})` : ''}`}
+                    : `Something went wrong. Please try again.`}
           </div>
         )}
 
