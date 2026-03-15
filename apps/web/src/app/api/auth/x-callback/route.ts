@@ -148,8 +148,9 @@ export async function GET(req: NextRequest) {
       const { data: { users } } = await serviceClient.auth.admin.listUsers();
       const matchedUsers = users?.filter((u: { email?: string }) => u.email === email);
       if (!matchedUsers?.length) {
+        const detail = encodeURIComponent(`create:${createErr.message || JSON.stringify(createErr)}`);
         console.error('[X OAuth] User not found after create fail:', createErr);
-        return NextResponse.redirect(`${APP_URL}/login?error=user_not_found`);
+        return NextResponse.redirect(`${APP_URL}/login?error=user_not_found&detail=${detail}`);
       }
       userId = matchedUsers[0].id;
     } else {
