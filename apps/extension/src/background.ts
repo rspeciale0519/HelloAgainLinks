@@ -88,10 +88,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 
 // Listen for auth token from web app (external message)
-chrome.runtime.onMessageExternal.addListener((message, _sender, sendResponse) => {
+chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
   if (message.type === 'AUTH_TOKEN' && message.data) {
     setAuth(message.data).then(() => {
       sendResponse({ success: true });
+      if (sender.tab?.id) {
+        chrome.tabs.remove(sender.tab.id);
+      }
     });
     return true;
   }
