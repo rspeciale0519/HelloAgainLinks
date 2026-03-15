@@ -106,7 +106,7 @@ function LoginContent() {
                   ? 'X returned an invalid token. Please try again.'
                   : error === 'no_state'
                     ? 'Session expired. Please try logging in again.'
-                    : `Auth error: ${error}`}
+                    : `Auth error: ${error}${detail ? ` (Debug: ${detail})` : ''}`}
           </div>
         )}
 
