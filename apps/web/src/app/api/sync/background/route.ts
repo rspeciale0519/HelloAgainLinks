@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext, isAuthError } from '@/lib/auth';
-import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { getServiceClient } from '@/lib/supabase-server';
 import { autoTagBookmark } from '@/lib/grok';
 
 const X_CLIENT_ID = process.env.X_CLIENT_ID!;
@@ -22,7 +22,7 @@ async function refreshXToken(refreshToken: string) {
   return await res.json();
 }
 
-async function syncUser(serviceClient: ReturnType<typeof createSupabaseServerClient>, userId: string) {
+async function syncUser(serviceClient: ReturnType<typeof getServiceClient>, userId: string) {
   const { data: profile } = await serviceClient
     .from('profiles')
     .select('x_user_id, x_access_token, x_refresh_token, x_token_expires_at')
@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
 
   // Cron mode (sync all connected users)
   if (CRON_SECRET && authHeader === CRON_SECRET) {
-    const serviceClient = createSupabaseServerClient();
+    const serviceClient = getServiceClient();
     const { data: users } = await serviceClient
       .from('profiles')
       .select('id')
