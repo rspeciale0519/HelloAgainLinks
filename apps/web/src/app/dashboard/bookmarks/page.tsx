@@ -5,19 +5,11 @@ import { useEffect, useState, useCallback } from 'react';
 import { ImpactStyle } from '@capacitor/haptics';
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { isNativeApp, triggerHaptic } from '@/lib/mobile';
-
-interface Bookmark {
-  id: string;
-  x_post_id: string;
-  x_author_handle: string;
-  x_author_name: string;
-  content_text: string;
-  media_urls: string[];
-  bookmarked_at: string;
-}
+import BookmarkCard, { type BookmarkWithTags, type BookmarkTag, type TagInfo } from '@/components/BookmarkCard';
 
 export default function BookmarksPage() {
-  const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
+  const [bookmarks, setBookmarks] = useState<BookmarkWithTags[]>([]);
+  const [allTags, setAllTags] = useState<TagInfo[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -53,17 +45,29 @@ export default function BookmarksPage() {
     setLoading(false);
   }, [page, search]);
 
-  useEffect(() => { fetchBookmarks(); }, [fetchBookmarks]);
+  const fetchTags = useCallback(async () => {
+    const supabase = getSupabaseBrowserClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
 
-  const timeAgo = (dateStr: string) => {
-    const diff = Date.now() - new Date(dateStr).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return 'Just now';
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    return `${Math.floor(hrs / 24)}d ago`;
-  };
+    const res = await fetch('/api/tags', {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const tags = data.tags || data || [];
+      setAllTags(tags.map((t: TagInfo & Record<string, unknown>) => ({ id: t.id, name: t.name, color: t.color })));
+    }
+  }, []);
+
+  useEffect(() => { fetchBookmarks(); }, [fetchBookmarks]);
+  useEffect(() => { fetchTags(); }, [fetchTags]);
+
+  const handleTagsChanged = useCallback((bookmarkId: string, tags: BookmarkTag[]) => {
+    setBookmarks((prev) =>
+      prev.map((bm) => bm.id === bookmarkId ? { ...bm, bookmark_tags: tags } : bm)
+    );
+  }, []);
 
   const totalPages = Math.ceil(total / pageSize);
 
@@ -152,38 +156,13 @@ export default function BookmarksPage() {
         <>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {bookmarks.map((bm, i) => (
-              <motion.a
+              <BookmarkCard
                 key={bm.id}
-                href={`https://x.com/${bm.x_author_handle}/status/${bm.x_post_id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.03 }}
-                className="glass glow-border"
-                style={{
-                  padding: '16px 20px',
-                  borderRadius: '12px',
-                  textDecoration: 'none',
-                  display: 'block',
-                  cursor: 'pointer',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                  <span style={{ fontSize: '14px', fontWeight: 600, color: '#00d4ff' }}>
-                    @{bm.x_author_handle}
-                  </span>
-                  {bm.x_author_name && (
-                    <span style={{ fontSize: '13px', color: '#4a4a5a' }}>{bm.x_author_name}</span>
-                  )}
-                  <span style={{ fontSize: '12px', color: '#4a4a5a', marginLeft: 'auto' }}>
-                    {timeAgo(bm.bookmarked_at)}
-                  </span>
-                </div>
-                <div style={{ fontSize: '14px', color: '#c0c0d0', lineHeight: 1.5 }}>
-                  {bm.content_text}
-                </div>
-              </motion.a>
+                bookmark={bm}
+                index={i}
+                allTags={allTags}
+                onTagsChanged={handleTagsChanged}
+              />
             ))}
           </div>
 
