@@ -1,0 +1,218 @@
+'use client';
+
+import { useState, useCallback, useMemo } from 'react';
+import { motion } from 'framer-motion';
+import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
+import TagPopover, { type TagInfo } from './TagPopover';
+export type { TagInfo } from './TagPopover';
+
+export interface BookmarkTag {
+  tag_id: string;
+  tags: TagInfo;
+}
+
+export interface BookmarkWithTags {
+  id: string;
+  x_post_id: string;
+  x_author_handle: string;
+  x_author_name: string;
+  content_text: string;
+  media_urls: string[];
+  bookmarked_at: string;
+  bookmark_tags?: BookmarkTag[];
+}
+
+interface BookmarkCardProps {
+  bookmark: BookmarkWithTags;
+  index: number;
+  allTags: TagInfo[];
+  onTagsChanged: (bookmarkId: string, tags: BookmarkTag[]) => void;
+}
+
+function hexToRgba(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+export default function BookmarkCard({ bookmark, index, allTags, onTagsChanged }: BookmarkCardProps) {
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  const currentTags = useMemo(() => bookmark.bookmark_tags ?? [], [bookmark.bookmark_tags]);
+  const activeTagIds = useMemo(() => new Set(currentTags.map((bt) => bt.tag_id)), [currentTags]);
+
+  const handleToggleTag = useCallback(async (tagId: string, add: boolean) => {
+    const previousTags = [...currentTags];
+
+    if (add) {
+      const tagInfo = allTags.find((t) => t.id === tagId);
+      if (!tagInfo) return;
+      const optimistic = [...currentTags, { tag_id: tagId, tags: tagInfo }];
+      onTagsChanged(bookmark.id, optimistic);
+    } else {
+      const optimistic = currentTags.filter((bt) => bt.tag_id !== tagId);
+      onTagsChanged(bookmark.id, optimistic);
+    }
+
+    const supabase = getSupabaseBrowserClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      onTagsChanged(bookmark.id, previousTags);
+      return;
+    }
+
+    try {
+      if (add) {
+        const res = await fetch(`/api/bookmarks/${bookmark.id}/tags`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ tag_ids: [tagId] }),
+        });
+        if (!res.ok) throw new Error('Failed to add tag');
+      } else {
+        const res = await fetch(`/api/bookmarks/${bookmark.id}/tags/${tagId}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (!res.ok) throw new Error('Failed to remove tag');
+      }
+    } catch {
+      onTagsChanged(bookmark.id, previousTags);
+    }
+  }, [bookmark.id, currentTags, allTags, onTagsChanged]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.03 }}
+      className="glass glow-border"
+      style={{
+        padding: '16px 20px',
+        borderRadius: '12px',
+        position: 'relative',
+      }}
+    >
+      {/* Header row */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+        <span style={{ fontSize: '14px', fontWeight: 600, color: '#00d4ff' }}>
+          @{bookmark.x_author_handle}
+        </span>
+        {bookmark.x_author_name && (
+          <span style={{ fontSize: '13px', color: '#4a4a5a' }}>{bookmark.x_author_name}</span>
+        )}
+        <a
+          href={`https://x.com/${bookmark.x_author_handle}/status/${bookmark.x_post_id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            color: '#4a4a5a',
+            transition: 'color 0.15s ease',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = '#00d4ff'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = '#4a4a5a'; }}
+          title="View on X"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" />
+            <polyline points="15 3 21 3 21 9" />
+            <line x1="10" y1="14" x2="21" y2="3" />
+          </svg>
+        </a>
+        <span style={{ fontSize: '12px', color: '#4a4a5a', marginLeft: 'auto' }}>
+          {timeAgo(bookmark.bookmarked_at)}
+        </span>
+      </div>
+
+      {/* Content */}
+      <div style={{ fontSize: '14px', color: '#c0c0d0', lineHeight: 1.5 }}>
+        {bookmark.content_text}
+      </div>
+
+      {/* Tag pills */}
+      {currentTags.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '10px' }}>
+          {currentTags.map((bt) => (
+            <span
+              key={bt.tag_id}
+              style={{
+                borderRadius: '100px',
+                padding: '3px 10px',
+                fontSize: '12px',
+                fontWeight: 500,
+                background: hexToRgba(bt.tags.color, 0.1),
+                border: `1px solid ${hexToRgba(bt.tags.color, 0.25)}`,
+                color: bt.tags.color,
+              }}
+            >
+              {bt.tags.name}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Tag button */}
+      <div style={{ position: 'relative', display: 'inline-block', marginTop: '8px' }}>
+        <button
+          onClick={() => setPopoverOpen(!popoverOpen)}
+          style={{
+            width: '28px',
+            height: '28px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: popoverOpen ? 'rgba(0,212,255,0.08)' : 'transparent',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            color: popoverOpen ? '#00d4ff' : '#4a4a5a',
+            transition: 'all 0.15s ease',
+          }}
+          onMouseEnter={(e) => {
+            if (!popoverOpen) {
+              e.currentTarget.style.background = 'rgba(0,212,255,0.08)';
+              e.currentTarget.style.color = '#00d4ff';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!popoverOpen) {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.color = '#4a4a5a';
+            }
+          }}
+          title="Manage tags"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" />
+            <line x1="7" y1="7" x2="7.01" y2="7" />
+          </svg>
+        </button>
+
+        {popoverOpen && (
+          <TagPopover
+            allTags={allTags}
+            activeTagIds={activeTagIds}
+            onToggle={handleToggleTag}
+            onClose={() => setPopoverOpen(false)}
+          />
+        )}
+      </div>
+    </motion.div>
+  );
+}
