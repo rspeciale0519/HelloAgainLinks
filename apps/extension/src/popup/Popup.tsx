@@ -10,6 +10,7 @@ interface UserInfo {
 
 interface BookmarkItem {
   id: string;
+  x_post_id: string;
   x_author_handle: string;
   content_text: string;
   created_at: string;
@@ -67,22 +68,19 @@ export function Popup() {
   const [user, setUser] = useState<UserInfo | null>(null);
   const [bookmarkCount, setBookmarkCount] = useState(0);
   const [recentBookmarks, setRecentBookmarks] = useState<BookmarkItem[]>([]);
+  const [searchResults, setSearchResults] = useState<BookmarkItem[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check auth status
     chrome.runtime.sendMessage({ type: 'GET_AUTH_STATUS' }, (res) => {
       setAuthenticated(!!res?.authenticated);
       if (res?.user) setUser(res.user);
       setLoading(false);
     });
-
-    // Get bookmark count
     chrome.runtime.sendMessage({ type: 'GET_BOOKMARK_COUNT' }, (res) => {
       if (res?.count !== undefined) setBookmarkCount(res.count);
     });
-
-    // Get recent bookmarks
     chrome.runtime.sendMessage(
       { type: 'GET_BOOKMARKS', params: { pageSize: '5', sort: 'created_at', order: 'desc' } },
       (res) => {
@@ -91,19 +89,80 @@ export function Popup() {
     );
   }, []);
 
+  useEffect(() => {
+    const query = search.trim();
+    if (!query) {
+      setSearchResults([]);
+      setSearchLoading(false);
+      return;
+    }
+    setSearchLoading(true);
+    const timer = setTimeout(() => {
+      chrome.runtime.sendMessage({ type: 'SEARCH_BOOKMARKS', query }, (res) => {
+        setSearchResults(res?.data || (Array.isArray(res) ? res : []));
+        setSearchLoading(false);
+      });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const handleLogin = useCallback(() => {
     chrome.runtime.sendMessage({ type: 'LOGIN' });
   }, []);
 
-  const handleSearch = useCallback(() => {
-    if (!search.trim()) return;
-    // Open side panel with search
-    chrome.runtime.sendMessage({ type: 'SEARCH_BOOKMARKS', query: search });
-  }, [search]);
-
   const handleOpenDashboard = useCallback(() => {
     chrome.tabs.create({ url: 'https://helloagain-three.vercel.app/dashboard' });
   }, []);
+
+  const timeAgo = (dateStr: string) => {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.floor(hrs / 24)}d ago`;
+  };
+
+  const openBookmark = (bm: BookmarkItem) => {
+    const url = `https://x.com/${bm.x_author_handle}/status/${bm.x_post_id}`;
+    chrome.runtime.sendMessage({ type: 'OPEN_IN_CURRENT_TAB', url });
+  };
+
+  const renderBookmarkCard = (bm: BookmarkItem, i: number) => (
+    <motion.div
+      key={bm.id}
+      initial={{ opacity: 0, x: -10 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay: i * 0.05 }}
+      onClick={() => openBookmark(bm)}
+      style={{
+        padding: '10px 12px',
+        borderRadius: '8px',
+        marginBottom: '6px',
+        cursor: 'pointer',
+        border: '1px solid transparent',
+        transition: 'all 0.2s',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = 'rgba(0,212,255,0.04)';
+        e.currentTarget.style.borderColor = 'rgba(0,212,255,0.1)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = 'transparent';
+        e.currentTarget.style.borderColor = 'transparent';
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+        <span style={{ fontSize: '13px', fontWeight: 600, color: '#00d4ff' }}>
+          @{bm.x_author_handle}
+        </span>
+        <span style={{ fontSize: '11px', color: '#4a4a5a' }}>{timeAgo(bm.created_at)}</span>
+      </div>
+      <div style={{ fontSize: '12px', color: '#8a8a9a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {bm.content_text}
+      </div>
+    </motion.div>
+  );
 
   if (loading) {
     return (
@@ -118,18 +177,11 @@ export function Popup() {
       <div style={{ padding: '32px', textAlign: 'center', minHeight: '300px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
         <div
           style={{
-            width: '48px',
-            height: '48px',
-            borderRadius: '12px',
+            width: '48px', height: '48px', borderRadius: '12px',
             background: 'linear-gradient(135deg, #00d4ff, #0ea5e9)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '20px',
-            fontWeight: 700,
-            color: '#0a0a0f',
-            marginBottom: '20px',
-            boxShadow: '0 0 20px rgba(0,212,255,0.3)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '20px', fontWeight: 700, color: '#0a0a0f',
+            marginBottom: '20px', boxShadow: '0 0 20px rgba(0,212,255,0.3)',
           }}
         >
           H
@@ -141,15 +193,10 @@ export function Popup() {
           whileTap={{ scale: 0.98 }}
           onClick={handleLogin}
           style={{
-            padding: '12px 24px',
-            borderRadius: '10px',
-            border: 'none',
+            padding: '12px 24px', borderRadius: '10px', border: 'none',
             background: 'linear-gradient(135deg, #00d4ff, #0ea5e9)',
-            color: '#0a0a0f',
-            fontWeight: 600,
-            fontSize: '14px',
-            cursor: 'pointer',
-            fontFamily: "'Inter', sans-serif",
+            color: '#0a0a0f', fontWeight: 600, fontSize: '14px',
+            cursor: 'pointer', fontFamily: "'Inter', sans-serif",
           }}
         >
           Sign in with X
@@ -158,31 +205,20 @@ export function Popup() {
     );
   }
 
-  const timeAgo = (dateStr: string) => {
-    const diff = Date.now() - new Date(dateStr).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    return `${Math.floor(hrs / 24)}d ago`;
-  };
+  const isSearching = search.trim().length > 0;
+  const listLabel = isSearching ? (searchLoading ? 'SEARCHING…' : 'RESULTS') : 'RECENT';
+  const listItems = isSearching ? searchResults : recentBookmarks;
 
   return (
-    <div style={{ padding: '20px', minHeight: '480px', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ padding: '20px', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxSizing: 'border-box' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
         <div
           style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '8px',
+            width: '32px', height: '32px', borderRadius: '8px',
             background: 'linear-gradient(135deg, #00d4ff, #0ea5e9)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '16px',
-            fontWeight: 700,
-            color: '#0a0a0f',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '16px', fontWeight: 700, color: '#0a0a0f',
             boxShadow: '0 0 15px rgba(0,212,255,0.3)',
           }}
         >
@@ -205,11 +241,10 @@ export function Popup() {
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
           placeholder="Search bookmarks..."
           style={{
             width: '100%',
-            padding: '10px 14px',
+            padding: search ? '10px 34px 10px 14px' : '10px 14px',
             borderRadius: '10px',
             border: '1px solid rgba(0,212,255,0.1)',
             background: 'rgba(15,16,25,0.8)',
@@ -217,55 +252,39 @@ export function Popup() {
             fontSize: '13px',
             fontFamily: "'Inter', sans-serif",
             outline: 'none',
+            boxSizing: 'border-box',
           }}
         />
+        {search && (
+          <button
+            onClick={() => setSearch('')}
+            style={{
+              position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)',
+              background: 'none', border: 'none', color: '#4a4a5a', cursor: 'pointer',
+              fontSize: '16px', lineHeight: 1, padding: '2px 4px',
+            }}
+          >
+            ×
+          </button>
+        )}
       </div>
 
-      {/* Recent */}
-      <div style={{ flex: 1 }}>
+      {/* List */}
+      <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
         <div style={{ fontSize: '12px', color: '#4a4a5a', fontWeight: 600, marginBottom: '10px', letterSpacing: '0.05em' }}>
-          RECENT
+          {listLabel}
         </div>
-        {recentBookmarks.length === 0 ? (
+        {!isSearching && recentBookmarks.length === 0 && (
           <div style={{ color: '#4a4a5a', fontSize: '13px', textAlign: 'center', padding: '20px' }}>
             No bookmarks yet. Save your first one!
           </div>
-        ) : (
-          recentBookmarks.map((bm, i) => (
-            <motion.div
-              key={bm.id}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.05 }}
-              style={{
-                padding: '10px 12px',
-                borderRadius: '8px',
-                marginBottom: '6px',
-                cursor: 'pointer',
-                border: '1px solid transparent',
-                transition: 'all 0.2s',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(0,212,255,0.04)';
-                e.currentTarget.style.borderColor = 'rgba(0,212,255,0.1)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'transparent';
-                e.currentTarget.style.borderColor = 'transparent';
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: '#00d4ff' }}>
-                  @{bm.x_author_handle}
-                </span>
-                <span style={{ fontSize: '11px', color: '#4a4a5a' }}>{timeAgo(bm.created_at)}</span>
-              </div>
-              <div style={{ fontSize: '12px', color: '#8a8a9a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {bm.content_text}
-              </div>
-            </motion.div>
-          ))
         )}
+        {isSearching && !searchLoading && searchResults.length === 0 && (
+          <div style={{ color: '#4a4a5a', fontSize: '13px', textAlign: 'center', padding: '20px' }}>
+            No results for "{search.trim()}"
+          </div>
+        )}
+        {listItems.map((bm, i) => renderBookmarkCard(bm, i))}
       </div>
 
       {/* Settings */}
@@ -276,12 +295,8 @@ export function Popup() {
         <button
           onClick={handleOpenDashboard}
           style={{
-            background: 'none',
-            border: 'none',
-            color: '#00d4ff',
-            fontSize: '12px',
-            cursor: 'pointer',
-            fontFamily: "'Inter', sans-serif",
+            background: 'none', border: 'none', color: '#00d4ff',
+            fontSize: '12px', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
           }}
         >
           Open Dashboard →
@@ -289,12 +304,8 @@ export function Popup() {
         <button
           onClick={() => chrome.runtime.sendMessage({ type: 'LOGOUT' }, () => setAuthenticated(false))}
           style={{
-            background: 'none',
-            border: 'none',
-            color: '#4a4a5a',
-            fontSize: '12px',
-            cursor: 'pointer',
-            fontFamily: "'Inter', sans-serif",
+            background: 'none', border: 'none', color: '#4a4a5a',
+            fontSize: '12px', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
           }}
         >
           Sign out

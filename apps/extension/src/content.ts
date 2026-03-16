@@ -139,37 +139,46 @@ function createSaveButton(article: Element) {
     e.stopPropagation();
 
     btn.style.color = '#00d4ff';
-    chrome.runtime.sendMessage(
-      {
-        type: 'SAVE_BOOKMARK',
-        data: {
-          postId: data.postId,
-          content: data.content,
-          author: data.author,
-          authorName: data.authorName,
-          timestamp: data.timestamp,
-          mediaUrls: JSON.stringify(data.mediaUrls),
+    try {
+      chrome.runtime.sendMessage(
+        {
+          type: 'SAVE_BOOKMARK',
+          data: {
+            postId: data.postId,
+            content: data.content,
+            author: data.author,
+            authorName: data.authorName,
+            timestamp: data.timestamp,
+            mediaUrls: JSON.stringify(data.mediaUrls),
+          },
         },
-      },
-      (response) => {
-        if (response?.error) {
-          if (response.status === 409) {
-            showToast('Already saved ✓', 'success');
-          } else if (response.status === 401) {
-            showToast('Sign in to Hello Again Links first', 'error');
-          } else {
-            showToast(response.error, 'error');
+        (response) => {
+          if (chrome.runtime.lastError) {
+            console.error('[HelloAgain]', chrome.runtime.lastError.message);
+            showToast('HAL connection lost — reload the page', 'error');
+            return;
           }
-        } else {
-          showToast('Saved to HAL ✓');
-          btn.innerHTML = `
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="#00d4ff" stroke="#00d4ff" stroke-width="2">
-              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
-            </svg>
-          `;
+          if (response?.error) {
+            if (response.status === 409) {
+              showToast('Already saved ✓', 'success');
+            } else if (response.status === 401) {
+              showToast('Sign in to Hello Again Links first', 'error');
+            } else {
+              showToast(response.error, 'error');
+            }
+          } else {
+            showToast('Saved to HAL ✓');
+            btn.innerHTML = `
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="#00d4ff" stroke="#00d4ff" stroke-width="2">
+                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+              </svg>
+            `;
+          }
         }
-      }
-    );
+      );
+    } catch {
+      showToast('HAL connection lost — reload the page', 'error');
+    }
   });
 
   return btn;
@@ -204,27 +213,32 @@ function enhanceBookmarkButtons(root: HTMLElement) {
       nativeBookmarkBtn.addEventListener('click', () => {
         // Only mirror if it's a bookmark action (not un-bookmark)
         // The "bookmark" testid is for un-bookmarked state; "removeBookmark" is bookmarked
-        const data = extractTweetData(article);
-        if (data.postId) {
-          chrome.runtime.sendMessage(
-            {
-              type: 'SAVE_BOOKMARK',
-              data: {
-                postId: data.postId,
-                content: data.content,
-                author: data.author,
-                authorName: data.authorName,
-                timestamp: data.timestamp,
-                mediaUrls: JSON.stringify(data.mediaUrls),
+        const tweetData = extractTweetData(article);
+        if (tweetData.postId) {
+          try {
+            chrome.runtime.sendMessage(
+              {
+                type: 'SAVE_BOOKMARK',
+                data: {
+                  postId: tweetData.postId,
+                  content: tweetData.content,
+                  author: tweetData.author,
+                  authorName: tweetData.authorName,
+                  timestamp: tweetData.timestamp,
+                  mediaUrls: JSON.stringify(tweetData.mediaUrls),
+                },
               },
-            },
-            (response) => {
-              if (response && !response.error) {
-                showToast('Also saved to HAL ✓');
+              (response) => {
+                void chrome.runtime.lastError;
+                if (response && !response.error) {
+                  showToast('Also saved to HAL ✓');
+                }
+                // Silently ignore errors — don't disrupt native bookmark flow
               }
-              // Silently ignore errors — don't disrupt native bookmark flow
-            }
-          );
+            );
+          } catch {
+            // Silently ignore — don't disrupt native bookmark flow
+          }
         }
       });
     }

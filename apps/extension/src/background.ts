@@ -62,18 +62,23 @@ async function apiCall(path: string, options: RequestInit = {}) {
   const token = await getToken();
   if (!token) return { error: 'Not authenticated', status: 401 };
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-      ...(options.headers || {}),
-    },
-  });
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        ...(options.headers || {}),
+      },
+    });
 
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { error: data.error || 'Request failed', status: res.status };
-  return data;
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return { error: data.error || 'Request failed', status: res.status };
+    return data;
+  } catch (err) {
+    console.error('[HelloAgain] API call failed:', path, err);
+    return { error: 'Network error — check your connection', status: 0 };
+  }
 }
 
 // ── Message handlers ─────────────────────────────────────────
@@ -83,7 +88,12 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  handleMessage(message).then(sendResponse);
+  handleMessage(message)
+    .then(sendResponse)
+    .catch((err) => {
+      console.error('[HelloAgain] Message handler error:', err);
+      sendResponse({ error: err?.message || 'Extension error', status: 500 });
+    });
   return true; // async response
 });
 
@@ -133,6 +143,15 @@ async function handleMessage(message: Record<string, unknown>) {
 
     case 'GET_BOOKMARK_COUNT':
       return apiCall('/api/bookmarks/count');
+
+    case 'OPEN_IN_CURRENT_TAB': {
+      const win = await chrome.windows.getLastFocused({ windowTypes: ['normal'], populate: true });
+      const activeTab = win?.tabs?.find(t => t.active);
+      if (activeTab?.id !== undefined) {
+        chrome.tabs.update(activeTab.id, { url: message.url as string });
+      }
+      return { success: true };
+    }
 
     default:
       return { error: 'Unknown message type' };
