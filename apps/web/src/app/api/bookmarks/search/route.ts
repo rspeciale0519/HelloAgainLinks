@@ -16,12 +16,14 @@ export async function GET(req: NextRequest) {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
-  // Use Supabase full-text search via textSearch
+  // Search content and handle; strip leading @ for handle matching
+  const handleQ = q.startsWith('@') ? q.slice(1) : q;
+
   let query = ctx.userClient
     .from('bookmarks')
     .select('*, bookmark_tags(tag_id, tags(*)), bookmark_folders(folder_id, folders(*))', { count: 'exact' })
     .eq('user_id', ctx.userId)
-    .textSearch('content_text', q, { type: 'websearch' })
+    .or(`content_text.ilike.%${q}%,x_author_handle.ilike.%${handleQ}%`)
     .range(from, to)
     .order('bookmarked_at', { ascending: false });
 
