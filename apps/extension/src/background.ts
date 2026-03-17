@@ -97,7 +97,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   return true; // async response
 });
 
-// Listen for auth token from web app (external message)
+// Listen for messages from the web app (external messages)
 chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
   if (message.type === 'AUTH_TOKEN' && message.data) {
     setAuth(message.data).then(() => {
@@ -106,6 +106,12 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
         chrome.tabs.remove(sender.tab.id);
       }
     });
+    return true;
+  }
+
+  if (message.type === 'BOOKMARK_DELETED' && message.postId) {
+    broadcastToXTabs({ type: 'BOOKMARK_DELETED', postId: message.postId });
+    sendResponse({ success: true });
     return true;
   }
 });
@@ -147,6 +153,9 @@ async function handleMessage(message: Record<string, unknown>) {
     case 'GET_BOOKMARK_COUNT':
       return apiCall('/api/bookmarks/count');
 
+    case 'GET_BOOKMARKED_POST_IDS':
+      return apiCall('/api/bookmarks/post-ids');
+
     case 'OPEN_IN_CURRENT_TAB': {
       const win = await chrome.windows.getLastFocused({ windowTypes: ['normal'], populate: true });
       const activeTab = win?.tabs?.find(t => t.active);
@@ -162,8 +171,35 @@ async function handleMessage(message: Record<string, unknown>) {
 }
 
 async function handleDeleteBookmark(data: Record<string, string>) {
-  return apiCall(`/api/bookmarks?x_post_id=${encodeURIComponent(data.postId)}`, {
+  const result = await apiCall(`/api/bookmarks?x_post_id=${encodeURIComponent(data.postId)}`, {
     method: 'DELETE',
+  });
+  if (!result.error) {
+    await removeFromPostIdCache(data.postId);
+    broadcastToXTabs({ type: 'BOOKMARK_DELETED', postId: data.postId });
+  }
+  return result;
+}
+
+async function addToPostIdCache(postId: string) {
+  const result = await chrome.storage.local.get('hal_post_ids');
+  const ids: string[] = result.hal_post_ids || [];
+  if (!ids.includes(postId)) {
+    await chrome.storage.local.set({ hal_post_ids: [...ids, postId] });
+  }
+}
+
+async function removeFromPostIdCache(postId: string) {
+  const result = await chrome.storage.local.get('hal_post_ids');
+  const ids: string[] = result.hal_post_ids || [];
+  await chrome.storage.local.set({ hal_post_ids: ids.filter((id) => id !== postId) });
+}
+
+function broadcastToXTabs(message: Record<string, unknown>) {
+  chrome.tabs.query({ url: ['https://x.com/*', 'https://twitter.com/*'] }, (tabs) => {
+    for (const tab of tabs) {
+      if (tab.id) chrome.tabs.sendMessage(tab.id, message).catch(() => {});
+    }
   });
 }
 
@@ -180,7 +216,9 @@ async function handleSaveBookmark(data: Record<string, string>) {
       bookmarked_at: new Date().toISOString(),
     }),
   });
-
+  if (!result.error || result.status === 409) {
+    await addToPostIdCache(data.postId);
+  }
   return result;
 }
 

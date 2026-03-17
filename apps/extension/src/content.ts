@@ -2,6 +2,42 @@
 
 console.log('[HelloAgain] Content script loaded on', window.location.href);
 
+// ── HAL bookmarked post IDs cache ────────────────────────────
+
+let halPostIds = new Set<string>();
+
+function loadHalPostIds() {
+  chrome.storage.local.get('hal_post_ids', (result) => {
+    halPostIds = new Set<string>(result.hal_post_ids || []);
+    // Refresh button states for any already-enhanced tweets
+    document.querySelectorAll('article[data-testid="tweet"]').forEach((article) => {
+      const halBtn = article.querySelector('.helloagain-save-btn') as HTMLButtonElement | null;
+      if (!halBtn) return;
+      const timeLink = article.querySelector('a[href*="/status/"] time')?.parentElement;
+      const postIdMatch = (timeLink?.getAttribute('href') || '').match(/\/status\/(\d+)/);
+      if (postIdMatch?.[1]) {
+        halPostIds.has(postIdMatch[1]) ? setHalButtonActive(halBtn) : setHalButtonInactive(halBtn);
+      }
+    });
+  });
+}
+
+// Fetch fresh from HAL API, update cache, then refresh button states
+function syncHalPostIds() {
+  try {
+    chrome.runtime.sendMessage({ type: 'GET_BOOKMARKED_POST_IDS' }, (response) => {
+      void chrome.runtime.lastError;
+      if (response?.post_ids) {
+        chrome.storage.local.set({ hal_post_ids: response.post_ids }, loadHalPostIds);
+      } else {
+        loadHalPostIds(); // fall back to cache
+      }
+    });
+  } catch {
+    loadHalPostIds();
+  }
+}
+
 // ── Settings ─────────────────────────────────────────────────
 
 let showHalButton = true;
@@ -142,8 +178,8 @@ function createSaveButton(article: Element) {
     transition: 'all 0.2s',
   });
 
-  // Set initial state to match X's current bookmark state
-  if (article.querySelector('[data-testid="removeBookmark"]')) {
+  // Set initial state from HAL cache (not native X state — they can be out of sync)
+  if (halPostIds.has(data.postId)) {
     setHalButtonActive(btn);
   } else {
     setHalButtonInactive(btn);
@@ -161,6 +197,29 @@ function createSaveButton(article: Element) {
   btn.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
+
+    // Toggle: if already saved, remove from HAL
+    if (btn.getAttribute('data-hal-active')) {
+      try {
+        chrome.runtime.sendMessage(
+          { type: 'DELETE_BOOKMARK', data: { postId: data.postId } },
+          (response) => {
+            if (chrome.runtime.lastError) {
+              showToast('HAL connection lost — reload the page', 'error');
+              return;
+            }
+            if (!response?.error) {
+              showToast('Removed from HAL');
+              halPostIds.delete(data.postId);
+              setHalButtonInactive(btn);
+            }
+          }
+        );
+      } catch {
+        showToast('HAL connection lost — reload the page', 'error');
+      }
+      return;
+    }
 
     try {
       chrome.runtime.sendMessage(
@@ -184,6 +243,8 @@ function createSaveButton(article: Element) {
           if (response?.error) {
             if (response.status === 409) {
               showToast('Already saved ✓', 'success');
+              halPostIds.add(data.postId);
+              setHalButtonActive(btn);
             } else if (response.status === 401) {
               showToast('Sign in to Hello Again Links first', 'error');
             } else {
@@ -191,6 +252,7 @@ function createSaveButton(article: Element) {
             }
           } else {
             showToast('Saved to HAL ✓');
+            halPostIds.add(data.postId);
             setHalButtonActive(btn);
           }
         }
@@ -281,6 +343,7 @@ document.addEventListener(
           void chrome.runtime.lastError;
           if (response && !response.error) {
             showToast('Also saved to HAL ✓');
+            halPostIds.add(tweetData.postId);
             const halBtn = article.querySelector('.helloagain-save-btn') as HTMLButtonElement | null;
             if (halBtn) setHalButtonActive(halBtn);
           }
@@ -324,9 +387,24 @@ document.addEventListener(
   true
 );
 
-// Start
+// Deactivate HAL button when bookmark is deleted from dashboard or side panel
+chrome.runtime.onMessage.addListener((message) => {
+  if (message.type !== 'BOOKMARK_DELETED' || !message.postId) return;
+  halPostIds.delete(message.postId);
+  document.querySelectorAll('article[data-testid="tweet"]').forEach((article) => {
+    const timeLink = article.querySelector('a[href*="/status/"] time')?.parentElement;
+    const postIdMatch = (timeLink?.getAttribute('href') || '').match(/\/status\/(\d+)/);
+    if (postIdMatch?.[1] === message.postId) {
+      const halBtn = article.querySelector('.helloagain-save-btn') as HTMLButtonElement | null;
+      if (halBtn) setHalButtonInactive(halBtn);
+    }
+  });
+});
+
+// Start — load HAL post IDs from API, then observe timeline
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', observeTimeline);
+  document.addEventListener('DOMContentLoaded', () => { syncHalPostIds(); observeTimeline(); });
 } else {
+  syncHalPostIds();
   observeTimeline();
 }

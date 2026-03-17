@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 
 interface BookmarkItem {
   id: string;
+  x_post_id: string;
   x_author_handle: string;
   x_author_name: string;
   content_text: string;
@@ -35,6 +36,7 @@ export function SidePanel() {
   const [authenticated, setAuthenticated] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; postId: string } | null>(null);
 
   const loadBookmarks = useCallback((params: Record<string, string> = {}, append = false) => {
     setLoading(true);
@@ -110,6 +112,23 @@ export function SidePanel() {
     loadBookmarks();
   }, [loadBookmarks]);
 
+  const handleDelete = useCallback((bookmarkId: string, postId: string) => {
+    setConfirmDelete({ id: bookmarkId, postId });
+  }, []);
+
+  const confirmDeleteBookmark = useCallback(() => {
+    if (!confirmDelete) return;
+    const { id, postId } = confirmDelete;
+    setConfirmDelete(null);
+    chrome.runtime.sendMessage(
+      { type: 'DELETE_BOOKMARK', data: { postId } },
+      () => {
+        void chrome.runtime.lastError;
+        setBookmarks((prev) => prev.filter((bm) => bm.id !== id));
+      }
+    );
+  }, [confirmDelete]);
+
   const handleLoadMore = useCallback(() => {
     const nextPage = page + 1;
     setPage(nextPage);
@@ -153,7 +172,51 @@ export function SidePanel() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', position: 'relative' }}>
+      {/* Delete confirmation modal */}
+      {confirmDelete && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            background: 'rgba(0,0,0,0.75)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '16px',
+          }}
+          onClick={() => setConfirmDelete(null)}
+        >
+          <div
+            style={{
+              background: '#0f1019', border: '1px solid rgba(0,212,255,0.15)',
+              borderRadius: '14px', padding: '24px', width: '100%',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p style={{ fontSize: '15px', fontWeight: 600, color: '#f0f0f5', marginBottom: '8px' }}>
+              Remove bookmark?
+            </p>
+            <p style={{ fontSize: '13px', color: '#8a8a9a', lineHeight: 1.5, marginBottom: '20px' }}>
+              This will permanently remove it from HAL.
+            </p>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setConfirmDelete(null)}
+                style={{
+                  padding: '8px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)',
+                  background: 'transparent', color: '#8a8a9a', fontSize: '13px', cursor: 'pointer',
+                }}
+              >Cancel</button>
+              <button
+                onClick={confirmDeleteBookmark}
+                style={{
+                  padding: '8px 14px', borderRadius: '8px', border: 'none',
+                  background: '#ef4444', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+                }}
+              >Remove</button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div style={{ padding: '16px 16px 0', borderBottom: '1px solid rgba(0,212,255,0.06)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
@@ -255,11 +318,31 @@ export function SidePanel() {
                   e.currentTarget.style.borderColor = 'transparent';
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                   <span style={{ fontSize: '13px', fontWeight: 600, color: '#00d4ff' }}>
                     @{bm.x_author_handle}
                   </span>
-                  <span style={{ fontSize: '11px', color: '#4a4a5a' }}>{timeAgo(bm.bookmarked_at || bm.created_at)}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '11px', color: '#4a4a5a' }}>{timeAgo(bm.bookmarked_at || bm.created_at)}</span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDelete(bm.id, bm.x_post_id); }}
+                      title="Remove bookmark"
+                      style={{
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        color: '#4a4a5a', padding: '2px', display: 'flex', alignItems: 'center',
+                        transition: 'color 0.15s ease', flexShrink: 0,
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = '#4a4a5a'; }}
+                    >
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="3 6 5 6 21 6" />
+                        <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+                        <path d="M10 11v6M14 11v6" />
+                        <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
                 <p style={{ fontSize: '12px', color: '#8a8a9a', lineHeight: 1.4, marginBottom: '6px' }}>
                   {bm.content_text?.slice(0, 200)}

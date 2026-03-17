@@ -63,10 +63,46 @@ export default function BookmarksPage() {
   useEffect(() => { fetchBookmarks(); }, [fetchBookmarks]);
   useEffect(() => { fetchTags(); }, [fetchTags]);
 
+  // Live updates from the extension
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      if (event.data?.source !== 'hal-extension') return;
+      if (event.data.type === 'HAL_BOOKMARK_ADDED') {
+        fetchBookmarks();
+      } else if (event.data.type === 'HAL_BOOKMARK_DELETED') {
+        setBookmarks((prev) => prev.filter((bm) => bm.x_post_id !== event.data.postId));
+        setTotal((prev) => Math.max(0, prev - 1));
+      }
+    };
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+  }, [fetchBookmarks]);
+
   const handleTagsChanged = useCallback((bookmarkId: string, tags: BookmarkTag[]) => {
     setBookmarks((prev) =>
       prev.map((bm) => bm.id === bookmarkId ? { ...bm, bookmark_tags: tags } : bm)
     );
+  }, []);
+
+  const handleDelete = useCallback(async (bookmarkId: string, xPostId: string) => {
+    const supabase = getSupabaseBrowserClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    const res = await fetch(`/api/bookmarks/${bookmarkId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    if (res.ok) {
+      setBookmarks((prev) => prev.filter((bm) => bm.id !== bookmarkId));
+      setTotal((prev) => prev - 1);
+      // Notify extension to deactivate HAL button on any open X tabs
+      const extensionId = localStorage.getItem('hal_extension_id');
+      if (extensionId) {
+        const w = window as unknown as { chrome?: { runtime?: { sendMessage?: (id: string, msg: unknown) => void } } };
+        try { w.chrome?.runtime?.sendMessage?.(extensionId, { type: 'BOOKMARK_DELETED', postId: xPostId }); } catch { /* not installed */ }
+      }
+    }
   }, []);
 
   const totalPages = Math.ceil(total / pageSize);
@@ -162,6 +198,7 @@ export default function BookmarksPage() {
                 index={i}
                 allTags={allTags}
                 onTagsChanged={handleTagsChanged}
+                onDelete={handleDelete}
               />
             ))}
           </div>
