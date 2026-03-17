@@ -115,6 +115,9 @@ async function handleMessage(message: Record<string, unknown>) {
     case 'SAVE_BOOKMARK':
       return handleSaveBookmark(message.data as Record<string, string>);
 
+    case 'DELETE_BOOKMARK':
+      return handleDeleteBookmark(message.data as Record<string, string>);
+
     case 'GET_AUTH_STATUS':
       return getAuthStatus();
 
@@ -156,6 +159,12 @@ async function handleMessage(message: Record<string, unknown>) {
     default:
       return { error: 'Unknown message type' };
   }
+}
+
+async function handleDeleteBookmark(data: Record<string, string>) {
+  return apiCall(`/api/bookmarks?x_post_id=${encodeURIComponent(data.postId)}`, {
+    method: 'DELETE',
+  });
 }
 
 async function handleSaveBookmark(data: Record<string, string>) {

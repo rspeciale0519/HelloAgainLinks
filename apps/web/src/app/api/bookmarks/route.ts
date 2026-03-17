@@ -49,6 +49,23 @@ export async function POST(req: NextRequest) {
   }
 }
 
+export async function DELETE(req: NextRequest) {
+  const ctx = await getAuthContext(req);
+  if (isAuthError(ctx)) return ctx;
+
+  const x_post_id = req.nextUrl.searchParams.get('x_post_id');
+  if (!x_post_id) return NextResponse.json({ error: 'x_post_id is required' }, { status: 400 });
+
+  const { error } = await ctx.userClient
+    .from('bookmarks')
+    .delete()
+    .eq('user_id', ctx.userId)
+    .eq('x_post_id', x_post_id);
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ success: true });
+}
+
 export async function GET(req: NextRequest) {
   const ctx = await getAuthContext(req);
   if (isAuthError(ctx)) return ctx;
