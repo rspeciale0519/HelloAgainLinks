@@ -98,6 +98,28 @@ function extractTweetData(article: Element) {
   return { content, author, authorName, postId, timestamp, mediaUrls };
 }
 
+// ── HAL button state helpers ─────────────────────────────────
+
+function setHalButtonActive(btn: HTMLButtonElement) {
+  btn.setAttribute('data-hal-active', 'true');
+  btn.style.color = '#00d4ff';
+  btn.innerHTML = `
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="#00d4ff" stroke="#00d4ff" stroke-width="2">
+      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+    </svg>
+  `;
+}
+
+function setHalButtonInactive(btn: HTMLButtonElement) {
+  btn.removeAttribute('data-hal-active');
+  btn.style.color = '#71767b';
+  btn.innerHTML = `
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+    </svg>
+  `;
+}
+
 // ── HelloAgain save button ───────────────────────────────────
 
 function createSaveButton(article: Element) {
@@ -107,11 +129,6 @@ function createSaveButton(article: Element) {
   const btn = document.createElement('button');
   btn.className = 'helloagain-save-btn';
   btn.title = 'Save to HAL';
-  btn.innerHTML = `
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
-    </svg>
-  `;
   Object.assign(btn.style, {
     background: 'none',
     border: 'none',
@@ -125,20 +142,26 @@ function createSaveButton(article: Element) {
     transition: 'all 0.2s',
   });
 
+  // Set initial state to match X's current bookmark state
+  if (article.querySelector('[data-testid="removeBookmark"]')) {
+    setHalButtonActive(btn);
+  } else {
+    setHalButtonInactive(btn);
+  }
+
   btn.addEventListener('mouseenter', () => {
-    btn.style.color = '#00d4ff';
     btn.style.background = 'rgba(0,212,255,0.1)';
+    if (!btn.getAttribute('data-hal-active')) btn.style.color = '#00d4ff';
   });
   btn.addEventListener('mouseleave', () => {
-    btn.style.color = '#71767b';
     btn.style.background = 'none';
+    btn.style.color = btn.getAttribute('data-hal-active') ? '#00d4ff' : '#71767b';
   });
 
   btn.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
 
-    btn.style.color = '#00d4ff';
     try {
       chrome.runtime.sendMessage(
         {
@@ -168,11 +191,7 @@ function createSaveButton(article: Element) {
             }
           } else {
             showToast('Saved to HAL ✓');
-            btn.innerHTML = `
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="#00d4ff" stroke="#00d4ff" stroke-width="2">
-                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
-              </svg>
-            `;
+            setHalButtonActive(btn);
           }
         }
       );
@@ -206,42 +225,6 @@ function enhanceBookmarkButtons(root: HTMLElement) {
       actionBar.appendChild(wrapper);
     }
 
-    // Intercept native bookmark click — mirror to HAL
-    const nativeBookmarkBtn = article.querySelector('[data-testid="bookmark"]');
-    if (nativeBookmarkBtn && !nativeBookmarkBtn.getAttribute('data-hal-mirrored')) {
-      nativeBookmarkBtn.setAttribute('data-hal-mirrored', 'true');
-      nativeBookmarkBtn.addEventListener('click', () => {
-        // Only mirror if it's a bookmark action (not un-bookmark)
-        // The "bookmark" testid is for un-bookmarked state; "removeBookmark" is bookmarked
-        const tweetData = extractTweetData(article);
-        if (tweetData.postId) {
-          try {
-            chrome.runtime.sendMessage(
-              {
-                type: 'SAVE_BOOKMARK',
-                data: {
-                  postId: tweetData.postId,
-                  content: tweetData.content,
-                  author: tweetData.author,
-                  authorName: tweetData.authorName,
-                  timestamp: tweetData.timestamp,
-                  mediaUrls: JSON.stringify(tweetData.mediaUrls),
-                },
-              },
-              (response) => {
-                void chrome.runtime.lastError;
-                if (response && !response.error) {
-                  showToast('Also saved to HAL ✓');
-                }
-                // Silently ignore errors — don't disrupt native bookmark flow
-              }
-            );
-          } catch {
-            // Silently ignore — don't disrupt native bookmark flow
-          }
-        }
-      });
-    }
   });
 }
 
@@ -263,6 +246,83 @@ function observeTimeline() {
 
   observer.observe(document.body, { childList: true, subtree: true });
 }
+
+// ── Native bookmark mirroring (document-level delegation) ────
+// Attaching per-element listeners breaks when X's React replaces the button DOM node.
+// A single capture-phase listener on the document survives re-renders.
+
+document.addEventListener(
+  'click',
+  (e) => {
+    const target = e.target as Element;
+    const bookmarkBtn = target.closest('[data-testid="bookmark"]');
+    if (!bookmarkBtn) return;
+
+    const article = bookmarkBtn.closest('article[data-testid="tweet"]');
+    if (!article) return;
+
+    const tweetData = extractTweetData(article);
+    if (!tweetData.postId) return;
+
+    try {
+      chrome.runtime.sendMessage(
+        {
+          type: 'SAVE_BOOKMARK',
+          data: {
+            postId: tweetData.postId,
+            content: tweetData.content,
+            author: tweetData.author,
+            authorName: tweetData.authorName,
+            timestamp: tweetData.timestamp,
+            mediaUrls: JSON.stringify(tweetData.mediaUrls),
+          },
+        },
+        (response) => {
+          void chrome.runtime.lastError;
+          if (response && !response.error) {
+            showToast('Also saved to HAL ✓');
+            const halBtn = article.querySelector('.helloagain-save-btn') as HTMLButtonElement | null;
+            if (halBtn) setHalButtonActive(halBtn);
+          }
+          // Silently ignore errors — don't disrupt native bookmark flow
+        }
+      );
+    } catch {
+      // Silently ignore — don't disrupt native bookmark flow
+    }
+  },
+  true // capture phase so we see the click before X's handlers
+);
+
+// Mirror native un-bookmark → delete from HAL
+document.addEventListener(
+  'click',
+  (e) => {
+    const target = e.target as Element;
+    const removeBtn = target.closest('[data-testid="removeBookmark"]');
+    if (!removeBtn) return;
+
+    const article = removeBtn.closest('article[data-testid="tweet"]');
+    if (!article) return;
+
+    const tweetData = extractTweetData(article);
+    if (!tweetData.postId) return;
+
+    try {
+      chrome.runtime.sendMessage(
+        { type: 'DELETE_BOOKMARK', data: { postId: tweetData.postId } },
+        () => {
+          void chrome.runtime.lastError;
+          const halBtn = article.querySelector('.helloagain-save-btn') as HTMLButtonElement | null;
+          if (halBtn) setHalButtonInactive(halBtn);
+        }
+      );
+    } catch {
+      // Silently ignore — don't disrupt native un-bookmark flow
+    }
+  },
+  true
+);
 
 // Start
 if (document.readyState === 'loading') {
