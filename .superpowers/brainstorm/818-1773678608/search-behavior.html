@@ -1,0 +1,43 @@
+<h2>How should search work in the popup?</h2>
+<p class="subtitle">Pick the interaction style that feels right</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Live search as you type</h3>
+      <p>Results update automatically after a short pause while typing. No need to press Enter. The "RECENT" list swaps out for "RESULTS" the moment you start typing.</p>
+      <div style="margin-top:10px;padding:10px;background:rgba(0,212,255,0.05);border-radius:8px;font-size:12px;color:#8a8a9a">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <div style="flex:1;background:rgba(255,255,255,0.06);border-radius:6px;padding:6px 10px;color:#f0f0f5;font-size:12px">solana</div>
+          <div style="color:#4a4a5a;font-size:11px">← typing…</div>
+        </div>
+        <div style="color:#4a4a5a;font-size:10px;font-weight:600;margin-bottom:6px;letter-spacing:.05em">RESULTS (3)</div>
+        <div style="padding:6px 8px;background:rgba(0,212,255,0.04);border-radius:6px;margin-bottom:4px">
+          <span style="color:#00d4ff;font-size:11px;font-weight:600">@0xRaj</span>
+          <span style="color:#4a4a5a;font-size:10px;margin-left:8px">Solana devnet changes…</span>
+        </div>
+        <div style="padding:6px 8px;border-radius:6px;margin-bottom:4px">
+          <span style="color:#00d4ff;font-size:11px;font-weight:600">@helius_dev</span>
+          <span style="color:#4a4a5a;font-size:10px;margin-left:8px">Solana RPC best practices…</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Search on Enter / button press</h3>
+      <p>The list stays as "RECENT" while typing. Results only appear after pressing Enter or a search button. Cleaner feel, fewer API calls.</p>
+      <div style="margin-top:10px;padding:10px;background:rgba(0,212,255,0.05);border-radius:8px;font-size:12px;color:#8a8a9a">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+          <div style="flex:1;background:rgba(255,255,255,0.06);border-radius:6px;padding:6px 10px;color:#f0f0f5;font-size:12px">solana</div>
+          <div style="background:rgba(0,212,255,0.15);border:1px solid rgba(0,212,255,0.3);border-radius:6px;padding:5px 10px;color:#00d4ff;font-size:11px;cursor:pointer">↵</div>
+        </div>
+        <div style="color:#4a4a5a;font-size:10px;font-weight:600;margin-bottom:6px;letter-spacing:.05em">RECENT</div>
+        <div style="padding:6px 8px;border-radius:6px;margin-bottom:4px;color:#4a4a5a;font-size:11px">← press Enter to search</div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,9 @@
+[ 3440188ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://api.x.com/1.1/live_pipeline/update_subscriptions:0
+[ 6141334ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://api.x.com/1.1/live_pipeline/update_subscriptions:0
+[ 6523144ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_RESET @ https://api.x.com/live_pipeline/events?topic=%2Ftweet_engagement%2F2033585138970595741,%2Ftweet_engagement%2F2033322853303570742,%2Ftweet_engagement%2F2033453243938886012,%2Ftweet_engagement%2F2033621837037613147,%2Ftweet_engagement%2F2033078095624966428,%2Ftweet_engagement%2F2033695007513665727,%2Ftweet_engagement%2F2033535097476112618:0
+[ 6523146ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_RESET @ https://api.x.com/live_pipeline/events?topic=%2Favcall%2Fcreate%2F3277649766,%2Favcall%2Fclear%2F3277649766:0
+[ 6642501ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://api.x.com/1.1/live_pipeline/update_subscriptions:0
+[ 9705972ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://api.x.com/1.1/live_pipeline/update_subscriptions:0
+[12407105ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://api.x.com/1.1/live_pipeline/update_subscriptions:0
+[15108255ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://api.x.com/1.1/live_pipeline/update_subscriptions:0
+[17809384ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://api.x.com/1.1/live_pipeline/update_subscriptions:0
