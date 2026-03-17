@@ -71,6 +71,7 @@ export function Popup() {
   const [searchResults, setSearchResults] = useState<BookmarkItem[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [confirmDelete, setConfirmDelete] = useState<BookmarkItem | null>(null);
 
   useEffect(() => {
     chrome.runtime.sendMessage({ type: 'GET_AUTH_STATUS' }, (res) => {
@@ -128,6 +129,18 @@ export function Popup() {
     chrome.runtime.sendMessage({ type: 'OPEN_IN_CURRENT_TAB', url });
   };
 
+  const confirmDeleteBookmark = useCallback(() => {
+    if (!confirmDelete) return;
+    const bm = confirmDelete;
+    setConfirmDelete(null);
+    chrome.runtime.sendMessage({ type: 'DELETE_BOOKMARK', data: { postId: bm.x_post_id } }, () => {
+      void chrome.runtime.lastError;
+      setRecentBookmarks((prev) => prev.filter((b) => b.id !== bm.id));
+      setSearchResults((prev) => prev.filter((b) => b.id !== bm.id));
+      setBookmarkCount((prev) => Math.max(0, prev - 1));
+    });
+  }, [confirmDelete]);
+
   const renderBookmarkCard = (bm: BookmarkItem, i: number) => (
     <motion.div
       key={bm.id}
@@ -142,6 +155,7 @@ export function Popup() {
         cursor: 'pointer',
         border: '1px solid transparent',
         transition: 'all 0.2s',
+        position: 'relative',
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.background = 'rgba(0,212,255,0.04)';
@@ -152,11 +166,31 @@ export function Popup() {
         e.currentTarget.style.borderColor = 'transparent';
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
         <span style={{ fontSize: '13px', fontWeight: 600, color: '#00d4ff' }}>
           @{bm.x_author_handle}
         </span>
-        <span style={{ fontSize: '11px', color: '#4a4a5a' }}>{timeAgo(bm.created_at)}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ fontSize: '11px', color: '#4a4a5a' }}>{timeAgo(bm.created_at)}</span>
+          <button
+            onClick={(e) => { e.stopPropagation(); setConfirmDelete(bm); }}
+            title="Remove bookmark"
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: '#4a4a5a', padding: '2px', display: 'flex', alignItems: 'center',
+              transition: 'color 0.15s',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = '#4a4a5a'; }}
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="3 6 5 6 21 6" />
+              <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+              <path d="M10 11v6M14 11v6" />
+              <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" />
+            </svg>
+          </button>
+        </div>
       </div>
       <div style={{ fontSize: '12px', color: '#8a8a9a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {bm.content_text}
@@ -210,7 +244,51 @@ export function Popup() {
   const listItems = isSearching ? searchResults : recentBookmarks;
 
   return (
-    <div style={{ padding: '20px', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxSizing: 'border-box' }}>
+    <div style={{ padding: '20px', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxSizing: 'border-box', position: 'relative' }}>
+      {/* Delete confirmation modal */}
+      {confirmDelete && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            background: 'rgba(0,0,0,0.75)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '16px',
+          }}
+          onClick={() => setConfirmDelete(null)}
+        >
+          <div
+            style={{
+              background: '#0f1019', border: '1px solid rgba(0,212,255,0.15)',
+              borderRadius: '14px', padding: '20px', width: '100%',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p style={{ fontSize: '14px', fontWeight: 600, color: '#f0f0f5', marginBottom: '6px' }}>
+              Remove bookmark?
+            </p>
+            <p style={{ fontSize: '12px', color: '#8a8a9a', lineHeight: 1.5, marginBottom: '16px' }}>
+              This will permanently remove it from HAL.
+            </p>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setConfirmDelete(null)}
+                style={{
+                  padding: '7px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)',
+                  background: 'transparent', color: '#8a8a9a', fontSize: '12px', cursor: 'pointer',
+                }}
+              >Cancel</button>
+              <button
+                onClick={confirmDeleteBookmark}
+                style={{
+                  padding: '7px 12px', borderRadius: '8px', border: 'none',
+                  background: '#ef4444', color: '#fff', fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+                }}
+              >Remove</button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
         <div

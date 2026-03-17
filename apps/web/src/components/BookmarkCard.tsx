@@ -27,6 +27,7 @@ interface BookmarkCardProps {
   index: number;
   allTags: TagInfo[];
   onTagsChanged: (bookmarkId: string, tags: BookmarkTag[]) => void;
+  onDelete?: (bookmarkId: string, xPostId: string) => void;
 }
 
 function hexToRgba(hex: string, alpha: number): string {
@@ -46,8 +47,9 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-export default function BookmarkCard({ bookmark, index, allTags, onTagsChanged }: BookmarkCardProps) {
+export default function BookmarkCard({ bookmark, index, allTags, onTagsChanged, onDelete }: BookmarkCardProps) {
   const [popoverOpen, setPopoverOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const currentTags = useMemo(() => bookmark.bookmark_tags ?? [], [bookmark.bookmark_tags]);
   const activeTagIds = useMemo(() => new Set(currentTags.map((bt) => bt.tag_id)), [currentTags]);
 
@@ -138,6 +140,26 @@ export default function BookmarkCard({ bookmark, index, allTags, onTagsChanged }
         <span style={{ fontSize: '12px', color: '#4a4a5a', marginLeft: 'auto' }}>
           {timeAgo(bookmark.bookmarked_at)}
         </span>
+        {onDelete && (
+          <button
+            onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); }}
+            title="Remove bookmark"
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: '#4a4a5a', padding: '2px', display: 'flex', alignItems: 'center',
+              transition: 'color 0.15s ease',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = '#4a4a5a'; }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="3 6 5 6 21 6" />
+              <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+              <path d="M10 11v6M14 11v6" />
+              <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* Content */}
@@ -164,6 +186,52 @@ export default function BookmarkCard({ bookmark, index, allTags, onTagsChanged }
               {bt.tags.name}
             </span>
           ))}
+        </div>
+      )}
+
+      {/* Delete confirmation modal */}
+      {confirmDelete && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            background: 'rgba(0,0,0,0.7)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+          onClick={() => setConfirmDelete(false)}
+        >
+          <div
+            style={{
+              background: '#0f1019', border: '1px solid rgba(0,212,255,0.15)',
+              borderRadius: '16px', padding: '32px', maxWidth: '360px', width: '90%',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ fontSize: '17px', fontWeight: 600, color: '#f0f0f5', marginBottom: '10px' }}>
+              Remove bookmark?
+            </h3>
+            <p style={{ fontSize: '14px', color: '#8a8a9a', lineHeight: 1.5, marginBottom: '24px' }}>
+              This will permanently remove this bookmark from HAL. This action cannot be undone.
+            </p>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setConfirmDelete(false)}
+                style={{
+                  padding: '9px 18px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)',
+                  background: 'transparent', color: '#8a8a9a', fontSize: '14px', cursor: 'pointer',
+                  fontFamily: "'Inter', sans-serif",
+                }}
+              >Cancel</button>
+              <button
+                onClick={() => { setConfirmDelete(false); onDelete!(bookmark.id, bookmark.x_post_id); }}
+                style={{
+                  padding: '9px 18px', borderRadius: '8px', border: 'none',
+                  background: '#ef4444', color: '#fff', fontSize: '14px', fontWeight: 600,
+                  cursor: 'pointer', fontFamily: "'Inter', sans-serif",
+                }}
+              >Remove</button>
+            </div>
+          </div>
         </div>
       )}
 

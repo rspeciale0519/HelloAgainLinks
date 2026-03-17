@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Hello Again Links — X Bookmark Manager",
-  "version": "0.1.11",
+  "version": "0.1.17",
   "description": "HAL — AI-powered bookmark manager for X/Twitter with social features.",
   "permissions": ["activeTab", "tabs", "storage", "identity", "sidePanel"],
   "host_permissions": ["https://x.com/*", "https://twitter.com/*", "https://helloagain-three.vercel.app/*"],
@@ -16,6 +16,11 @@
     {
       "matches": ["https://x.com/*", "https://twitter.com/*"],
       "js": ["content.js"]
+    },
+    {
+      "matches": ["https://helloagain-three.vercel.app/*"],
+      "js": ["dashboard.js"],
+      "run_at": "document_start"
     }
   ],
   "action": {

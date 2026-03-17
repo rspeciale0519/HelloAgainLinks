@@ -18,6 +18,9 @@ function ExtensionCallbackContent() {
       return;
     }
 
+    // Store extension ID so the dashboard can notify the extension on bookmark changes
+    localStorage.setItem('hal_extension_id', extensionId);
+
     try {
       const data = JSON.parse(decodeURIComponent(token));
       // Send token to extension via chrome.runtime.sendMessage
