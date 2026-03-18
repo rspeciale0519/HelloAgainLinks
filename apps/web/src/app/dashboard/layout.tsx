@@ -7,7 +7,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { ImpactStyle } from '@capacitor/haptics';
 
 import { useAuth } from '@/lib/use-auth';
-import { MobileShareListener } from '@/components/MobileShareListener';
 import { triggerHaptic } from '@/lib/mobile';
 import UserMenu from '@/components/UserMenu';
 
@@ -50,7 +49,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
-      <MobileShareListener />
       {/* Overlay backdrop (mobile only) */}
       <AnimatePresence>
         {isMobile && sidebarOpen && (
