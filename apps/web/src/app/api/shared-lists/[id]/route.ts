@@ -104,3 +104,6 @@ export async function DELETE(
   await ctx.serviceClient.from('shared_lists').delete().eq('id', id);
   return NextResponse.json({ success: true });
 }
+
+// Required for Next.js static export compatibility (mobile build only)
+export function generateStaticParams() { return []; }
