@@ -103,3 +103,6 @@ export async function POST(
 
   return NextResponse.json({ success: true, listId: list.id, role: joinRole });
 }
+
+// Required for Next.js static export compatibility (mobile build only)
+export function generateStaticParams() { return []; }

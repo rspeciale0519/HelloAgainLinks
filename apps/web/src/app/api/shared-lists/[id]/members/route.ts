@@ -129,3 +129,6 @@ export async function DELETE(
 
   return NextResponse.json({ success: true });
 }
+
+// Required for Next.js static export compatibility (mobile build only)
+export function generateStaticParams() { return []; }
