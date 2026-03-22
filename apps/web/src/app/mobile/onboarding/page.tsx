@@ -36,7 +36,9 @@ export default function OnboardingPage() {
     // which preserves the appUrlOpen listener mounted in layout.tsx.
     // Do NOT use window.location.href — that navigates the WebView away from
     // the app shell and destroys the listener before the deep-link fires.
-    window.open('/api/auth/x-login?platform=mobile', '_system');
+    // Use absolute production URL — relative URLs resolve to http://localhost in the system browser.
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://helloagain-three.vercel.app';
+    window.open(`${appUrl}/api/auth/x-login?platform=mobile`, '_system');
   };
 
   return (

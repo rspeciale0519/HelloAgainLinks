@@ -11,6 +11,7 @@ const publicRoutes = ['/', '/login', '/api', '/auth', '/lists'];
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // Mobile routes are native-app only — redirect web browsers to dashboard
   if (pathname === '/mobile' || pathname.startsWith('/mobile/')) {
     return NextResponse.redirect(new URL('/dashboard', req.url));
   }
