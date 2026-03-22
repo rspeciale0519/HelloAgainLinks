@@ -97,3 +97,6 @@ export async function POST(
 
   return NextResponse.json({ blend });
 }
+
+// Required for Next.js static export compatibility (mobile build only)
+export function generateStaticParams() { return []; }
