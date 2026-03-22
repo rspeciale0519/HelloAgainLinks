@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(`${APP_URL}/login?error=no_state`);
   }
 
-  let stateData: { codeVerifier: string; state: string; extensionId: string | null };
+  let stateData: { codeVerifier: string; state: string; extensionId: string | null; platform: string | null };
   try {
     stateData = JSON.parse(stateCookie);
   } catch {
@@ -204,7 +204,17 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(`${APP_URL}/login?error=verify_failed`);
     }
 
-    // Redirect to client page with real session tokens
+    // Mobile: redirect to custom scheme with tokens so Capacitor can intercept
+    if (stateData.platform === 'mobile') {
+      const mobileUrl = new URL('helloagainlinks://auth/callback');
+      mobileUrl.searchParams.set('access_token', verifyData.session.access_token);
+      mobileUrl.searchParams.set('refresh_token', verifyData.session.refresh_token);
+      const response = NextResponse.redirect(mobileUrl.toString());
+      response.cookies.delete('x-oauth-state');
+      return response;
+    }
+
+    // Web: existing flow
     const sessionUrl = new URL(`${APP_URL}/auth/set-session`);
     sessionUrl.searchParams.set('access_token', verifyData.session.access_token);
     sessionUrl.searchParams.set('refresh_token', verifyData.session.refresh_token);

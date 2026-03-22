@@ -11,6 +11,11 @@ const publicRoutes = ['/', '/login', '/api', '/auth', '/lists'];
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // Mobile routes are native-app only — redirect web browsers to dashboard
+  if (pathname === '/mobile' || pathname.startsWith('/mobile/')) {
+    return NextResponse.redirect(new URL('/dashboard', req.url));
+  }
+
   // Skip public routes and API routes
   if (publicRoutes.some(r => pathname === r || pathname.startsWith(r + '/'))) {
     return NextResponse.next();
@@ -53,5 +58,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*'],
+  matcher: ['/dashboard/:path*', '/mobile/:path*', '/mobile'],
 };

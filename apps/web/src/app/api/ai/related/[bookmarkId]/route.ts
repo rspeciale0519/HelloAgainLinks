@@ -67,3 +67,6 @@ export async function GET(
     return NextResponse.json({ error: 'Finding related content failed' }, { status: 500 });
   }
 }
+
+// Required for Next.js static export compatibility (mobile build only)
+export function generateStaticParams() { return []; }

@@ -76,3 +76,8 @@ html, body {
   border-color: rgba(0, 212, 255, 0.4);
   box-shadow: 0 0 30px rgba(0, 212, 255, 0.15);
 }
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

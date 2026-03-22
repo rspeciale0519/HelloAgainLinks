@@ -7,6 +7,7 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const extensionId = url.searchParams.get('extension_id');
+  const platform = url.searchParams.get('platform');
 
   // Generate PKCE challenge
   const codeVerifier = crypto.randomBytes(32).toString('base64url');
@@ -26,6 +27,7 @@ export async function GET(req: NextRequest) {
     codeVerifier,
     state,
     extensionId: extensionId || null,
+    platform: platform || null,
   });
 
   const xAuthUrl = new URL('https://x.com/i/oauth2/authorize');
