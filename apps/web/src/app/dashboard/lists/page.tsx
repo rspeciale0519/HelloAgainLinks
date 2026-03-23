@@ -25,11 +25,12 @@ export default function SharedListsPage() {
   const [newVisibility, setNewVisibility] = useState('private');
   const [showCreate, setShowCreate] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [error, setError] = useState('');
 
   const fetchLists = useCallback(async () => {
     const supabase = getSupabaseBrowserClient();
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
+    if (!session) { setLoading(false); return; }
 
     const res = await fetch('/api/shared-lists', {
       headers: { Authorization: `Bearer ${session.access_token}` },
@@ -37,6 +38,8 @@ export default function SharedListsPage() {
     if (res.ok) {
       const data = await res.json();
       setLists(data.lists || []);
+    } else {
+      setError('Failed to load shared lists. Please refresh.');
     }
     setLoading(false);
   }, []);
@@ -46,10 +49,11 @@ export default function SharedListsPage() {
   const handleCreate = async () => {
     if (!newName.trim()) return;
     setCreating(true);
+    setError('');
 
     const supabase = getSupabaseBrowserClient();
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
+    if (!session) { setCreating(false); return; }
 
     const res = await fetch('/api/shared-lists', {
       method: 'POST',
@@ -70,6 +74,13 @@ export default function SharedListsPage() {
       setNewVisibility('private');
       setShowCreate(false);
       fetchLists();
+    } else {
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 403) {
+        setError(data.error || 'Shared Lists require a Pro plan. Upgrade in Settings.');
+      } else {
+        setError(data.error || 'Failed to create list. Please try again.');
+      }
     }
     setCreating(false);
   };
@@ -123,6 +134,17 @@ export default function SharedListsPage() {
           + New List
         </motion.button>
       </div>
+
+      {/* Error banner */}
+      {error && (
+        <div style={{
+          padding: '10px 14px', borderRadius: '8px', marginBottom: '16px',
+          background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
+          color: '#ef4444', fontSize: '13px',
+        }}>
+          {error}
+        </div>
+      )}
 
       {/* Create form */}
       {showCreate && (
