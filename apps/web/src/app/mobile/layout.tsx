@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Capacitor } from '@capacitor/core';
+import { App } from '@capacitor/app';
 import { Preferences } from '@capacitor/preferences';
 import { ImpactStyle } from '@capacitor/haptics';
 import { triggerHaptic } from '@/lib/mobile';
@@ -35,23 +36,20 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
     }
 
     // Deep-link auth callback handler
-    let appListener: { remove: () => void } | undefined;
-    import('@capacitor/app').then(({ App }) => {
-      App.addListener('appUrlOpen', async ({ url }) => {
-        if (url.startsWith('helloagainlinks://auth/callback')) {
-          const params = new URL(url).searchParams;
-          const supabase = getSupabaseBrowserClient();
-          const { error } = await supabase.auth.setSession({
-            access_token: params.get('access_token')!,
-            refresh_token: params.get('refresh_token')!,
-          });
-          if (!error) {
-            await Preferences.set({ key: 'onboarding_complete', value: 'true' });
-            router.replace('/mobile/home');
-            setAppState('app');
-          }
+    const appListenerPromise = App.addListener('appUrlOpen', async ({ url }) => {
+      if (url.startsWith('helloagainlinks://auth/callback')) {
+        const params = new URL(url).searchParams;
+        const supabase = getSupabaseBrowserClient();
+        const { error } = await supabase.auth.setSession({
+          access_token: params.get('access_token')!,
+          refresh_token: params.get('refresh_token')!,
+        });
+        if (!error) {
+          await Preferences.set({ key: 'onboarding_complete', value: 'true' });
+          router.replace('/mobile/home');
+          setAppState('app');
         }
-      }).then((handle) => { appListener = handle; });
+      }
     });
 
     // Check onboarding status
@@ -66,7 +64,7 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
       }
     });
 
-    return () => { appListener?.remove(); };
+    return () => { appListenerPromise.then(handle => handle.remove()); };
   }, [router, pathname]);
 
   // Splash screen while checking onboarding
