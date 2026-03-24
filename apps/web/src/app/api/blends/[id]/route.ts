@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext, isAuthError } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 // Get blend details
 export async function GET(
   req: NextRequest,

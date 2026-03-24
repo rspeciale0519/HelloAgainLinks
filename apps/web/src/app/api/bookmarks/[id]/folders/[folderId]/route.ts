@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext, isAuthError } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 type Params = { params: Promise<{ id: string; folderId: string }> };
 
 export async function DELETE(req: NextRequest, { params }: Params) {
