@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext, isAuthError } from '@/lib/auth';
 import { getServiceClient } from '@/lib/supabase-server';
 
+export const dynamic = 'force-dynamic';
+
 // Get invite details (authenticated but no Pro requirement to VIEW)
 export async function GET(
   req: NextRequest,
