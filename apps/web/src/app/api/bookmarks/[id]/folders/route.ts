@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext, isAuthError } from '@/lib/auth';
 import { addFoldersSchema } from '@helloagain/shared';
 
+export const dynamic = 'force-dynamic';
+
 type Params = { params: Promise<{ id: string }> };
 
 export async function POST(req: NextRequest, { params }: Params) {
@@ -36,3 +38,6 @@ export async function POST(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
 }
+
+// Required for Next.js static export compatibility (mobile build only)
+export function generateStaticParams() { return []; }

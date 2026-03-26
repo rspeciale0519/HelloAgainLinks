@@ -58,6 +58,9 @@ importers:
       '@capacitor/android':
         specifier: ^8.0.2
         version: 8.0.2(@capacitor/core@8.0.2)
+      '@capacitor/app':
+        specifier: ^8.0.1
+        version: 8.0.1(@capacitor/core@8.0.2)
       '@capacitor/cli':
         specifier: ^8.0.2
         version: 8.0.2
@@ -70,6 +73,9 @@ importers:
       '@capacitor/ios':
         specifier: ^8.0.2
         version: 8.0.2(@capacitor/core@8.0.2)
+      '@capacitor/preferences':
+        specifier: ^8.0.1
+        version: 8.0.1(@capacitor/core@8.0.2)
       '@capacitor/share':
         specifier: ^8.0.0
         version: 8.0.0(@capacitor/core@8.0.2)
@@ -264,6 +270,11 @@ packages:
     peerDependencies:
       '@capacitor/core': ^8.0.0
 
+  '@capacitor/app@8.0.1':
+    resolution: {integrity: sha512-yeG3yyA0ETKqvgqexwHMBlmVOF13A1hRXzv/km0Ptv5TrNIZvZJK4MTI3uiqvnbHrzoJGP5DwWAjEXEfi90v3Q==}
+    peerDependencies:
+      '@capacitor/core': '>=8.0.0'
+
   '@capacitor/cli@8.0.2':
     resolution: {integrity: sha512-/8qLYxhytMyUKTHK8i6YU+DMD3AuFiQgSuJCyMltcg9MN3W9En7zqQZSo/WN4eC7qif/oyZACzm7OkAZKani7g==}
     engines: {node: '>=22.0.0'}
@@ -281,6 +292,11 @@ packages:
     resolution: {integrity: sha512-7EM7vBxXI3Ku49aYCJcS9su5Y3i6UmXpx7e0y+oQV9PzCnZ6l5B0ACJ+gXAU0bM3q7/f+kGBsOtXMid84rU6MQ==}
     peerDependencies:
       '@capacitor/core': ^8.0.0
+
+  '@capacitor/preferences@8.0.1':
+    resolution: {integrity: sha512-T6no3ebi79XJCk91U3Jp/liJUwgBdvHR+s6vhvPkPxSuch7z3zx5Rv1bdWM6sWruNx+pViuEGqZvbfCdyBvcHQ==}
+    peerDependencies:
+      '@capacitor/core': '>=8.0.0'
 
   '@capacitor/share@8.0.0':
     resolution: {integrity: sha512-VU+xT4LFwr4keIC0UKDqGQVAiNlAHwoTMQg8wVVSxtn/k32VOvvtqFfu63qnXr40WKytZWrxJfVESvRjd761yg==}
@@ -3001,6 +3017,10 @@ snapshots:
     dependencies:
       '@capacitor/core': 8.0.2
 
+  '@capacitor/app@8.0.1(@capacitor/core@8.0.2)':
+    dependencies:
+      '@capacitor/core': 8.0.2
+
   '@capacitor/cli@8.0.2':
     dependencies:
       '@ionic/cli-framework-output': 2.2.8
@@ -3032,6 +3052,10 @@ snapshots:
       '@capacitor/core': 8.0.2
 
   '@capacitor/ios@8.0.2(@capacitor/core@8.0.2)':
+    dependencies:
+      '@capacitor/core': 8.0.2
+
+  '@capacitor/preferences@8.0.1(@capacitor/core@8.0.2)':
     dependencies:
       '@capacitor/core': 8.0.2
 

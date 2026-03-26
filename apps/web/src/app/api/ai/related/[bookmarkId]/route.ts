@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext, isAuthError } from '@/lib/auth';
 import { findRelatedPosts } from '@/lib/grok';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ bookmarkId: string }> }
@@ -67,3 +69,6 @@ export async function GET(
     return NextResponse.json({ error: 'Finding related content failed' }, { status: 500 });
   }
 }
+
+// Required for Next.js static export compatibility (mobile build only)
+export function generateStaticParams() { return []; }

@@ -70,6 +70,8 @@ export async function POST(req: NextRequest) {
       visibility: visibility === 'public' ? 'public' : 'private',
       slug,
       invite_code: inviteCode,
+      member_count: 1,
+      bookmark_count: 0,
     })
     .select()
     .single();

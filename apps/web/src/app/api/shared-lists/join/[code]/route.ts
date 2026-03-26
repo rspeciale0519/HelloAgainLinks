@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext, isAuthError } from '@/lib/auth';
 import { getServiceClient } from '@/lib/supabase-server';
 
+export const dynamic = 'force-dynamic';
+
 // Get invite details (authenticated but no Pro requirement to VIEW)
 export async function GET(
   req: NextRequest,
@@ -103,3 +105,6 @@ export async function POST(
 
   return NextResponse.json({ success: true, listId: list.id, role: joinRole });
 }
+
+// Required for Next.js static export compatibility (mobile build only)
+export function generateStaticParams() { return []; }
