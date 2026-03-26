@@ -3,9 +3,20 @@
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useAuth } from '@/lib/use-auth';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function LandingPage() {
   const { user, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    import('@capacitor/core').then(({ Capacitor }) => {
+      if (Capacitor.isNativePlatform()) {
+        router.replace('/mobile');
+      }
+    });
+  }, [router]);
   return (
     <div style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden' }}>
       {/* Ambient glow orbs */}

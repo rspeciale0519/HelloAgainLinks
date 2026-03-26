@@ -35,6 +35,7 @@ export default function JoinListPage() {
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session) {
+      setJoining(false);
       router.push(`/login?redirect=/lists/join/${code}`);
       return;
     }

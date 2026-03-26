@@ -5,8 +5,7 @@ const config: CapacitorConfig = {
   appName: 'Hello Again Links',
   webDir: 'out',
   server: {
-    url: 'https://helloagain-three.vercel.app',
-    cleartext: false,
+    appStartPath: '/mobile',
   },
   plugins: {
     CapacitorShareTarget: {

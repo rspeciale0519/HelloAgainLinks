@@ -1,0 +1,7 @@
+[    5929ms] [ERROR] Not signed in with the identity provider. @ https://x.com/i/flow/login?redirect_after_login=%2Fhome:0
+[    5929ms] [ERROR] [GSI_LOGGER]: FedCM get() rejects with AbortError: signal is aborted without reason @ https://accounts.google.com/gsi/client:81
+[    5929ms] [ERROR] Not signed in with the identity provider. @ https://x.com/i/flow/login?redirect_after_login=%2Fhome:0
+[    5936ms] [ERROR] Not signed in with the identity provider. @ https://x.com/i/flow/login?redirect_after_login=%2Fhome:0
+[    5937ms] [ERROR] [GSI_LOGGER]: FedCM get() rejects with AbortError: signal is aborted without reason @ https://accounts.google.com/gsi/client:81
+[    6452ms] [WARNING] [GSI_LOGGER]: google.accounts.id.initialize() is called multiple times. This could cause unexpected behavior and only the last initialized instance will be used. @ https://accounts.google.com/gsi/client:80
+[    8385ms] [ERROR] [GSI_LOGGER]: FedCM get() rejects with NetworkError: Error retrieving a token. @ https://accounts.google.com/gsi/client:81

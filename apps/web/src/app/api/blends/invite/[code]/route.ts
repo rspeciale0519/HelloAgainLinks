@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext, isAuthError } from '@/lib/auth';
 import { getServiceClient } from '@/lib/supabase-server';
 
+export const dynamic = 'force-dynamic';
+
 // Get invite details (public)
 export async function GET(
   _req: NextRequest,
@@ -97,3 +99,6 @@ export async function POST(
 
   return NextResponse.json({ blend });
 }
+
+// Required for Next.js static export compatibility (mobile build only)
+export function generateStaticParams() { return []; }

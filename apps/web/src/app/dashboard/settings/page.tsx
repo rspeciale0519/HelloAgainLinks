@@ -62,11 +62,12 @@ function ImportSection() {
 export default function SettingsPage() {
   const router = useRouter();
   const [user, setUser] = useState<{ name: string; handle: string; avatar: string; email: string } | null>(null);
+  const [plan, setPlan] = useState<'free' | 'pro' | 'lifetime'>('free');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
         const meta = session.user.user_metadata || {};
         setUser({
@@ -75,6 +76,14 @@ export default function SettingsPage() {
           avatar: meta.avatar_url || meta.picture || '',
           email: session.user.email || '',
         });
+
+        const profileRes = await fetch('/api/profile', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (profileRes.ok) {
+          const profileData = await profileRes.json();
+          if (profileData.plan) setPlan(profileData.plan as 'free' | 'pro' | 'lifetime');
+        }
       }
       setLoading(false);
     });
@@ -162,38 +171,60 @@ export default function SettingsPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
           <span style={{
             padding: '4px 12px', borderRadius: '6px', fontSize: '13px', fontWeight: 600,
-            background: 'rgba(0,212,255,0.08)', color: '#00d4ff', border: '1px solid rgba(0,212,255,0.15)',
+            background: plan === 'free' ? 'rgba(0,212,255,0.08)' : 'rgba(34,197,94,0.1)',
+            color: plan === 'free' ? '#00d4ff' : '#22c55e',
+            border: `1px solid ${plan === 'free' ? 'rgba(0,212,255,0.15)' : 'rgba(34,197,94,0.2)'}`,
           }}>
-            Free Plan
+            {plan === 'free' ? 'Free Plan' : plan === 'lifetime' ? '⭐ Lifetime' : '✦ Pro Plan'}
           </span>
         </div>
-        <div style={{ fontSize: '14px', color: '#8a8a9a', lineHeight: 1.6, marginBottom: '16px' }}>
-          Upgrade to Pro for AI auto-tagging, smart search, unlimited Blends, shared lists, and the AI assistant.
-        </div>
-        <div style={{ display: 'flex', gap: '12px' }}>
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={handleUpgrade}
-            style={{
-              padding: '10px 24px', borderRadius: '10px', border: 'none',
-              background: 'linear-gradient(135deg, #00d4ff, #0ea5e9)', color: '#0a0a0f',
-              fontWeight: 600, fontSize: '14px', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
-            }}
-          >
-            Upgrade to Pro — $9.99/mo
-          </motion.button>
-          <button
-            onClick={handleManageBilling}
-            style={{
-              padding: '10px 24px', borderRadius: '10px',
-              border: '1px solid rgba(0,212,255,0.15)', background: 'transparent',
-              color: '#8a8a9a', fontSize: '14px', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
-            }}
-          >
-            Manage Billing
-          </button>
-        </div>
+        {plan === 'free' ? (
+          <>
+            <div style={{ fontSize: '14px', color: '#8a8a9a', lineHeight: 1.6, marginBottom: '16px' }}>
+              Upgrade to Pro for AI auto-tagging, smart search, unlimited Blends, shared lists, and the AI assistant.
+            </div>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleUpgrade}
+                style={{
+                  padding: '10px 24px', borderRadius: '10px', border: 'none',
+                  background: 'linear-gradient(135deg, #00d4ff, #0ea5e9)', color: '#0a0a0f',
+                  fontWeight: 600, fontSize: '14px', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
+                }}
+              >
+                Upgrade to Pro — $9.99/mo
+              </motion.button>
+              <button
+                onClick={handleManageBilling}
+                style={{
+                  padding: '10px 24px', borderRadius: '10px',
+                  border: '1px solid rgba(0,212,255,0.15)', background: 'transparent',
+                  color: '#8a8a9a', fontSize: '14px', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
+                }}
+              >
+                Manage Billing
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ fontSize: '14px', color: '#8a8a9a', lineHeight: 1.6, marginBottom: '16px' }}>
+              You have full access to all Pro features — AI tagging, smart search, shared lists, and the AI assistant.
+            </div>
+            <button
+              onClick={handleManageBilling}
+              style={{
+                padding: '10px 24px', borderRadius: '10px',
+                border: '1px solid rgba(0,212,255,0.15)', background: 'transparent',
+                color: '#8a8a9a', fontSize: '14px', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
+              }}
+            >
+              Manage Billing
+            </button>
+          </>
+        )}
       </div>
 
       {/* Import Bookmarks */}

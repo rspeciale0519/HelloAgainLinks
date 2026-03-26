@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext, isAuthError } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 // Get members of a shared list
 export async function GET(
   req: NextRequest,
@@ -129,3 +131,6 @@ export async function DELETE(
 
   return NextResponse.json({ success: true });
 }
+
+// Required for Next.js static export compatibility (mobile build only)
+export function generateStaticParams() { return []; }
