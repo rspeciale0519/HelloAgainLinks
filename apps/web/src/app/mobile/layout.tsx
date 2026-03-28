@@ -64,7 +64,7 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
       }
     });
 
-    return () => { appListenerPromise.then(handle => handle.remove()); };
+    return () => { appListenerPromise.then(handle => handle.remove()).catch(() => {}); };
   }, [router, pathname]);
 
   // Splash screen while checking onboarding

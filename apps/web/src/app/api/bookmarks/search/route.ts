@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext, isAuthError } from '@/lib/auth';
 import { searchBookmarksSchema } from '@helloagain/shared';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: NextRequest) {
   const ctx = await getAuthContext(req);
   if (isAuthError(ctx)) return ctx;

@@ -1,6 +1,6 @@
 // HelloAgain — Service Worker (Background Script)
 
-const API_BASE = 'https://helloagain-three.vercel.app';
+const API_BASE = 'https://helloagainlinks.com';
 
 interface AuthData {
   access_token: string;
@@ -81,6 +81,157 @@ async function apiCall(path: string, options: RequestInit = {}) {
   }
 }
 
+// ── Bulk import session ──────────────────────────────────────
+
+interface ImportSession {
+  tabId: number;
+  imported: number;
+  skipped: number;
+  limitReached: boolean;
+}
+
+let currentImport: ImportSession | null = null;
+
+interface TweetData {
+  content: string;
+  author: string;
+  authorName: string;
+  postId: string;
+  timestamp: string;
+  mediaUrls: string[];
+}
+
+async function handleStartBulkImport() {
+  // Find or create a tab at x.com/i/bookmarks
+  const tabs = await chrome.tabs.query({ url: ['https://x.com/*', 'https://twitter.com/*'] });
+  let bookmarkTab = tabs.find((t) => t.url?.includes('/i/bookmarks'));
+
+  if (bookmarkTab?.id) {
+    await chrome.tabs.update(bookmarkTab.id, { active: true, url: 'https://x.com/i/bookmarks' });
+  } else {
+    bookmarkTab = await chrome.tabs.create({ url: 'https://x.com/i/bookmarks' });
+  }
+
+  if (!bookmarkTab.id) return { error: 'Could not open bookmarks tab' };
+
+  currentImport = {
+    tabId: bookmarkTab.id,
+    imported: 0,
+    skipped: 0,
+    limitReached: false,
+  };
+
+  // Wait for tab to finish loading, then tell content script to start
+  const tabId = bookmarkTab.id;
+  await waitForTabLoad(tabId);
+
+  // Small delay for content script to initialize
+  await new Promise((r) => setTimeout(r, 1000));
+
+  chrome.tabs.sendMessage(tabId, { type: 'START_BULK_IMPORT' }).catch(() => {});
+  broadcastImportProgress();
+
+  return { success: true };
+}
+
+async function handleBulkImportBatch(tweets: TweetData[]) {
+  if (!currentImport) return { error: 'No import session' };
+
+  const bookmarks = tweets.map((t) => ({
+    x_post_id: t.postId,
+    x_author_handle: t.author,
+    x_author_name: t.authorName,
+    content_text: t.content,
+    media_urls: t.mediaUrls,
+    post_created_at: t.timestamp || new Date().toISOString(),
+    bookmarked_at: new Date().toISOString(),
+  }));
+
+  const result = await apiCall('/api/bookmarks/batch', {
+    method: 'POST',
+    body: JSON.stringify({ bookmarks }),
+  });
+
+  if (result.error) {
+    console.error('[BulkImport] Batch API error:', result);
+    return result;
+  }
+
+  currentImport.imported += result.imported || 0;
+  currentImport.skipped += result.skipped || 0;
+  currentImport.limitReached = result.limitReached || false;
+
+  // Update post ID cache
+  for (const t of tweets) {
+    await addToPostIdCache(t.postId);
+  }
+
+  broadcastImportProgress();
+
+  // Stop if plan limit reached
+  if (currentImport.limitReached) {
+    chrome.tabs.sendMessage(currentImport.tabId, { type: 'STOP_BULK_IMPORT' }).catch(() => {});
+  }
+
+  return { success: true, ...result };
+}
+
+function handleBulkImportDone() {
+  if (!currentImport) return;
+  const progress = {
+    imported: currentImport.imported,
+    skipped: currentImport.skipped,
+    limitReached: currentImport.limitReached,
+    done: true,
+    error: null,
+  };
+  chrome.storage.local.set({ import_progress: progress });
+  currentImport = null;
+}
+
+function handleBulkImportError(error: string) {
+  const progress = {
+    imported: currentImport?.imported || 0,
+    skipped: currentImport?.skipped || 0,
+    limitReached: false,
+    done: true,
+    error,
+  };
+  chrome.storage.local.set({ import_progress: progress });
+  currentImport = null;
+}
+
+function broadcastImportProgress() {
+  if (!currentImport) return;
+  const progress = {
+    imported: currentImport.imported,
+    skipped: currentImport.skipped,
+    limitReached: currentImport.limitReached,
+    done: false,
+    error: null,
+  };
+  chrome.storage.local.set({ import_progress: progress });
+}
+
+function waitForTabLoad(tabId: number): Promise<void> {
+  return new Promise((resolve) => {
+    function check(id: number, info: chrome.tabs.TabChangeInfo) {
+      if (id === tabId && info.status === 'complete') {
+        chrome.tabs.onUpdated.removeListener(check);
+        resolve();
+      }
+    }
+    chrome.tabs.onUpdated.addListener(check);
+    // Also check if already loaded
+    chrome.tabs.get(tabId, (tab) => {
+      if (tab.status === 'complete') {
+        chrome.tabs.onUpdated.removeListener(check);
+        resolve();
+      }
+    });
+  });
+}
+
 // ── Message handlers ─────────────────────────────────────────
 
 chrome.runtime.onInstalled.addListener(() => {
@@ -111,6 +262,20 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
 
   if (message.type === 'BOOKMARK_DELETED' && message.postId) {
     broadcastToXTabs({ type: 'BOOKMARK_DELETED', postId: message.postId });
+    sendResponse({ success: true });
+    return true;
+  }
+
+  if (message.type === 'START_BULK_IMPORT') {
+    handleStartBulkImport().then(sendResponse);
+    return true;
+  }
+
+  if (message.type === 'STOP_BULK_IMPORT') {
+    if (currentImport) {
+      chrome.tabs.sendMessage(currentImport.tabId, { type: 'STOP_BULK_IMPORT' }).catch(() => {});
+      handleBulkImportDone();
+    }
     sendResponse({ success: true });
     return true;
   }
@@ -155,6 +320,38 @@ async function handleMessage(message: Record<string, unknown>) {
 
     case 'GET_BOOKMARKED_POST_IDS':
       return apiCall('/api/bookmarks/post-ids');
+
+    case 'START_BULK_IMPORT':
+      return handleStartBulkImport();
+
+    case 'BULK_IMPORT_BATCH':
+      return handleBulkImportBatch(message.tweets as TweetData[]);
+
+    case 'BULK_IMPORT_DONE':
+      handleBulkImportDone();
+      return { success: true };
+
+    case 'BULK_IMPORT_ERROR':
+      handleBulkImportError(message.error as string);
+      return { success: true };
+
+    case 'BULK_IMPORT_STOP':
+      if (currentImport) {
+        chrome.tabs.sendMessage(currentImport.tabId, { type: 'STOP_BULK_IMPORT' }).catch(() => {});
+        handleBulkImportDone();
+      }
+      return { success: true };
+
+    case 'BULK_IMPORT_KEEPALIVE':
+      return { type: 'BULK_IMPORT_ACK' };
+
+    case 'GET_IMPORT_STATUS':
+      return {
+        running: !!currentImport,
+        imported: currentImport?.imported || 0,
+        skipped: currentImport?.skipped || 0,
+        limitReached: currentImport?.limitReached || false,
+      };
 
     case 'OPEN_IN_CURRENT_TAB': {
       const win = await chrome.windows.getLastFocused({ windowTypes: ['normal'], populate: true });
