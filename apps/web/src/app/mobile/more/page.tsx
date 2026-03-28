@@ -6,11 +6,13 @@ import { motion } from 'framer-motion';
 import { ImpactStyle } from '@capacitor/haptics';
 import { triggerHaptic } from '@/lib/mobile';
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { usePlan } from '@/lib/use-plan';
 
 export default function MobileMorePage() {
   const router = useRouter();
-  const [user, setUser] = useState<{ name: string; handle: string; avatar: string; plan: string } | null>(null);
+  const [user, setUser] = useState<{ id: string; name: string; handle: string; avatar: string } | null>(null);
   const [confirmSignOut, setConfirmSignOut] = useState(false);
+  const plan = usePlan(user?.id);
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -18,10 +20,10 @@ export default function MobileMorePage() {
       if (!session) return;
       const meta = session.user.user_metadata || {};
       setUser({
+        id: session.user.id,
         name: meta.full_name || meta.name || '',
         handle: meta.preferred_username || meta.user_name || '',
         avatar: meta.avatar_url || '',
-        plan: 'Free',
       });
     });
   }, []);
@@ -65,7 +67,7 @@ export default function MobileMorePage() {
               display: 'inline-block', marginTop: 4,
               borderRadius: 100, padding: '1px 8px', fontSize: 9, fontWeight: 600,
               background: 'rgba(0,212,255,0.1)', border: '1px solid rgba(0,212,255,0.2)', color: '#00d4ff',
-            }}>{user.plan}</span>
+            }}>{plan === 'free' ? 'Free' : plan === 'lifetime' ? 'Lifetime' : 'Pro'}</span>
           </div>
         </motion.div>
       )}

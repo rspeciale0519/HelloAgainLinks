@@ -1,5 +1,8 @@
 // HelloAgain — Content Script for x.com
 
+import { extractTweetData } from './tweet-utils';
+import { startBulkImport, stopBulkImport } from './bulk-import';
+
 console.log('[HelloAgain] Content script loaded on', window.location.href);
 
 // ── HAL bookmarked post IDs cache ────────────────────────────
@@ -100,38 +103,6 @@ function showToast(message: string, type: 'success' | 'error' = 'success') {
     toast.style.transform = 'translateY(10px)';
     setTimeout(() => toast.remove(), 300);
   }, 2500);
-}
-
-// ── Tweet data extraction ────────────────────────────────────
-
-function extractTweetData(article: Element) {
-  const contentEl = article.querySelector('[data-testid="tweetText"]');
-  const content = contentEl?.textContent || '';
-
-  // Author handle
-  const authorLink = article.querySelector('a[role="link"][href^="/"]');
-  const authorHref = authorLink?.getAttribute('href') || '';
-  const author = authorHref.replace('/', '').split('/')[0] || '';
-
-  // Author name
-  const nameEl = article.querySelector('[data-testid="User-Name"]');
-  const authorName = nameEl?.querySelector('span')?.textContent || '';
-
-  // Post ID from permalink
-  const timeLink = article.querySelector('a[href*="/status/"] time')?.parentElement;
-  const statusHref = timeLink?.getAttribute('href') || '';
-  const postIdMatch = statusHref.match(/\/status\/(\d+)/);
-  const postId = postIdMatch ? postIdMatch[1] : '';
-
-  // Timestamp
-  const timeEl = article.querySelector('time');
-  const timestamp = timeEl?.getAttribute('datetime') || '';
-
-  // Media URLs
-  const mediaEls = article.querySelectorAll('img[src*="pbs.twimg.com/media"]');
-  const mediaUrls = Array.from(mediaEls).map((img) => (img as HTMLImageElement).src);
-
-  return { content, author, authorName, postId, timestamp, mediaUrls };
 }
 
 // ── HAL button state helpers ─────────────────────────────────
@@ -388,17 +359,40 @@ document.addEventListener(
 );
 
 // Deactivate HAL button when bookmark is deleted from dashboard or side panel
+// Also handle bulk import start/stop commands from background
 chrome.runtime.onMessage.addListener((message) => {
-  if (message.type !== 'BOOKMARK_DELETED' || !message.postId) return;
-  halPostIds.delete(message.postId);
-  document.querySelectorAll('article[data-testid="tweet"]').forEach((article) => {
-    const timeLink = article.querySelector('a[href*="/status/"] time')?.parentElement;
-    const postIdMatch = (timeLink?.getAttribute('href') || '').match(/\/status\/(\d+)/);
-    if (postIdMatch?.[1] === message.postId) {
-      const halBtn = article.querySelector('.helloagain-save-btn') as HTMLButtonElement | null;
-      if (halBtn) setHalButtonInactive(halBtn);
-    }
-  });
+  if (message.type === 'BOOKMARK_DELETED' && message.postId) {
+    halPostIds.delete(message.postId);
+    document.querySelectorAll('article[data-testid="tweet"]').forEach((article) => {
+      const timeLink = article.querySelector('a[href*="/status/"] time')?.parentElement;
+      const postIdMatch = (timeLink?.getAttribute('href') || '').match(/\/status\/(\d+)/);
+      if (postIdMatch?.[1] === message.postId) {
+        const halBtn = article.querySelector('.helloagain-save-btn') as HTMLButtonElement | null;
+        if (halBtn) setHalButtonInactive(halBtn);
+      }
+    });
+    return;
+  }
+
+  if (message.type === 'START_BULK_IMPORT') {
+    startBulkImport({
+      onBatch: (tweets) => {
+        chrome.runtime.sendMessage({ type: 'BULK_IMPORT_BATCH', tweets });
+      },
+      onDone: () => {
+        chrome.runtime.sendMessage({ type: 'BULK_IMPORT_DONE' });
+      },
+      onError: (msg) => {
+        chrome.runtime.sendMessage({ type: 'BULK_IMPORT_ERROR', error: msg });
+      },
+    });
+    return;
+  }
+
+  if (message.type === 'STOP_BULK_IMPORT') {
+    stopBulkImport();
+    return;
+  }
 });
 
 // Start — load HAL post IDs from API, then observe timeline

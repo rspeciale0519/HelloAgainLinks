@@ -26,6 +26,66 @@ interface FolderItem {
   parent_id: string | null;
 }
 
+function ImportButton() {
+  const [state, setState] = useState<'idle' | 'running' | 'done'>('idle');
+  const [imported, setImported] = useState(0);
+
+  useEffect(() => {
+    const listener = (changes: Record<string, chrome.storage.StorageChange>) => {
+      if (!changes.import_progress) return;
+      const p = changes.import_progress.newValue;
+      if (!p) return;
+      setImported(p.imported || 0);
+      setState(p.done ? 'done' : 'running');
+    };
+    chrome.storage.local.onChanged.addListener(listener);
+    chrome.runtime.sendMessage({ type: 'GET_IMPORT_STATUS' }, (res) => {
+      void chrome.runtime.lastError;
+      if (res?.running) { setState('running'); setImported(res.imported || 0); }
+    });
+    return () => chrome.storage.local.onChanged.removeListener(listener);
+  }, []);
+
+  if (state === 'running') {
+    return (
+      <span style={{ fontSize: '11px', color: '#00d4ff', fontWeight: 500 }}>
+        Importing... {imported}
+      </span>
+    );
+  }
+
+  if (state === 'done') {
+    return (
+      <button
+        onClick={() => setState('idle')}
+        style={{
+          background: 'none', border: 'none', color: '#22c55e',
+          fontSize: '11px', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
+        }}
+      >
+        Done ({imported})
+      </button>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => {
+        setState('running');
+        chrome.runtime.sendMessage({ type: 'START_BULK_IMPORT' });
+      }}
+      style={{
+        padding: '4px 10px', borderRadius: '6px',
+        border: '1px solid rgba(0,212,255,0.2)', background: 'rgba(0,212,255,0.05)',
+        color: '#00d4ff', fontSize: '11px', fontWeight: 600,
+        cursor: 'pointer', fontFamily: "'Inter', sans-serif",
+      }}
+    >
+      Import All
+    </button>
+  );
+}
+
 export function SidePanel() {
   const [search, setSearch] = useState('');
   const [bookmarks, setBookmarks] = useState<BookmarkItem[]>([]);
@@ -229,6 +289,8 @@ export function SidePanel() {
             }}
           >H</div>
           <span style={{ fontSize: '15px', fontWeight: 600 }}>Hello Again Links</span>
+          <div style={{ flex: 1 }} />
+          <ImportButton />
         </div>
 
         {/* Search */}
