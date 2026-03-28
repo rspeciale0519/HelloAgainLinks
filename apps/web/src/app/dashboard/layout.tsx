@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { ImpactStyle } from '@capacitor/haptics';
 
 import { useAuth } from '@/lib/use-auth';
-import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { usePlan } from '@/lib/use-plan';
 import { triggerHaptic } from '@/lib/mobile';
 import UserMenu from '@/components/UserMenu';
 
@@ -31,22 +31,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const meta = user?.user_metadata || {};
   const displayName = meta.preferred_username || meta.user_name || 'User';
   const avatarUrl = meta.avatar_url || meta.picture || '';
-  const [plan, setPlan] = useState<'free' | 'pro' | 'lifetime'>('free');
-
-  useEffect(() => {
-    if (!user) return;
-    const supabase = getSupabaseBrowserClient();
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!session) return;
-      const res = await fetch('/api/profile', {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.plan) setPlan(data.plan);
-      }
-    });
-  }, [user]);
+  const plan = usePlan(user?.id);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
