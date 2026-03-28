@@ -4,9 +4,9 @@
   "version": "0.1.17",
   "description": "HAL — AI-powered bookmark manager for X/Twitter with social features.",
   "permissions": ["activeTab", "tabs", "storage", "identity", "sidePanel"],
-  "host_permissions": ["https://x.com/*", "https://twitter.com/*", "https://helloagain-three.vercel.app/*"],
+  "host_permissions": ["https://x.com/*", "https://twitter.com/*", "https://helloagainlinks.com/*"],
   "externally_connectable": {
-    "matches": ["https://helloagain-three.vercel.app/*", "http://localhost:3000/*"]
+    "matches": ["https://helloagainlinks.com/*", "http://localhost:3000/*"]
   },
   "background": {
     "service_worker": "background.js",
@@ -18,7 +18,7 @@
       "js": ["content.js"]
     },
     {
-      "matches": ["https://helloagain-three.vercel.app/*"],
+      "matches": ["https://helloagainlinks.com/*"],
       "js": ["dashboard.js"],
       "run_at": "document_start"
     }

@@ -16,6 +16,145 @@ interface BookmarkItem {
   created_at: string;
 }
 
+function ImportBookmarks() {
+  const [state, setState] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
+  const [imported, setImported] = useState(0);
+  const [skipped, setSkipped] = useState(0);
+  const [limitReached, setLimitReached] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+
+  useEffect(() => {
+    const listener = (message: Record<string, unknown>) => {
+      if (message.type === 'BULK_IMPORT_PROGRESS' || message.type === 'BULK_IMPORT_DONE' || message.type === 'BULK_IMPORT_ERROR') {
+        return; // these come via storage changes, not direct messages
+      }
+    };
+    chrome.runtime.onMessage.addListener(listener);
+
+    // Listen for storage-based progress (more reliable for MV3)
+    const storageListener = (changes: Record<string, chrome.storage.StorageChange>) => {
+      if (!changes.import_progress) return;
+      const p = changes.import_progress.newValue;
+      if (!p) return;
+      setImported(p.imported || 0);
+      setSkipped(p.skipped || 0);
+      setLimitReached(p.limitReached || false);
+      if (p.error) {
+        setErrorMsg(p.error);
+        setState('error');
+      } else if (p.done) {
+        setState('done');
+      } else {
+        setState('running');
+      }
+    };
+    chrome.storage.local.onChanged.addListener(storageListener);
+
+    // Check if import is already running
+    chrome.runtime.sendMessage({ type: 'GET_IMPORT_STATUS' }, (res) => {
+      void chrome.runtime.lastError;
+      if (res?.running) {
+        setState('running');
+        setImported(res.imported || 0);
+        setSkipped(res.skipped || 0);
+      }
+    });
+
+    return () => {
+      chrome.runtime.onMessage.removeListener(listener);
+      chrome.storage.local.onChanged.removeListener(storageListener);
+    };
+  }, []);
+
+  const handleStart = () => {
+    setState('running');
+    setImported(0);
+    setSkipped(0);
+    setLimitReached(false);
+    chrome.runtime.sendMessage({ type: 'START_BULK_IMPORT' });
+  };
+
+  const handleStop = () => {
+    chrome.runtime.sendMessage({ type: 'BULK_IMPORT_STOP' });
+    setState('done');
+  };
+
+  return (
+    <div style={{
+      padding: '10px 0', borderTop: '1px solid rgba(0,212,255,0.06)', marginTop: '8px',
+    }}>
+      {state === 'idle' && (
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={handleStart}
+          style={{
+            width: '100%', padding: '10px', borderRadius: '10px',
+            border: '1px solid rgba(0,212,255,0.2)', background: 'rgba(0,212,255,0.05)',
+            color: '#00d4ff', fontSize: '13px', fontWeight: 600,
+            cursor: 'pointer', fontFamily: "'Inter', sans-serif",
+          }}
+        >
+          Import All X Bookmarks
+        </motion.button>
+      )}
+      {state === 'running' && (
+        <div>
+          <div style={{ fontSize: '12px', color: '#8a8a9a', marginBottom: '6px' }}>
+            Importing... <span style={{ color: '#00d4ff', fontWeight: 600 }}>{imported}</span> saved
+            {skipped > 0 && <span> ({skipped} skipped)</span>}
+          </div>
+          <button
+            onClick={handleStop}
+            style={{
+              width: '100%', padding: '8px', borderRadius: '8px',
+              border: '1px solid rgba(239,68,68,0.2)', background: 'transparent',
+              color: '#ef4444', fontSize: '12px', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
+            }}
+          >
+            Stop Import
+          </button>
+        </div>
+      )}
+      {state === 'done' && (
+        <div style={{ fontSize: '12px', color: '#8a8a9a' }}>
+          <span style={{ color: '#22c55e' }}>Done!</span> Imported{' '}
+          <span style={{ color: '#00d4ff', fontWeight: 600 }}>{imported}</span> bookmarks
+          {skipped > 0 && <span> ({skipped} skipped)</span>}
+          {limitReached && (
+            <div style={{ color: '#f59e0b', marginTop: '4px', fontSize: '11px' }}>
+              Plan limit reached — upgrade to Pro for unlimited imports
+            </div>
+          )}
+          <button
+            onClick={() => setState('idle')}
+            style={{
+              marginTop: '6px', background: 'none', border: 'none',
+              color: '#00d4ff', fontSize: '11px', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
+            }}
+          >
+            Import again
+          </button>
+        </div>
+      )}
+      {state === 'error' && (
+        <div style={{ fontSize: '12px' }}>
+          <div style={{ color: '#ef4444', marginBottom: '4px' }}>{errorMsg || 'Import failed'}</div>
+          <button
+            onClick={() => setState('idle')}
+            style={{
+              background: 'none', border: 'none',
+              color: '#00d4ff', fontSize: '11px', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
+            }}
+          >
+            Try again
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function HalButtonToggle() {
   const [showButton, setShowButton] = useState(true);
 
@@ -112,7 +251,7 @@ export function Popup() {
   }, []);
 
   const handleOpenDashboard = useCallback(() => {
-    chrome.tabs.create({ url: 'https://helloagain-three.vercel.app/dashboard' });
+    chrome.tabs.create({ url: 'https://helloagainlinks.com/dashboard' });
   }, []);
 
   const timeAgo = (dateStr: string) => {
@@ -364,6 +503,9 @@ export function Popup() {
         )}
         {listItems.map((bm, i) => renderBookmarkCard(bm, i))}
       </div>
+
+      {/* Bulk Import */}
+      <ImportBookmarks />
 
       {/* Settings */}
       <HalButtonToggle />

@@ -4,11 +4,12 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
+import type { Plan } from '@helloagain/shared';
 
 interface UserMenuProps {
   avatarUrl: string;
   displayName: string;
-  plan?: string;
+  plan?: Plan;
   onNavigate?: () => void; // called on mobile to close sidebar
 }
 
@@ -18,7 +19,7 @@ const menuItems = [
   { id: 'billing', label: 'Billing', icon: '💳', action: 'billing' },
 ] as const;
 
-export default function UserMenu({ avatarUrl, displayName, plan = 'Free', onNavigate }: UserMenuProps) {
+export default function UserMenu({ avatarUrl, displayName, plan = 'free', onNavigate }: UserMenuProps) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
