@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext, isAuthError } from '@/lib/auth';
 import { randomBytes } from 'crypto';
 
+export const dynamic = 'force-dynamic';
+
 // List user's shared lists (owned + member of)
 export async function GET(req: NextRequest) {
   const ctx = await getAuthContext(req);

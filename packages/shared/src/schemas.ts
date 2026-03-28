@@ -75,6 +75,12 @@ export const addFoldersSchema = z.object({
   folder_ids: z.array(z.string().uuid()).min(1).max(10),
 });
 
+// Batch import
+export const batchImportSchema = z.object({
+  bookmarks: z.array(createBookmarkSchema).min(1).max(100),
+});
+export type BatchImportInput = z.infer<typeof batchImportSchema>;
+
 // Plan limits
 export const PLAN_LIMITS = {
   free: { bookmarks: 500, folders: 5, tags: 20 },

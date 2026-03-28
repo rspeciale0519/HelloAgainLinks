@@ -37,7 +37,7 @@ export default function OnboardingPage() {
     // Do NOT use window.location.href — that navigates the WebView away from
     // the app shell and destroys the listener before the deep-link fires.
     // Use absolute production URL — relative URLs resolve to http://localhost in the system browser.
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://helloagain-three.vercel.app';
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://helloagainlinks.com';
     window.open(`${appUrl}/api/auth/x-login?platform=mobile`, '_system');
   };
 

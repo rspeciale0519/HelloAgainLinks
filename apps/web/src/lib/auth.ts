@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceClient, getUserClient } from './supabase-server';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Plan } from '@helloagain/shared';
 
 export interface AuthContext {
   userId: string;
   userClient: SupabaseClient;
   serviceClient: SupabaseClient;
-  plan: 'free' | 'pro' | 'lifetime';
+  plan: Plan;
 }
 
 /**
@@ -42,7 +43,7 @@ export async function getAuthContext(
     userId: user.id,
     userClient,
     serviceClient,
-    plan: (profile?.plan as 'free' | 'pro' | 'lifetime') || 'free',
+    plan: (profile?.plan as Plan) || 'free',
   };
 }
 
