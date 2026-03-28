@@ -212,22 +212,37 @@ export function Popup() {
   const [loading, setLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState<BookmarkItem | null>(null);
 
+  const refreshData = useCallback(() => {
+    chrome.runtime.sendMessage({ type: 'GET_BOOKMARK_COUNT' }, (res) => {
+      void chrome.runtime.lastError;
+      if (res?.count !== undefined) setBookmarkCount(res.count);
+    });
+    chrome.runtime.sendMessage(
+      { type: 'GET_BOOKMARKS', params: { pageSize: '5', sort: 'created_at', order: 'desc' } },
+      (res) => {
+        void chrome.runtime.lastError;
+        if (res?.data) setRecentBookmarks(res.data);
+      }
+    );
+  }, []);
+
   useEffect(() => {
     chrome.runtime.sendMessage({ type: 'GET_AUTH_STATUS' }, (res) => {
       setAuthenticated(!!res?.authenticated);
       if (res?.user) setUser(res.user);
       setLoading(false);
     });
-    chrome.runtime.sendMessage({ type: 'GET_BOOKMARK_COUNT' }, (res) => {
-      if (res?.count !== undefined) setBookmarkCount(res.count);
-    });
-    chrome.runtime.sendMessage(
-      { type: 'GET_BOOKMARKS', params: { pageSize: '5', sort: 'created_at', order: 'desc' } },
-      (res) => {
-        if (res?.data) setRecentBookmarks(res.data);
-      }
-    );
-  }, []);
+    refreshData();
+
+    // Refresh data when import completes
+    const storageListener = (changes: Record<string, chrome.storage.StorageChange>) => {
+      if (!changes.import_progress) return;
+      const p = changes.import_progress.newValue;
+      if (p?.done && !p.error) refreshData();
+    };
+    chrome.storage.local.onChanged.addListener(storageListener);
+    return () => chrome.storage.local.onChanged.removeListener(storageListener);
+  }, [refreshData]);
 
   useEffect(() => {
     const query = search.trim();
