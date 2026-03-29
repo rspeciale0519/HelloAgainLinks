@@ -25,20 +25,32 @@ function loadHalPostIds() {
   });
 }
 
-// Fetch fresh from HAL API, update cache, then refresh button states
+// Fetch fresh from HAL API with 5-minute TTL to avoid hitting the API on every navigation
+const SYNC_TTL_MS = 5 * 60 * 1000;
+
 function syncHalPostIds() {
-  try {
-    chrome.runtime.sendMessage({ type: 'GET_BOOKMARKED_POST_IDS' }, (response) => {
-      void chrome.runtime.lastError;
-      if (response?.post_ids) {
-        chrome.storage.local.set({ hal_post_ids: response.post_ids }, loadHalPostIds);
-      } else {
-        loadHalPostIds(); // fall back to cache
-      }
-    });
-  } catch {
-    loadHalPostIds();
-  }
+  chrome.storage.local.get('hal_post_ids_synced_at', (result) => {
+    const lastSync = result.hal_post_ids_synced_at || 0;
+    if (Date.now() - lastSync < SYNC_TTL_MS) {
+      loadHalPostIds(); // cache is fresh enough
+      return;
+    }
+    try {
+      chrome.runtime.sendMessage({ type: 'GET_BOOKMARKED_POST_IDS' }, (response) => {
+        void chrome.runtime.lastError;
+        if (response?.post_ids) {
+          chrome.storage.local.set(
+            { hal_post_ids: response.post_ids, hal_post_ids_synced_at: Date.now() },
+            loadHalPostIds
+          );
+        } else {
+          loadHalPostIds();
+        }
+      });
+    } catch {
+      loadHalPostIds();
+    }
+  });
 }
 
 // ── Settings ─────────────────────────────────────────────────
@@ -263,14 +275,20 @@ function observeTimeline() {
   // Initial pass
   enhanceBookmarkButtons(document.body as HTMLElement);
 
+  let rafPending = false;
   const observer = new MutationObserver((mutations) => {
-    for (const mutation of mutations) {
-      for (const node of mutation.addedNodes) {
-        if (node instanceof HTMLElement) {
-          enhanceBookmarkButtons(node);
+    if (rafPending) return;
+    rafPending = true;
+    requestAnimationFrame(() => {
+      rafPending = false;
+      for (const mutation of mutations) {
+        for (const node of mutation.addedNodes) {
+          if (node instanceof HTMLElement) {
+            enhanceBookmarkButtons(node);
+          }
         }
       }
-    }
+    });
   });
 
   observer.observe(document.body, { childList: true, subtree: true });

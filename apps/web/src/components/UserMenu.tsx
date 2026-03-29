@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { authFetch } from '@/lib/auth-fetch';
 import type { Plan } from '@helloagain/shared';
 
 interface UserMenuProps {
@@ -14,7 +15,6 @@ interface UserMenuProps {
 }
 
 const menuItems = [
-  { id: 'profile', label: 'Profile', icon: '👤', href: '/dashboard/settings' },
   { id: 'settings', label: 'Settings', icon: '⚙️', href: '/dashboard/settings' },
   { id: 'billing', label: 'Billing', icon: '💳', action: 'billing' },
 ] as const;
@@ -56,16 +56,10 @@ export default function UserMenu({ avatarUrl, displayName, plan = 'free', onNavi
   const handleBilling = useCallback(async () => {
     setOpen(false);
     onNavigate?.();
-    const supabase = getSupabaseBrowserClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
 
-    const res = await fetch('/api/stripe/portal', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
+    const res = await authFetch('/api/stripe/portal', { method: 'POST' });
 
-    if (res.ok) {
+    if (res?.ok) {
       const data = await res.json();
       if (data.url) window.location.href = data.url;
     }

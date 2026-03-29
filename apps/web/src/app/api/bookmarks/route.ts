@@ -90,25 +90,14 @@ export async function GET(req: NextRequest) {
     .range(from, to);
 
   if (author) query = query.eq('x_author_handle', author);
+  if (tag_id) query = query.eq('bookmark_tags.tag_id', tag_id);
+  if (folder_id) query = query.eq('bookmark_folders.folder_id', folder_id);
 
   const { data, count, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Post-filter by folder_id or tag_id if needed (join filtering)
-  let filtered = data ?? [];
-  if (tag_id) {
-    filtered = filtered.filter((b: Record<string, unknown>) =>
-      (b.bookmark_tags as Array<Record<string, unknown>>)?.some((bt) => bt.tag_id === tag_id)
-    );
-  }
-  if (folder_id) {
-    filtered = filtered.filter((b: Record<string, unknown>) =>
-      (b.bookmark_folders as Array<Record<string, unknown>>)?.some((bf) => bf.folder_id === folder_id)
-    );
-  }
-
   return NextResponse.json({
-    data: filtered,
+    data: data ?? [],
     count: count ?? 0,
     page,
     pageSize,

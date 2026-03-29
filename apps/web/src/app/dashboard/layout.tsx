@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useCallback } from 'react';
 import { ImpactStyle } from '@capacitor/haptics';
 
+import { HalLogo } from '@helloagain/ui';
 import { useAuth } from '@/lib/use-auth';
 import { usePlan } from '@/lib/use-plan';
 import { triggerHaptic } from '@/lib/mobile';
@@ -102,23 +103,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 marginBottom: '32px',
               }}
             >
-              <div
-                style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '8px',
-                  background: 'linear-gradient(135deg, #00d4ff, #0ea5e9)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '16px',
-                  fontWeight: 700,
-                  color: '#0a0a0f',
-                  boxShadow: '0 0 15px rgba(0,212,255,0.3)',
-                }}
-              >
-                H
-              </div>
+              <HalLogo size={32} />
               <span style={{ fontSize: '16px', fontWeight: 600, color: '#f0f0f5' }}>Hello Again Links</span>
             </div>
 

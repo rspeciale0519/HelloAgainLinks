@@ -3,6 +3,7 @@ export { Card } from './Card';
 export { GlowCard } from './GlowCard';
 export { Input } from './Input';
 export { Badge } from './Badge';
+export { HalLogo } from './HalLogo';
 export { Modal } from './Modal';
 export { Sidebar } from './Sidebar';
 export { SearchBar } from './SearchBar';

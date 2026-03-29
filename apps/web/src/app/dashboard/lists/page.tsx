@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { useEffect, useState, useCallback } from 'react';
-import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { authFetch, authPost } from '@/lib/auth-fetch';
 
 interface SharedList {
   id: string;
@@ -28,13 +28,9 @@ export default function SharedListsPage() {
   const [error, setError] = useState('');
 
   const fetchLists = useCallback(async () => {
-    const supabase = getSupabaseBrowserClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { setLoading(false); return; }
+    const res = await authFetch('/api/shared-lists');
+    if (!res) { setLoading(false); return; }
 
-    const res = await fetch('/api/shared-lists', {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
     if (res.ok) {
       const data = await res.json();
       setLists(data.lists || []);
@@ -51,22 +47,13 @@ export default function SharedListsPage() {
     setCreating(true);
     setError('');
 
-    const supabase = getSupabaseBrowserClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { setCreating(false); return; }
-
-    const res = await fetch('/api/shared-lists', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${session.access_token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        name: newName,
-        description: newDesc,
-        visibility: newVisibility,
-      }),
+    const res = await authPost('/api/shared-lists', {
+      name: newName,
+      description: newDesc,
+      visibility: newVisibility,
     });
+
+    if (!res) { setCreating(false); return; }
 
     if (res.ok) {
       setNewName('');
