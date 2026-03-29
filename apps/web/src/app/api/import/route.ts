@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext, isAuthError } from '@/lib/auth';
-
-const X_CLIENT_ID = process.env.X_CLIENT_ID!;
-const X_CLIENT_SECRET = process.env.X_CLIENT_SECRET!;
+import { refreshXToken } from '@/lib/x-auth';
 
 // Start import of X bookmarks
 export async function POST(req: NextRequest) {
@@ -116,29 +114,32 @@ export async function POST(req: NextRequest) {
         userMap.set(u.id, { username: u.username, name: u.name });
       }
 
-      // Insert bookmarks (skip duplicates)
-      for (const tweet of tweets) {
+      // Batch insert bookmarks (skip duplicates via onConflict)
+      const rows = tweets.map((tweet: Record<string, string>) => {
         const author = userMap.get(tweet.author_id) || { username: 'unknown', name: '' };
+        return {
+          user_id: ctx.userId,
+          x_post_id: tweet.id,
+          x_author_handle: author.username,
+          x_author_name: author.name,
+          content_text: tweet.text || '',
+          media_urls: [],
+          post_created_at: tweet.created_at || new Date().toISOString(),
+          bookmarked_at: new Date().toISOString(),
+        };
+      });
 
-        const { error: insertErr } = await ctx.serviceClient
-          .from('bookmarks')
-          .insert({
-            user_id: ctx.userId,
-            x_post_id: tweet.id,
-            x_author_handle: author.username,
-            x_author_name: author.name,
-            content_text: tweet.text || '',
-            media_urls: [],
-            post_created_at: tweet.created_at || new Date().toISOString(),
-            bookmarked_at: new Date().toISOString(),
-          });
+      const { data: insertedRows, error: batchErr } = await ctx.serviceClient
+        .from('bookmarks')
+        .upsert(rows, { onConflict: 'user_id,x_post_id', ignoreDuplicates: true })
+        .select('id');
 
-        if (insertErr) {
-          // Likely duplicate (unique constraint on x_post_id + user_id)
-          skipped++;
-        } else {
-          imported++;
-        }
+      if (batchErr) {
+        skipped += rows.length;
+      } else {
+        const insertedCount = insertedRows?.length ?? 0;
+        imported += insertedCount;
+        skipped += rows.length - insertedCount;
       }
 
       // Update progress
@@ -195,24 +196,3 @@ export async function GET(req: NextRequest) {
   });
 }
 
-async function refreshXToken(refreshToken: string) {
-  try {
-    const basicAuth = Buffer.from(`${X_CLIENT_ID}:${X_CLIENT_SECRET}`).toString('base64');
-    const res = await fetch('https://api.x.com/2/oauth2/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        Authorization: `Basic ${basicAuth}`,
-      },
-      body: new URLSearchParams({
-        grant_type: 'refresh_token',
-        refresh_token: refreshToken,
-      }),
-    });
-
-    if (!res.ok) return null;
-    return await res.json();
-  } catch {
-    return null;
-  }
-}

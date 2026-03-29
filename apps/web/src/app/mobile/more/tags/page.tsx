@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { authFetch } from '@/lib/auth-fetch';
+import { hexToRgba } from '@helloagain/shared';
 
 interface Tag { id: string; name: string; color: string; bookmark_count?: number; }
 
@@ -13,11 +14,8 @@ export default function MobileTagsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const supabase = getSupabaseBrowserClient();
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!session) return;
-      const res = await fetch('/api/tags', { headers: { Authorization: `Bearer ${session.access_token}` } });
-      if (res.ok) { const d = await res.json(); setTags(d.tags || d || []); }
+    authFetch('/api/tags').then(async (res) => {
+      if (res?.ok) { const d = await res.json(); setTags(d.tags || d || []); }
       setLoading(false);
     });
   }, []);
@@ -34,9 +32,7 @@ export default function MobileTagsPage() {
         <div style={{ color: '#4a4a5a', textAlign: 'center', padding: 32, fontSize: 13 }}>No tags yet. Tags are created automatically when you save bookmarks.</div>
       ) : (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-          {tags.map((tag, i) => {
-            const r = parseInt(tag.color.slice(1,3),16), g = parseInt(tag.color.slice(3,5),16), b = parseInt(tag.color.slice(5,7),16);
-            return (
+          {tags.map((tag, i) => (
               <motion.div
                 key={tag.id}
                 initial={{ opacity: 0, scale: 0.9 }}
@@ -44,15 +40,14 @@ export default function MobileTagsPage() {
                 transition={{ delay: i * 0.03 }}
                 style={{
                   borderRadius: 100, padding: '8px 16px',
-                  background: `rgba(${r},${g},${b},0.1)`,
-                  border: `1px solid rgba(${r},${g},${b},0.25)`,
+                  background: hexToRgba(tag.color, 0.1),
+                  border: `1px solid ${hexToRgba(tag.color, 0.25)}`,
                   color: tag.color, fontSize: 13, fontWeight: 500,
                 }}
               >
-                {tag.name}{(tag.bookmark_count ?? 0) > 0 && <span style={{ color: `rgba(${r},${g},${b},0.6)`, fontSize: 11 }}> ({tag.bookmark_count})</span>}
+                {tag.name}{(tag.bookmark_count ?? 0) > 0 && <span style={{ color: hexToRgba(tag.color, 0.6), fontSize: 11 }}> ({tag.bookmark_count})</span>}
               </motion.div>
-            );
-          })}
+          ))}
         </div>
       )}
     </div>

@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { HalLogo } from '@helloagain/ui';
 
 const steps = [
   {
@@ -44,15 +45,7 @@ export default function InstallPage() {
         padding: '20px 48px', borderBottom: '1px solid rgba(0,212,255,0.06)', position: 'relative', zIndex: 10,
       }}>
         <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }}>
-          <div style={{
-            width: '36px', height: '36px', borderRadius: '10px',
-            background: 'linear-gradient(135deg, #00d4ff, #0ea5e9)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '18px', fontWeight: 700, color: '#0a0a0f',
-            boxShadow: '0 0 20px rgba(0,212,255,0.3)',
-          }}>
-            H
-          </div>
+          <HalLogo size={36} />
           <span style={{ fontSize: '20px', fontWeight: 600, color: '#f0f0f5' }}>Hello Again Links</span>
         </Link>
       </nav>

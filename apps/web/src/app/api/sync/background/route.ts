@@ -2,25 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext, isAuthError } from '@/lib/auth';
 import { getServiceClient } from '@/lib/supabase-server';
 import { autoTagBookmark } from '@/lib/grok';
+import { refreshXToken } from '@/lib/x-auth';
 
-const X_CLIENT_ID = process.env.X_CLIENT_ID!;
-const X_CLIENT_SECRET = process.env.X_CLIENT_SECRET!;
 const CRON_SECRET = process.env.BOOKMARK_SYNC_SECRET;
-
-async function refreshXToken(refreshToken: string) {
-  const basicAuth = Buffer.from(`${X_CLIENT_ID}:${X_CLIENT_SECRET}`).toString('base64');
-  const res = await fetch('https://api.x.com/2/oauth2/token', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      Authorization: `Basic ${basicAuth}`,
-    },
-    body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refreshToken }),
-  });
-
-  if (!res.ok) return null;
-  return await res.json();
-}
 
 async function syncUser(serviceClient: ReturnType<typeof getServiceClient>, userId: string) {
   const { data: profile } = await serviceClient
@@ -57,30 +41,33 @@ async function syncUser(serviceClient: ReturnType<typeof getServiceClient>, user
   const userMap = new Map<string, { username: string; name: string }>();
   for (const u of users) userMap.set(u.id, { username: u.username, name: u.name });
 
-  for (const tweet of tweets) {
+  // Batch insert bookmarks (skip duplicates)
+  const rows = tweets.map((tweet: Record<string, string>) => {
     const author = userMap.get(tweet.author_id) || { username: 'unknown', name: '' };
-    const { data: created, error } = await serviceClient
-      .from('bookmarks')
-      .insert({
-        user_id: userId,
-        x_post_id: tweet.id,
-        x_author_handle: author.username,
-        x_author_name: author.name,
-        content_text: tweet.text || '',
-        media_urls: [],
-        post_created_at: tweet.created_at || new Date().toISOString(),
-        bookmarked_at: new Date().toISOString(),
-      })
-      .select('id, content_text')
-      .single();
+    return {
+      user_id: userId,
+      x_post_id: tweet.id,
+      x_author_handle: author.username,
+      x_author_name: author.name,
+      content_text: tweet.text || '',
+      media_urls: [],
+      post_created_at: tweet.created_at || new Date().toISOString(),
+      bookmarked_at: new Date().toISOString(),
+    };
+  });
 
-    if (error || !created) {
-      skipped++;
-      continue;
-    }
-    imported++;
+  const { data: insertedRows } = await serviceClient
+    .from('bookmarks')
+    .upsert(rows, { onConflict: 'user_id,x_post_id', ignoreDuplicates: true })
+    .select('id, content_text');
 
-    const tags = await autoTagBookmark(created.content_text || '');
+  const created = insertedRows ?? [];
+  imported = created.length;
+  skipped = rows.length - imported;
+
+  // Auto-tag newly created bookmarks (AI calls are inherently sequential)
+  for (const bm of created) {
+    const tags = await autoTagBookmark(bm.content_text || '');
     for (const tagName of tags) {
       const { data: tag } = await serviceClient
         .from('tags')
@@ -88,7 +75,7 @@ async function syncUser(serviceClient: ReturnType<typeof getServiceClient>, user
         .select('id')
         .single();
       if (tag) {
-        await serviceClient.from('bookmark_tags').upsert({ bookmark_id: created.id, tag_id: tag.id }, { onConflict: 'bookmark_id,tag_id' });
+        await serviceClient.from('bookmark_tags').upsert({ bookmark_id: bm.id, tag_id: tag.id }, { onConflict: 'bookmark_id,tag_id' });
       }
     }
   }

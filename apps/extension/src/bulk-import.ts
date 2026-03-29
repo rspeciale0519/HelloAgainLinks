@@ -91,10 +91,14 @@ function injectOverlay(): HTMLDivElement {
   return overlay;
 }
 
-function updateOverlay(found: number, sent: number, skipped: number) {
+function updateOverlay(found: number, sent: number, skipped: number, done = false) {
   const status = document.getElementById('hal-import-status');
   if (!status) return;
   status.textContent = '';
+
+  if (done) {
+    status.appendChild(createEl('div', { marginBottom: '6px' }, 'Scan complete!'));
+  }
 
   const line1 = createEl('div', { marginBottom: '6px' });
   line1.appendChild(document.createTextNode('Found: '));
@@ -115,37 +119,17 @@ function updateOverlay(found: number, sent: number, skipped: number) {
     status.appendChild(line3);
   }
 
-  const scrollNote = createEl('div', { marginTop: '8px', fontSize: '11px', color: '#4a4a5a' }, 'Auto-scrolling page...');
-  status.appendChild(scrollNote);
-}
-
-function showOverlayDone(found: number, sent: number, skipped: number) {
-  const status = document.getElementById('hal-import-status');
-  if (status) {
-    status.textContent = '';
-    status.appendChild(createEl('div', { marginBottom: '6px' }, 'Scan complete!'));
-    const line1 = createEl('div', {});
-    line1.appendChild(document.createTextNode('Found: '));
-    line1.appendChild(createEl('span', { color: '#00d4ff', fontWeight: '600' }, String(found)));
-    line1.appendChild(document.createTextNode(' bookmarks'));
-    status.appendChild(line1);
-    const line2 = createEl('div', {});
-    line2.appendChild(document.createTextNode('Sent to HAL: '));
-    line2.appendChild(createEl('span', { color: '#00d4ff', fontWeight: '600' }, String(sent)));
-    status.appendChild(line2);
-    if (skipped > 0) {
-      const line3 = createEl('div', { marginTop: '2px' });
-      line3.appendChild(document.createTextNode('Skipped: '));
-      line3.appendChild(createEl('span', { color: '#f59e0b', fontWeight: '600' }, String(skipped)));
-      line3.appendChild(document.createTextNode(' duplicates'));
-      status.appendChild(line3);
-    }
+  if (!done) {
+    status.appendChild(createEl('div', { marginTop: '8px', fontSize: '11px', color: '#4a4a5a' }, 'Auto-scrolling page...'));
   }
-  const stopBtn = document.getElementById('hal-import-stop');
-  if (stopBtn) {
-    stopBtn.textContent = 'Close';
-    (stopBtn as HTMLElement).style.borderColor = 'rgba(0,212,255,0.3)';
-    (stopBtn as HTMLElement).style.color = '#00d4ff';
+
+  if (done) {
+    const stopBtn = document.getElementById('hal-import-stop');
+    if (stopBtn) {
+      stopBtn.textContent = 'Close';
+      (stopBtn as HTMLElement).style.borderColor = 'rgba(0,212,255,0.3)';
+      (stopBtn as HTMLElement).style.color = '#00d4ff';
+    }
   }
 }
 
@@ -259,7 +243,7 @@ export function startBulkImport(callbacks: BulkImportCallbacks) {
         const result = await callbacks.onBatch(buffer.splice(0));
         totalSkipped += result.skipped || 0;
       }
-      showOverlayDone(totalFound, totalSent, totalSkipped);
+      updateOverlay(totalFound, totalSent, totalSkipped, true);
       callbacks.onDone();
       cleanupTimers();
       return;

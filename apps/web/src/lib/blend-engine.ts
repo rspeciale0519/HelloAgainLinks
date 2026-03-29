@@ -46,13 +46,13 @@ export async function generateBlendAnalysis(
       .select('content_text, x_author_handle')
       .eq('user_id', userAId)
       .order('bookmarked_at', { ascending: false })
-      .limit(50),
+      .limit(25),
     supabase
       .from('bookmarks')
       .select('content_text, x_author_handle')
       .eq('user_id', userBId)
       .order('bookmarked_at', { ascending: false })
-      .limit(50),
+      .limit(25),
   ]);
 
   // Fetch tags for both users
@@ -73,7 +73,7 @@ export async function generateBlendAnalysis(
   const contextA = [
     `Tags: ${(tagsA || []).map((t: { name: string }) => t.name).join(', ')}`,
     'Recent bookmarks:',
-    ...(bookmarksA || []).slice(0, 25).map(
+    ...(bookmarksA || []).map(
       (b: { x_author_handle: string; content_text: string }) =>
         `@${b.x_author_handle}: ${b.content_text.slice(0, 150)}`
     ),
@@ -82,7 +82,7 @@ export async function generateBlendAnalysis(
   const contextB = [
     `Tags: ${(tagsB || []).map((t: { name: string }) => t.name).join(', ')}`,
     'Recent bookmarks:',
-    ...(bookmarksB || []).slice(0, 25).map(
+    ...(bookmarksB || []).map(
       (b: { x_author_handle: string; content_text: string }) =>
         `@${b.x_author_handle}: ${b.content_text.slice(0, 150)}`
     ),
