@@ -12,6 +12,7 @@ export default defineConfig({
         background: resolve(__dirname, 'src/background.ts'),
         content: resolve(__dirname, 'src/content.ts'),
         dashboard: resolve(__dirname, 'src/dashboard.ts'),
+        'x-interceptor': resolve(__dirname, 'src/x-interceptor.ts'),
       },
       output: {
         entryFileNames: '[name].js',

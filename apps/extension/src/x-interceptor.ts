@@ -1,0 +1,372 @@
+// HelloAgain — MAIN World Fetch Interceptor for x.com
+//
+// This script runs in the page's MAIN world (not the isolated extension world),
+// giving it access to the page's fetch() and cookie context. It:
+//   1. Monkey-patches window.fetch to intercept X's GraphQL Bookmarks requests/responses
+//   2. Captures X session credentials (bearer, csrf, queryId, features) for direct API calls
+//   3. Relays intercepted data to the content script via window.postMessage
+//   4. Handles FETCH_BOOKMARKS_PAGE relay requests from the content script (for Phase 2)
+//
+// Communication:
+//   MAIN → ISOLATED: window.postMessage({ source: 'hal-x-interceptor', ... })
+//   ISOLATED → MAIN: window.postMessage({ source: 'hal-content', ... })
+
+// Inline the parser to avoid module import issues in MAIN world context.
+// This must be self-contained since MAIN world scripts can't import extension modules.
+
+interface TweetData {
+  content: string;
+  author: string;
+  authorName: string;
+  postId: string;
+  timestamp: string;
+  mediaUrls: string[];
+}
+
+interface ParsedBookmarksPage {
+  tweets: TweetData[];
+  cursor: string | null;
+}
+
+interface CapturedCredentials {
+  bearerToken: string;
+  csrfToken: string;
+  queryId: string;
+  features: string;
+  capturedAt: number;
+}
+
+const BOOKMARKS_PATTERN = /\/i\/api\/graphql\/([^/]+)\/Bookmarks/;
+
+// ── Inline GraphQL parser ────────────────────────────────────
+
+function parseXTimestamp(raw: string): string {
+  try {
+    const d = new Date(raw);
+    return isNaN(d.getTime()) ? '' : d.toISOString();
+  } catch {
+    return '';
+  }
+}
+
+function extractTweetFromResult(result: Record<string, unknown>): TweetData | null {
+  if (!result) return null;
+
+  let tweet = result;
+  if (result.__typename === 'TweetWithVisibilityResults' && result.tweet) {
+    tweet = result.tweet as Record<string, unknown>;
+  }
+  if (tweet.__typename !== 'Tweet') return null;
+
+  const postId = (tweet.rest_id as string) || '';
+  if (!postId) return null;
+
+  const core = tweet.core as Record<string, unknown> | undefined;
+  const userResults = core?.user_results as Record<string, unknown> | undefined;
+  const userResult = userResults?.result as Record<string, unknown> | undefined;
+  // X moved screen_name/name from user.legacy to user.core — check both
+  const userCore = userResult?.core as Record<string, unknown> | undefined;
+  const userLegacy = userResult?.legacy as Record<string, unknown> | undefined;
+  const author = (userCore?.screen_name as string) || (userLegacy?.screen_name as string) || '';
+  const authorName = (userCore?.name as string) || (userLegacy?.name as string) || '';
+
+  const legacy = tweet.legacy as Record<string, unknown> | undefined;
+  const content = (legacy?.full_text as string) || '';
+  const rawTimestamp = (legacy?.created_at as string) || '';
+  const timestamp = parseXTimestamp(rawTimestamp);
+
+  const entities = legacy?.entities as Record<string, unknown> | undefined;
+  const mediaArray = (entities?.media as Array<Record<string, unknown>>) || [];
+  const mediaUrls = mediaArray
+    .map((m) => (m.media_url_https as string) || '')
+    .filter(Boolean);
+
+  return { content, author, authorName, postId, timestamp, mediaUrls };
+}
+
+function parseBookmarksResponse(json: unknown): ParsedBookmarksPage {
+  const empty: ParsedBookmarksPage = { tweets: [], cursor: null };
+  if (!json || typeof json !== 'object') return empty;
+
+  const data = (json as Record<string, unknown>).data as Record<string, unknown> | undefined;
+  if (!data) return empty;
+
+  const timeline_v2 = data.bookmark_timeline_v2 as Record<string, unknown> | undefined;
+  if (!timeline_v2) return empty;
+
+  const timeline = timeline_v2.timeline as Record<string, unknown> | undefined;
+  if (!timeline) return empty;
+
+  const instructions = timeline.instructions as Array<Record<string, unknown>> | undefined;
+  if (!instructions?.length) return empty;
+
+  const tweets: TweetData[] = [];
+  let cursor: string | null = null;
+
+  for (const instruction of instructions) {
+    const type = instruction.type as string;
+    if (type !== 'TimelineAddEntries') continue;
+
+    const entries = instruction.entries as Array<Record<string, unknown>> | undefined;
+    if (!entries) continue;
+
+    for (const entry of entries) {
+      const entryId = (entry.entryId as string) || '';
+      const entryContent = entry.content as Record<string, unknown> | undefined;
+      if (!entryContent) continue;
+
+      if (entryId.startsWith('cursor-bottom-')) {
+        cursor = (entryContent.value as string) || null;
+        continue;
+      }
+
+      const itemContent = entryContent.itemContent as Record<string, unknown> | undefined;
+      if (!itemContent) continue;
+
+      const tweetResults = itemContent.tweet_results as Record<string, unknown> | undefined;
+      if (!tweetResults) continue;
+
+      const result = tweetResults.result as Record<string, unknown> | undefined;
+      if (!result) continue;
+
+      const tweet = extractTweetFromResult(result);
+      if (tweet) tweets.push(tweet);
+    }
+  }
+
+  return { tweets, cursor };
+}
+
+// ── Credential extraction from request ───────────────────────
+
+function extractCredentials(url: string, init?: RequestInit): CapturedCredentials | null {
+  const match = url.match(BOOKMARKS_PATTERN);
+  if (!match) return null;
+
+  const queryId = match[1];
+  const headers = init?.headers;
+  if (!headers) return null;
+
+  let bearerToken = '';
+  let csrfToken = '';
+
+  if (headers instanceof Headers) {
+    bearerToken = headers.get('authorization') || '';
+    csrfToken = headers.get('x-csrf-token') || '';
+  } else if (Array.isArray(headers)) {
+    for (const [key, value] of headers) {
+      if (key.toLowerCase() === 'authorization') bearerToken = value;
+      if (key.toLowerCase() === 'x-csrf-token') csrfToken = value;
+    }
+  } else {
+    bearerToken = (headers as Record<string, string>)['authorization'] || '';
+    csrfToken = (headers as Record<string, string>)['x-csrf-token'] || '';
+  }
+
+  // Extract features from URL query params
+  const urlObj = new URL(url, window.location.origin);
+  const variables = urlObj.searchParams.get('variables') || '';
+  const features = urlObj.searchParams.get('features') || '';
+
+  if (!bearerToken || !csrfToken || !queryId) return null;
+
+  return {
+    bearerToken,
+    csrfToken,
+    queryId,
+    features,
+    capturedAt: Date.now(),
+  };
+}
+
+// ── Stored credentials (for Phase 2 relay requests) ──────────
+
+let storedCredentials: CapturedCredentials | null = null;
+
+// Save original fetch for Phase 2 relay (our own direct API calls use fetch)
+const originalFetch = window.fetch.bind(window);
+
+// ── Monkey-patch XMLHttpRequest ─────────────────────────────
+// X.com uses XHR (not fetch) for GraphQL calls. We intercept
+// open() to capture the URL + headers and onload to read the response.
+
+const origXhrOpen = XMLHttpRequest.prototype.open;
+const origXhrSetRequestHeader = XMLHttpRequest.prototype.setRequestHeader;
+const origXhrSend = XMLHttpRequest.prototype.send;
+
+interface XhrMeta {
+  url: string;
+  headers: Record<string, string>;
+}
+
+const xhrMetaMap = new WeakMap<XMLHttpRequest, XhrMeta>();
+
+XMLHttpRequest.prototype.open = function (method: string, url: string | URL, ...rest: unknown[]) {
+  const urlStr = typeof url === 'string' ? url : url.href;
+  if (BOOKMARKS_PATTERN.test(urlStr)) {
+    xhrMetaMap.set(this, { url: urlStr, headers: {} });
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return origXhrOpen.call(this, method, urlStr, ...(rest as [any, any, any]));
+};
+
+XMLHttpRequest.prototype.setRequestHeader = function (name: string, value: string) {
+  const meta = xhrMetaMap.get(this);
+  if (meta) {
+    meta.headers[name.toLowerCase()] = value;
+  }
+  return origXhrSetRequestHeader.call(this, name, value);
+};
+
+XMLHttpRequest.prototype.send = function (body?: Document | XMLHttpRequestBodyInit | null) {
+  const meta = xhrMetaMap.get(this);
+  if (meta) {
+    // Extract credentials from captured headers
+    const match = meta.url.match(BOOKMARKS_PATTERN);
+    const queryId = match ? match[1] : '';
+    const bearerToken = meta.headers['authorization'] || '';
+    const csrfToken = meta.headers['x-csrf-token'] || '';
+
+    const urlObj = new URL(meta.url, window.location.origin);
+    const features = urlObj.searchParams.get('features') || '';
+
+    if (bearerToken && csrfToken && queryId) {
+      const creds: CapturedCredentials = {
+        bearerToken, csrfToken, queryId, features, capturedAt: Date.now(),
+      };
+      storedCredentials = creds;
+      window.postMessage({
+        source: 'hal-x-interceptor',
+        type: 'X_CREDENTIALS_CAPTURED',
+        credentials: creds,
+      }, '*');
+    }
+
+    // Listen for the response
+    this.addEventListener('load', function () {
+      try {
+        const json = JSON.parse(this.responseText);
+        const parsed = parseBookmarksResponse(json);
+        if (parsed.tweets.length > 0) {
+          window.postMessage({
+            source: 'hal-x-interceptor',
+            type: 'X_INTERCEPT_BOOKMARKS',
+            tweets: parsed.tweets,
+            cursor: parsed.cursor,
+          }, '*');
+        }
+      } catch {
+        // Response parsing failed — don't break X's page
+      }
+    });
+  }
+
+  return origXhrSend.call(this, body);
+};
+
+// ── Phase 2: Handle relay requests from content script ───────
+// Background → content.ts → window.postMessage → here
+// We make the actual fetch (with cookies) and post the result back
+
+window.addEventListener('message', async (event) => {
+  if (event.source !== window) return;
+  if (event.data?.source !== 'hal-content') return;
+
+  if (event.data.type === 'FETCH_BOOKMARKS_PAGE') {
+    const cursor: string | null = event.data.cursor || null;
+    await fetchBookmarksPage(cursor);
+  }
+});
+
+async function fetchBookmarksPage(cursor: string | null): Promise<void> {
+  if (!storedCredentials) {
+    window.postMessage({
+      source: 'hal-x-interceptor',
+      type: 'X_BOOKMARKS_PAGE_RESULT',
+      tweets: [],
+      cursor: null,
+      error: 'No credentials available',
+    }, '*');
+    return;
+  }
+
+  const { bearerToken, csrfToken, queryId, features } = storedCredentials;
+
+  // Build variables
+  const variables: Record<string, unknown> = { count: 100 };
+  if (cursor) variables.cursor = cursor;
+
+  const params = new URLSearchParams({
+    variables: JSON.stringify(variables),
+    features: features,
+  });
+
+  const url = `https://x.com/i/api/graphql/${queryId}/Bookmarks?${params.toString()}`;
+
+  try {
+    const response = await originalFetch(url, {
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        'authorization': bearerToken,
+        'x-csrf-token': csrfToken,
+        'x-twitter-active-user': 'yes',
+        'x-twitter-auth-type': 'OAuth2Session',
+        'x-twitter-client-language': 'en',
+        'content-type': 'application/json',
+      },
+    });
+
+    if (response.status === 429) {
+      window.postMessage({
+        source: 'hal-x-interceptor',
+        type: 'X_BOOKMARKS_PAGE_RESULT',
+        tweets: [],
+        cursor: null,
+        error: 'rate_limited',
+      }, '*');
+      return;
+    }
+
+    if (response.status === 401 || response.status === 403) {
+      window.postMessage({
+        source: 'hal-x-interceptor',
+        type: 'X_BOOKMARKS_PAGE_RESULT',
+        tweets: [],
+        cursor: null,
+        error: 'auth_expired',
+      }, '*');
+      return;
+    }
+
+    if (!response.ok) {
+      window.postMessage({
+        source: 'hal-x-interceptor',
+        type: 'X_BOOKMARKS_PAGE_RESULT',
+        tweets: [],
+        cursor: null,
+        error: `HTTP ${response.status}`,
+      }, '*');
+      return;
+    }
+
+    const json = await response.json();
+    const parsed = parseBookmarksResponse(json);
+
+    window.postMessage({
+      source: 'hal-x-interceptor',
+      type: 'X_BOOKMARKS_PAGE_RESULT',
+      tweets: parsed.tweets,
+      cursor: parsed.cursor,
+      error: null,
+    }, '*');
+  } catch (err) {
+    window.postMessage({
+      source: 'hal-x-interceptor',
+      type: 'X_BOOKMARKS_PAGE_RESULT',
+      tweets: [],
+      cursor: null,
+      error: (err as Error).message || 'Fetch failed',
+    }, '*');
+  }
+}

@@ -7,6 +7,41 @@ export interface TweetData {
   mediaUrls: string[];
 }
 
+// X.com session credentials captured by the MAIN world interceptor
+export interface XSessionCredentials {
+  bearerToken: string;   // X's public app bearer token
+  csrfToken: string;     // ct0 cookie value (from x-csrf-token header)
+  queryId: string;       // Current Bookmarks GraphQL query_id
+  features: string;      // Feature flags JSON string
+  capturedAt: number;    // Timestamp for staleness checks
+}
+
+// Import strategy phases for UI display
+export type ImportPhase =
+  | 'connecting'
+  | 'direct_api'
+  | 'credential_capture'
+  | 'scroll_intercept'
+  | 'dom_scrape'
+  | 'done'
+  | 'error';
+
+// Import strategy labels for UI
+export type ImportStrategy = 'Direct API' | 'Fast scan' | 'Standard scan';
+
+// Extended progress state broadcasted via chrome.storage.local
+export interface ImportProgress {
+  imported: number;
+  skipped: number;
+  limitReached: boolean;
+  done: boolean;
+  error: string | null;
+  phase: ImportPhase;
+  phaseMessage: string;
+  startedAt: number;
+  strategy: ImportStrategy | null;
+}
+
 // Messages sent TO the background script (from popup, sidepanel, content)
 export type ExtensionMessage =
   | { type: 'SAVE_BOOKMARK'; data: { postId: string; author: string; authorName?: string; content: string; mediaUrls?: string; timestamp?: string } }
@@ -27,14 +62,20 @@ export type ExtensionMessage =
   | { type: 'BULK_IMPORT_STOP' }
   | { type: 'BULK_IMPORT_KEEPALIVE' }
   | { type: 'GET_IMPORT_STATUS' }
-  | { type: 'OPEN_IN_CURRENT_TAB'; url: string };
+  | { type: 'OPEN_IN_CURRENT_TAB'; url: string }
+  // New: MAIN world interceptor messages (relayed by content script)
+  | { type: 'X_CREDENTIALS_CAPTURED'; credentials: XSessionCredentials }
+  | { type: 'X_BOOKMARKS_PAGE_RESULT'; tweets: TweetData[]; cursor: string | null };
 
 // Messages sent FROM the background script (to content scripts / tabs)
 export type TabMessage =
   | { type: 'START_BULK_IMPORT' }
   | { type: 'STOP_BULK_IMPORT' }
   | { type: 'BOOKMARK_DELETED'; postId: string }
-  | { type: 'HAL_LOGGED_OUT' };
+  | { type: 'HAL_LOGGED_OUT' }
+  // New: Direct API relay (background → content → MAIN world)
+  | { type: 'FETCH_BOOKMARKS_PAGE'; cursor: string | null }
+  | { type: 'START_SCROLL_INTERCEPT_IMPORT' };
 
 // Messages sent from the web app (via chrome.runtime.sendMessage with extension ID)
 export type ExternalMessage =
