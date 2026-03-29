@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     const { bookmarks } = parsed.data;
     const limit = PLAN_LIMITS[ctx.plan].bookmarks;
 
-    // Get current bookmark count
+    // Get current bookmark count (atomic snapshot)
     const { count: currentCount } = await ctx.serviceClient
       .from('bookmarks')
       .select('*', { count: 'exact', head: true })
@@ -40,56 +40,52 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Dedup against existing bookmarks in one query
-    const postIds = bookmarks.map((b: BookmarkInput) => b.x_post_id);
-    const { data: existing } = await ctx.serviceClient
+    // Respect plan limit — only attempt to insert up to `remaining`
+    const toAttempt =
+      remaining === Infinity ? bookmarks : bookmarks.slice(0, remaining);
+    const droppedByLimit = bookmarks.length - toAttempt.length;
+
+    // Build rows for insert
+    const rows = toAttempt.map((b: BookmarkInput) => ({
+      user_id: ctx.userId,
+      x_post_id: b.x_post_id,
+      x_author_handle: b.x_author_handle || '',
+      x_author_name: b.x_author_name || '',
+      content_text: b.content_text || '',
+      media_urls: b.media_urls || [],
+      post_created_at: b.post_created_at || new Date().toISOString(),
+      bookmarked_at: b.bookmarked_at || new Date().toISOString(),
+    }));
+
+    // Atomic upsert with ignoreDuplicates — DB handles dedup via unique constraint.
+    // .select('id') returns ONLY the rows that were actually inserted (not skipped dupes).
+    // Note: with ignoreDuplicates, Supabase returns only newly inserted rows.
+    const { data: inserted, error } = await ctx.serviceClient
       .from('bookmarks')
-      .select('x_post_id')
-      .eq('user_id', ctx.userId)
-      .in('x_post_id', postIds);
+      .upsert(rows, { onConflict: 'user_id,x_post_id', ignoreDuplicates: true })
+      .select('id');
 
-    const existingSet = new Set((existing || []).map((e: { x_post_id: string }) => e.x_post_id));
-    const newBookmarks = bookmarks.filter((b: BookmarkInput) => !existingSet.has(b.x_post_id));
-    const skipped = bookmarks.length - newBookmarks.length;
-
-    // Respect plan limit
-    const canInsert =
-      remaining === Infinity ? newBookmarks : newBookmarks.slice(0, remaining);
-    const limitReached =
-      remaining !== Infinity && newBookmarks.length > remaining;
-
-    let imported = 0;
-    if (canInsert.length > 0) {
-      const rows = canInsert.map((b: BookmarkInput) => ({
-        user_id: ctx.userId,
-        x_post_id: b.x_post_id,
-        x_author_handle: b.x_author_handle || '',
-        x_author_name: b.x_author_name || '',
-        content_text: b.content_text || '',
-        media_urls: b.media_urls || [],
-        post_created_at: b.post_created_at || new Date().toISOString(),
-        bookmarked_at: b.bookmarked_at || new Date().toISOString(),
-      }));
-
-      const { error } = await ctx.serviceClient.from('bookmarks').insert(rows);
-      if (error) {
-        console.error('[Batch Import] Insert error:', error);
-        return NextResponse.json(
-          { error: 'Insert failed', details: error.message },
-          { status: 500 }
-        );
-      }
-      imported = canInsert.length;
+    if (error) {
+      console.error('[Batch Import] Upsert error:', error);
+      return NextResponse.json(
+        { error: 'Insert failed', details: error.message },
+        { status: 500 }
+      );
     }
+
+    // Count actual inserts from DB response
+    const imported = inserted?.length ?? 0;
+    const duplicates = toAttempt.length - imported;
+    const limitReached = remaining !== Infinity && (imported >= remaining || droppedByLimit > 0);
 
     const newRemaining =
       remaining === Infinity ? Infinity : remaining - imported;
 
     return NextResponse.json({
       imported,
-      skipped: skipped + (newBookmarks.length - canInsert.length),
+      skipped: duplicates + droppedByLimit,
       limitReached,
-      remaining: newRemaining === Infinity ? -1 : newRemaining,
+      remaining: newRemaining === Infinity ? -1 : Math.max(0, newRemaining),
     });
   } catch (err) {
     console.error('[Batch Import]', err);

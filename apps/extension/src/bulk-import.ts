@@ -107,7 +107,7 @@ function updateOverlay(found: number, sent: number, skipped: number, done = fals
   status.appendChild(line1);
 
   const line2 = createEl('div', {});
-  line2.appendChild(document.createTextNode('Sent to HAL: '));
+  line2.appendChild(document.createTextNode('Imported: '));
   line2.appendChild(createEl('span', { color: '#00d4ff', fontWeight: '600' }, String(sent)));
   status.appendChild(line2);
 
@@ -167,7 +167,7 @@ export function startBulkImport(callbacks: BulkImportCallbacks) {
 
   const buffer: TweetData[] = [];
   let totalFound = 0;
-  let totalSent = 0;
+  let totalImported = 0;
   let totalSkipped = 0;
   let emptyScrolls = 0;
 
@@ -220,14 +220,14 @@ export function startBulkImport(callbacks: BulkImportCallbacks) {
     // Flush buffer when it reaches batch size
     while (buffer.length >= BATCH_SIZE) {
       const batch = buffer.splice(0, BATCH_SIZE);
-      totalSent += batch.length;
-      updateOverlay(totalFound, totalSent, totalSkipped);
+      updateOverlay(totalFound, totalImported, totalSkipped);
       const result = await callbacks.onBatch(batch);
+      totalImported += result.imported || 0;
       totalSkipped += result.skipped || 0;
-      updateOverlay(totalFound, totalSent, totalSkipped);
+      updateOverlay(totalFound, totalImported, totalSkipped);
     }
 
-    updateOverlay(totalFound, totalSent, totalSkipped);
+    updateOverlay(totalFound, totalImported, totalSkipped);
 
     // Track empty scrolls for end-of-list detection
     if (newThisCycle === 0) {
@@ -239,11 +239,11 @@ export function startBulkImport(callbacks: BulkImportCallbacks) {
     if (emptyScrolls >= MAX_EMPTY_SCROLLS) {
       // Flush remaining buffer
       if (buffer.length > 0) {
-        totalSent += buffer.length;
         const result = await callbacks.onBatch(buffer.splice(0));
+        totalImported += result.imported || 0;
         totalSkipped += result.skipped || 0;
       }
-      updateOverlay(totalFound, totalSent, totalSkipped, true);
+      updateOverlay(totalFound, totalImported, totalSkipped, true);
       callbacks.onDone();
       cleanupTimers();
       return;
