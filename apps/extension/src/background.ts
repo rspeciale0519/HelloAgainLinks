@@ -33,23 +33,39 @@ async function getToken(): Promise<string | null> {
   const auth = await getAuth();
   if (!auth) return null;
 
-  // Check if token is expired (with 5 min buffer)
+  // Check if token is expired or expiring soon (5 min buffer)
   const now = Math.floor(Date.now() / 1000);
   if (auth.expires_at && auth.expires_at - now < 300) {
-    // Try refresh
-    try {
-      const res = await fetch(`${API_BASE}/api/auth/refresh`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refresh_token: auth.refresh_token }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        await setAuth({ ...auth, ...data });
-        return data.access_token;
+    if (!auth.refresh_token) {
+      await clearAuth();
+      return null;
+    }
+    // Try refresh with one retry
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: auth.refresh_token }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          await setAuth({ ...auth, ...data });
+          return data.access_token;
+        }
+        if (res.status === 401) {
+          // Refresh token itself is invalid — force re-login
+          await clearAuth();
+          return null;
+        }
+      } catch {
+        if (attempt === 1) {
+          // Both attempts failed — clear auth so user re-logs in cleanly
+          await clearAuth();
+          return null;
+        }
+        await new Promise((r) => setTimeout(r, 1000));
       }
-    } catch {
-      // Refresh failed — return stale token and let API reject
     }
   }
 
@@ -102,17 +118,32 @@ interface TweetData {
 }
 
 async function handleStartBulkImport() {
-  // Find or create a tab at x.com/i/bookmarks
+  // Open bookmarks in a separate window so the user can keep working
+  // Chrome throttles/pauses JS in inactive tabs, so a dedicated window is required
   const tabs = await chrome.tabs.query({ url: ['https://x.com/*', 'https://twitter.com/*'] });
-  let bookmarkTab = tabs.find((t) => t.url?.includes('/i/bookmarks'));
+  const existingTab = tabs.find((t) => t.url?.includes('/i/bookmarks'));
 
-  if (bookmarkTab?.id) {
-    await chrome.tabs.update(bookmarkTab.id, { active: true, url: 'https://x.com/i/bookmarks' });
+  let bookmarkTab: chrome.tabs.Tab;
+  if (existingTab?.id && existingTab.windowId) {
+    // Focus existing tab and its window
+    await chrome.tabs.update(existingTab.id, { active: true, url: 'https://x.com/i/bookmarks' });
+    await chrome.windows.update(existingTab.windowId, { focused: true });
+    bookmarkTab = existingTab;
   } else {
-    bookmarkTab = await chrome.tabs.create({ url: 'https://x.com/i/bookmarks' });
+    // Create a small window that can be tucked in a corner — must stay visible (not minimized)
+    const screen = await chrome.windows.getLastFocused();
+    const win = await chrome.windows.create({
+      url: 'https://x.com/i/bookmarks',
+      width: 480,
+      height: 600,
+      left: (screen.left || 0) + (screen.width || 1200) - 500,
+      top: screen.top || 0,
+      type: 'normal',
+    });
+    bookmarkTab = win.tabs?.[0] || {} as chrome.tabs.Tab;
   }
 
-  if (!bookmarkTab.id) return { error: 'Could not open bookmarks tab' };
+  if (!bookmarkTab.id) return { error: 'Could not open bookmarks window' };
 
   currentImport = {
     tabId: bookmarkTab.id,
@@ -135,7 +166,9 @@ async function handleStartBulkImport() {
 }
 
 async function handleBulkImportBatch(tweets: TweetData[]) {
-  if (!currentImport) return { error: 'No import session' };
+  // Capture reference — currentImport can be nulled by DONE/STOP during our awaits
+  const session = currentImport;
+  if (!session) return { error: 'No import session' };
 
   const bookmarks = tweets.map((t) => ({
     x_post_id: t.postId,
@@ -157,20 +190,21 @@ async function handleBulkImportBatch(tweets: TweetData[]) {
     return result;
   }
 
-  currentImport.imported += result.imported || 0;
-  currentImport.skipped += result.skipped || 0;
-  currentImport.limitReached = result.limitReached || false;
+  session.imported += result.imported || 0;
+  session.skipped += result.skipped || 0;
+  session.limitReached = result.limitReached || false;
 
   // Update post ID cache
   for (const t of tweets) {
     await addToPostIdCache(t.postId);
   }
 
-  broadcastImportProgress();
+  if (currentImport === session) {
+    broadcastImportProgress();
 
-  // Stop if plan limit reached
-  if (currentImport.limitReached) {
-    chrome.tabs.sendMessage(currentImport.tabId, { type: 'STOP_BULK_IMPORT' }).catch(() => {});
+    if (session.limitReached) {
+      chrome.tabs.sendMessage(session.tabId, { type: 'STOP_BULK_IMPORT' }).catch(() => {});
+    }
   }
 
   return { success: true, ...result };
@@ -301,6 +335,8 @@ async function handleMessage(message: Record<string, unknown>) {
 
     case 'LOGOUT':
       await clearAuth();
+      await chrome.storage.local.remove('hal_post_ids');
+      broadcastToXTabs({ type: 'HAL_LOGGED_OUT' });
       return { success: true };
 
     case 'SEARCH_BOOKMARKS':

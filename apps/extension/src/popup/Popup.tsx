@@ -211,6 +211,21 @@ export function Popup() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState<BookmarkItem | null>(null);
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
+
+  const refreshData = useCallback(() => {
+    chrome.runtime.sendMessage({ type: 'GET_BOOKMARK_COUNT' }, (res) => {
+      void chrome.runtime.lastError;
+      if (res?.count !== undefined) setBookmarkCount(res.count);
+    });
+    chrome.runtime.sendMessage(
+      { type: 'GET_BOOKMARKS', params: { pageSize: '5', sort: 'created_at', order: 'desc' } },
+      (res) => {
+        void chrome.runtime.lastError;
+        if (res?.data) setRecentBookmarks(res.data);
+      }
+    );
+  }, []);
 
   useEffect(() => {
     chrome.runtime.sendMessage({ type: 'GET_AUTH_STATUS' }, (res) => {
@@ -218,16 +233,17 @@ export function Popup() {
       if (res?.user) setUser(res.user);
       setLoading(false);
     });
-    chrome.runtime.sendMessage({ type: 'GET_BOOKMARK_COUNT' }, (res) => {
-      if (res?.count !== undefined) setBookmarkCount(res.count);
-    });
-    chrome.runtime.sendMessage(
-      { type: 'GET_BOOKMARKS', params: { pageSize: '5', sort: 'created_at', order: 'desc' } },
-      (res) => {
-        if (res?.data) setRecentBookmarks(res.data);
-      }
-    );
-  }, []);
+    refreshData();
+
+    // Refresh data when import completes
+    const storageListener = (changes: Record<string, chrome.storage.StorageChange>) => {
+      if (!changes.import_progress) return;
+      const p = changes.import_progress.newValue;
+      if (p?.done && !p.error) refreshData();
+    };
+    chrome.storage.local.onChanged.addListener(storageListener);
+    return () => chrome.storage.local.onChanged.removeListener(storageListener);
+  }, [refreshData]);
 
   useEffect(() => {
     const query = search.trim();
@@ -511,25 +527,57 @@ export function Popup() {
       <HalButtonToggle />
 
       {/* Footer */}
-      <div style={{ borderTop: '1px solid rgba(0,212,255,0.06)', paddingTop: '12px', display: 'flex', justifyContent: 'space-between' }}>
-        <button
-          onClick={handleOpenDashboard}
-          style={{
-            background: 'none', border: 'none', color: '#00d4ff',
-            fontSize: '12px', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
-          }}
-        >
-          Open Dashboard →
-        </button>
-        <button
-          onClick={() => chrome.runtime.sendMessage({ type: 'LOGOUT' }, () => setAuthenticated(false))}
-          style={{
-            background: 'none', border: 'none', color: '#4a4a5a',
-            fontSize: '12px', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
-          }}
-        >
-          Sign out
-        </button>
+      <div style={{ borderTop: '1px solid rgba(0,212,255,0.06)', paddingTop: '12px' }}>
+        {confirmSignOut ? (
+          <div style={{
+            padding: '12px', borderRadius: '10px',
+            background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)',
+          }}>
+            <div style={{ fontSize: '12px', color: '#f0f0f5', marginBottom: '4px', fontWeight: 600 }}>Sign out of HAL?</div>
+            <div style={{ fontSize: '11px', color: '#8a8a9a', marginBottom: '10px', lineHeight: 1.4 }}>
+              You will need to re-authorize with X to sign back in.
+            </div>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setConfirmSignOut(false)}
+                style={{
+                  padding: '6px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)',
+                  background: 'transparent', color: '#8a8a9a', fontSize: '11px', cursor: 'pointer',
+                  fontFamily: "'Inter', sans-serif",
+                }}
+              >Cancel</button>
+              <button
+                onClick={() => chrome.runtime.sendMessage({ type: 'LOGOUT' }, () => setAuthenticated(false))}
+                style={{
+                  padding: '6px 12px', borderRadius: '8px', border: 'none',
+                  background: '#ef4444', color: '#fff', fontSize: '11px', fontWeight: 600,
+                  cursor: 'pointer', fontFamily: "'Inter', sans-serif",
+                }}
+              >Sign Out</button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <button
+              onClick={handleOpenDashboard}
+              style={{
+                background: 'none', border: 'none', color: '#00d4ff',
+                fontSize: '12px', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
+              }}
+            >
+              Open Dashboard →
+            </button>
+            <button
+              onClick={() => setConfirmSignOut(true)}
+              style={{
+                background: 'none', border: 'none', color: '#4a4a5a',
+                fontSize: '12px', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
+              }}
+            >
+              Sign out
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

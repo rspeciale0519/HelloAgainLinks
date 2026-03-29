@@ -374,6 +374,15 @@ chrome.runtime.onMessage.addListener((message) => {
     return;
   }
 
+  if (message.type === 'HAL_LOGGED_OUT') {
+    halPostIds.clear();
+    document.querySelectorAll('.helloagain-save-wrapper').forEach((el) => el.remove());
+    document.querySelectorAll('[data-helloagain-enhanced]').forEach((el) => {
+      el.removeAttribute('data-helloagain-enhanced');
+    });
+    return;
+  }
+
   if (message.type === 'START_BULK_IMPORT') {
     startBulkImport({
       onBatch: (tweets) => {
