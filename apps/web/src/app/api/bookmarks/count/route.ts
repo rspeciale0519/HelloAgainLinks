@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
   const ctx = await getAuthContext(req);
   if (isAuthError(ctx)) return ctx;
 
-  const { count, error } = await ctx.userClient
+  const { count, error } = await ctx.serviceClient
     .from('bookmarks')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', ctx.userId);
