@@ -8,8 +8,13 @@ const SCROLL_WAIT_MS = 1500;
 const MAX_EMPTY_SCROLLS = 3;
 const KEEPALIVE_INTERVAL_MS = 20000;
 
+export interface BatchResult {
+  imported?: number;
+  skipped?: number;
+}
+
 export interface BulkImportCallbacks {
-  onBatch: (tweets: TweetData[]) => void;
+  onBatch: (tweets: TweetData[]) => Promise<BatchResult>;
   onDone: () => void;
   onError: (message: string) => void;
 }
@@ -86,29 +91,35 @@ function injectOverlay(): HTMLDivElement {
   return overlay;
 }
 
-function updateOverlay(found: number, sent: number) {
+function updateOverlay(found: number, sent: number, skipped: number) {
   const status = document.getElementById('hal-import-status');
   if (!status) return;
   status.textContent = '';
 
   const line1 = createEl('div', { marginBottom: '6px' });
   line1.appendChild(document.createTextNode('Found: '));
-  const count1 = createEl('span', { color: '#00d4ff', fontWeight: '600' }, String(found));
-  line1.appendChild(count1);
+  line1.appendChild(createEl('span', { color: '#00d4ff', fontWeight: '600' }, String(found)));
   line1.appendChild(document.createTextNode(' bookmarks'));
   status.appendChild(line1);
 
   const line2 = createEl('div', {});
   line2.appendChild(document.createTextNode('Sent to HAL: '));
-  const count2 = createEl('span', { color: '#00d4ff', fontWeight: '600' }, String(sent));
-  line2.appendChild(count2);
+  line2.appendChild(createEl('span', { color: '#00d4ff', fontWeight: '600' }, String(sent)));
   status.appendChild(line2);
+
+  if (skipped > 0) {
+    const line3 = createEl('div', { marginTop: '2px' });
+    line3.appendChild(document.createTextNode('Skipped: '));
+    line3.appendChild(createEl('span', { color: '#f59e0b', fontWeight: '600' }, String(skipped)));
+    line3.appendChild(document.createTextNode(' duplicates'));
+    status.appendChild(line3);
+  }
 
   const scrollNote = createEl('div', { marginTop: '8px', fontSize: '11px', color: '#4a4a5a' }, 'Auto-scrolling page...');
   status.appendChild(scrollNote);
 }
 
-function showOverlayDone(found: number, sent: number) {
+function showOverlayDone(found: number, sent: number, skipped: number) {
   const status = document.getElementById('hal-import-status');
   if (status) {
     status.textContent = '';
@@ -122,6 +133,13 @@ function showOverlayDone(found: number, sent: number) {
     line2.appendChild(document.createTextNode('Sent to HAL: '));
     line2.appendChild(createEl('span', { color: '#00d4ff', fontWeight: '600' }, String(sent)));
     status.appendChild(line2);
+    if (skipped > 0) {
+      const line3 = createEl('div', { marginTop: '2px' });
+      line3.appendChild(document.createTextNode('Skipped: '));
+      line3.appendChild(createEl('span', { color: '#f59e0b', fontWeight: '600' }, String(skipped)));
+      line3.appendChild(document.createTextNode(' duplicates'));
+      status.appendChild(line3);
+    }
   }
   const stopBtn = document.getElementById('hal-import-stop');
   if (stopBtn) {
@@ -166,6 +184,7 @@ export function startBulkImport(callbacks: BulkImportCallbacks) {
   const buffer: TweetData[] = [];
   let totalFound = 0;
   let totalSent = 0;
+  let totalSkipped = 0;
   let emptyScrolls = 0;
 
   async function waitForVisible(): Promise<void> {
@@ -218,11 +237,13 @@ export function startBulkImport(callbacks: BulkImportCallbacks) {
     while (buffer.length >= BATCH_SIZE) {
       const batch = buffer.splice(0, BATCH_SIZE);
       totalSent += batch.length;
-      updateOverlay(totalFound, totalSent);
-      callbacks.onBatch(batch);
+      updateOverlay(totalFound, totalSent, totalSkipped);
+      const result = await callbacks.onBatch(batch);
+      totalSkipped += result.skipped || 0;
+      updateOverlay(totalFound, totalSent, totalSkipped);
     }
 
-    updateOverlay(totalFound, totalSent);
+    updateOverlay(totalFound, totalSent, totalSkipped);
 
     // Track empty scrolls for end-of-list detection
     if (newThisCycle === 0) {
@@ -235,9 +256,10 @@ export function startBulkImport(callbacks: BulkImportCallbacks) {
       // Flush remaining buffer
       if (buffer.length > 0) {
         totalSent += buffer.length;
-        callbacks.onBatch(buffer.splice(0));
+        const result = await callbacks.onBatch(buffer.splice(0));
+        totalSkipped += result.skipped || 0;
       }
-      showOverlayDone(totalFound, totalSent);
+      showOverlayDone(totalFound, totalSent, totalSkipped);
       callbacks.onDone();
       cleanupTimers();
       return;
