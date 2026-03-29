@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
+import { hexToRgba } from '@helloagain/shared';
+import { HalLogo } from '@helloagain/ui';
 import { Capacitor } from '@capacitor/core';
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
 
@@ -140,14 +142,7 @@ export function MobileShareSheet() {
 
           {/* HAL header */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-            <div style={{
-              width: 32, height: 32, borderRadius: 8,
-              background: 'linear-gradient(135deg, #00d4ff, #0ea5e9)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 15, fontWeight: 700, color: '#0a0a0f',
-              boxShadow: '0 0 12px rgba(0,212,255,0.35)',
-              flexShrink: 0,
-            }}>H</div>
+            <HalLogo size={32} />
             <div>
               <div style={{ fontSize: 14, fontWeight: 600, color: '#f0f0f5' }}>
                 {state === 'saving' && 'Save to HAL'}
@@ -214,19 +209,14 @@ export function MobileShareSheet() {
               </div>
               {savedBookmark.tags.length > 0 && (
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
-                  {savedBookmark.tags.map((tag) => {
-                    const r = parseInt(tag.color.slice(1, 3), 16);
-                    const g = parseInt(tag.color.slice(3, 5), 16);
-                    const b = parseInt(tag.color.slice(5, 7), 16);
-                    return (
+                  {savedBookmark.tags.map((tag) => (
                       <span key={tag.name} style={{
                         borderRadius: 100, padding: '3px 10px', fontSize: 10, fontWeight: 500,
-                        background: `rgba(${r},${g},${b},0.1)`,
-                        border: `1px solid rgba(${r},${g},${b},0.25)`,
+                        background: hexToRgba(tag.color, 0.1),
+                        border: `1px solid ${hexToRgba(tag.color, 0.25)}`,
                         color: tag.color,
                       }}>{tag.name}</span>
-                    );
-                  })}
+                  ))}
                 </div>
               )}
             </>

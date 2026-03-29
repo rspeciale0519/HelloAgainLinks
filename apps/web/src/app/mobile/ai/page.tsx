@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { authPost } from '@/lib/auth-fetch';
 
 interface Message { role: 'user' | 'assistant'; content: string; }
 
@@ -26,19 +26,9 @@ export default function MobileAIPage() {
     setMessages(prev => [...prev, { role: 'user', content: text }]);
     setLoading(true);
 
-    const supabase = getSupabaseBrowserClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { setLoading(false); return; }
-
     try {
-      const res = await fetch('/api/ai/assistant', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ message: text, history: messages }),
-      });
+      const res = await authPost('/api/ai/assistant', { message: text, history: messages });
+      if (!res) { setLoading(false); return; }
       const data = await res.json();
       setMessages(prev => [...prev, { role: 'assistant', content: data.reply || data.message || 'Sorry, I had trouble with that.' }]);
     } catch {

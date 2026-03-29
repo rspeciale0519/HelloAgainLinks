@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { authFetch, authPost } from '@/lib/auth-fetch';
 import { useRouter } from 'next/navigation';
 import { usePlan } from '@/lib/use-plan';
 
@@ -62,14 +63,9 @@ function ImportSection() {
   const handleApiImport = async () => {
     setApiImporting(true);
     setApiResult(null);
-    const supabase = getSupabaseBrowserClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
 
-    const res = await fetch('/api/import', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
+    const res = await authFetch('/api/import', { method: 'POST' });
+    if (!res) return;
 
     const data = await res.json();
     setApiResult({ message: data.message || data.error || 'Done', status: res.ok ? 'success' : 'error' });
@@ -237,36 +233,18 @@ export default function SettingsPage() {
   };
 
   const handleUpgrade = async () => {
-    const supabase = getSupabaseBrowserClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
+    const res = await authPost('/api/stripe/checkout', { priceId: 'pro_monthly' });
 
-    const res = await fetch('/api/stripe/checkout', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${session.access_token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ priceId: 'pro_monthly' }),
-    });
-
-    if (res.ok) {
+    if (res?.ok) {
       const data = await res.json();
       if (data.url) window.location.href = data.url;
     }
   };
 
   const handleManageBilling = async () => {
-    const supabase = getSupabaseBrowserClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
+    const res = await authFetch('/api/stripe/portal', { method: 'POST' });
 
-    const res = await fetch('/api/stripe/portal', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
-
-    if (res.ok) {
+    if (res?.ok) {
       const data = await res.json();
       if (data.url) window.location.href = data.url;
     }

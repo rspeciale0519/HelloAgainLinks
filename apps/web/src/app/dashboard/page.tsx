@@ -3,6 +3,8 @@
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { authFetch } from '@/lib/auth-fetch';
+import { timeAgo } from '@helloagain/shared';
 
 interface Bookmark {
   id: string;
@@ -38,20 +40,17 @@ export default function DashboardPage() {
         handle: meta.preferred_username || meta.user_name || '',
       });
 
-      const token = session.access_token;
-      const headers = { Authorization: `Bearer ${token}` };
-
       // Fetch recent bookmarks
-      const bmRes = await fetch('/api/bookmarks?pageSize=5&sort=bookmarked_at&order=desc', { headers });
-      if (bmRes.ok) {
+      const bmRes = await authFetch('/api/bookmarks?pageSize=5&sort=bookmarked_at&order=desc');
+      if (bmRes?.ok) {
         const data = await bmRes.json();
         setBookmarks(data.data || []);
         setBookmarkCount(data.count ?? data.data?.length ?? 0);
       }
 
       // Fetch tags
-      const tagRes = await fetch('/api/tags', { headers });
-      if (tagRes.ok) {
+      const tagRes = await authFetch('/api/tags');
+      if (tagRes?.ok) {
         const data = await tagRes.json();
         const tags = data.tags || data || [];
         setTagCount(tags.length);
@@ -64,15 +63,6 @@ export default function DashboardPage() {
     load();
   }, []);
 
-  const timeAgo = (dateStr: string) => {
-    const diff = Date.now() - new Date(dateStr).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return 'Just now';
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    return `${Math.floor(hrs / 24)}d ago`;
-  };
 
   const stats = [
     { label: 'Total Bookmarks', value: bookmarkCount.toLocaleString(), change: loading ? '...' : 'All time' },

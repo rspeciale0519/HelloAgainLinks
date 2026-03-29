@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
+import { HalLogo } from '@helloagain/ui';
+import { hexToRgba } from '@helloagain/shared';
 import { Capacitor } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
 import { ImpactStyle } from '@capacitor/haptics';
@@ -85,14 +87,7 @@ export default function OnboardingPage() {
 function StepWelcome({ onGetStarted, onReturning }: { onGetStarted: () => void; onReturning: () => void }) {
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
-      <div style={{
-        width: 72, height: 72, borderRadius: 18,
-        background: 'linear-gradient(135deg, #00d4ff, #0ea5e9)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 30, fontWeight: 700, color: '#0a0a0f',
-        boxShadow: '0 0 40px rgba(0,212,255,0.4)',
-        marginBottom: 20,
-      }}>H</div>
+      <HalLogo size={72} style={{ marginBottom: 20 }} />
       <h1 style={{ fontSize: 26, fontWeight: 700, color: '#f0f0f5', marginBottom: 8, lineHeight: 1.2 }}>
         Hello Again Links
       </h1>
@@ -170,7 +165,7 @@ function StepTwoWays({ onNext }: { onNext: () => void }) {
           <p style={{ fontSize: 11, color: '#4a4a5a', lineHeight: 1.5, marginBottom: 8 }}>{m.desc}</p>
           <span style={{
             borderRadius: 100, padding: '2px 10px', fontSize: 9, fontWeight: 600,
-            background: `rgba(${parseInt(m.badgeColor.slice(1,3),16)},${parseInt(m.badgeColor.slice(3,5),16)},${parseInt(m.badgeColor.slice(5,7),16)},0.1)`,
+            background: hexToRgba(m.badgeColor, 0.1),
             border: `1px solid ${m.badgeColor}40`, color: m.badgeColor,
           }}>{m.badge}</span>
         </div>

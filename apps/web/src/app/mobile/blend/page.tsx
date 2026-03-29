@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { authFetch } from '@/lib/auth-fetch';
 
 interface Blend {
   id: string; status: string; blend_score: number | null;
@@ -24,11 +24,8 @@ export default function MobileBlendPage() {
   const [copied, setCopied] = useState(false);
 
   const fetchBlends = useCallback(async () => {
-    const supabase = getSupabaseBrowserClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-    const res = await fetch('/api/blends', { headers: { Authorization: `Bearer ${session.access_token}` } });
-    if (res.ok) { const d = await res.json(); setBlends(d.blends || []); }
+    const res = await authFetch('/api/blends');
+    if (res?.ok) { const d = await res.json(); setBlends(d.blends || []); }
     setLoading(false);
   }, []);
 
@@ -36,11 +33,8 @@ export default function MobileBlendPage() {
 
   const createInvite = async () => {
     setCreating(true);
-    const supabase = getSupabaseBrowserClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { setCreating(false); return; }
-    const res = await fetch('/api/blends', { method: 'POST', headers: { Authorization: `Bearer ${session.access_token}` } });
-    if (res.ok) { const d = await res.json(); setInviteUrl(d.inviteUrl || ''); }
+    const res = await authFetch('/api/blends', { method: 'POST' });
+    if (res?.ok) { const d = await res.json(); setInviteUrl(d.inviteUrl || ''); }
     setCreating(false);
   };
 

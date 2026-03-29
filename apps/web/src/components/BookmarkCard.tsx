@@ -2,7 +2,8 @@
 
 import { useState, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { authFetch, authPost } from '@/lib/auth-fetch';
+import { hexToRgba } from '@helloagain/shared';
 import TagPopover, { type TagInfo } from './TagPopover';
 export type { TagInfo } from './TagPopover';
 
@@ -31,12 +32,6 @@ interface BookmarkCardProps {
   onDelete?: (bookmarkId: string, xPostId: string) => void;
 }
 
-function hexToRgba(hex: string, alpha: number): string {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r},${g},${b},${alpha})`;
-}
 
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr);
@@ -62,30 +57,13 @@ export default function BookmarkCard({ bookmark, index, allTags, onTagsChanged, 
       onTagsChanged(bookmark.id, optimistic);
     }
 
-    const supabase = getSupabaseBrowserClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      onTagsChanged(bookmark.id, previousTags);
-      return;
-    }
-
     try {
       if (add) {
-        const res = await fetch(`/api/bookmarks/${bookmark.id}/tags`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ tag_ids: [tagId] }),
-        });
-        if (!res.ok) throw new Error('Failed to add tag');
+        const res = await authPost(`/api/bookmarks/${bookmark.id}/tags`, { tag_ids: [tagId] });
+        if (!res?.ok) throw new Error('Failed to add tag');
       } else {
-        const res = await fetch(`/api/bookmarks/${bookmark.id}/tags/${tagId}`, {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        });
-        if (!res.ok) throw new Error('Failed to remove tag');
+        const res = await authFetch(`/api/bookmarks/${bookmark.id}/tags/${tagId}`, { method: 'DELETE' });
+        if (!res?.ok) throw new Error('Failed to remove tag');
       }
     } catch {
       onTagsChanged(bookmark.id, previousTags);
