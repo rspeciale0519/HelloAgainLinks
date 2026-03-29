@@ -1,9 +1,51 @@
 // HelloAgain — Content Script for x.com
 
 import { extractTweetData } from './tweet-utils';
-import { startBulkImport, stopBulkImport } from './bulk-import';
+import { startBulkImport, startScrollInterceptImport, stopBulkImport } from './bulk-import';
+import type { XSessionCredentials, TweetData } from './message-types';
 
 console.log('[HelloAgain] Content script loaded on', window.location.href);
+
+// ── MAIN world ↔ content script bridge ──────────────────────
+// The x-interceptor.ts runs in the MAIN world and communicates via postMessage.
+// We relay messages between it and the background service worker.
+
+window.addEventListener('message', (event) => {
+  if (event.source !== window) return;
+  if (event.data?.source !== 'hal-x-interceptor') return;
+
+  const { type } = event.data;
+
+  if (type === 'X_CREDENTIALS_CAPTURED') {
+    const credentials: XSessionCredentials = event.data.credentials;
+    chrome.runtime.sendMessage({ type: 'X_CREDENTIALS_CAPTURED', credentials }, () => {
+      void chrome.runtime.lastError;
+    });
+    return;
+  }
+
+  if (type === 'X_INTERCEPT_BOOKMARKS') {
+    const tweets: TweetData[] = event.data.tweets;
+    const cursor: string | null = event.data.cursor;
+    chrome.runtime.sendMessage({ type: 'X_BOOKMARKS_PAGE_RESULT', tweets, cursor }, () => {
+      void chrome.runtime.lastError;
+    });
+    return;
+  }
+
+  if (type === 'X_BOOKMARKS_PAGE_RESULT') {
+    // Phase 2 relay result: MAIN world → content → background
+    chrome.runtime.sendMessage({
+      type: 'X_BOOKMARKS_PAGE_RESULT',
+      tweets: event.data.tweets || [],
+      cursor: event.data.cursor || null,
+      error: event.data.error || null,
+    }, () => {
+      void chrome.runtime.lastError;
+    });
+    return;
+  }
+});
 
 // ── HAL bookmarked post IDs cache ────────────────────────────
 
@@ -419,6 +461,37 @@ chrome.runtime.onMessage.addListener((message) => {
 
   if (message.type === 'STOP_BULK_IMPORT') {
     stopBulkImport();
+    return;
+  }
+
+  // Strategy C: Scroll + intercept mode
+  if (message.type === 'START_SCROLL_INTERCEPT_IMPORT') {
+    startScrollInterceptImport({
+      onBatch: (tweets) => {
+        return new Promise((resolve) => {
+          chrome.runtime.sendMessage({ type: 'BULK_IMPORT_BATCH', tweets }, (response) => {
+            void chrome.runtime.lastError;
+            resolve({ imported: response?.imported || 0, skipped: response?.skipped || 0 });
+          });
+        });
+      },
+      onDone: () => {
+        chrome.runtime.sendMessage({ type: 'BULK_IMPORT_DONE' });
+      },
+      onError: (msg) => {
+        chrome.runtime.sendMessage({ type: 'BULK_IMPORT_ERROR', error: msg });
+      },
+    });
+    return;
+  }
+
+  // Phase 2 relay: background → content → MAIN world (for direct API fetch)
+  if (message.type === 'FETCH_BOOKMARKS_PAGE') {
+    window.postMessage({
+      source: 'hal-content',
+      type: 'FETCH_BOOKMARKS_PAGE',
+      cursor: message.cursor || null,
+    }, '*');
     return;
   }
 });
