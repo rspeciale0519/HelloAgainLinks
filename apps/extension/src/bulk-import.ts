@@ -283,3 +283,125 @@ function cleanupTimers() {
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+// ── Scroll + Intercept mode (Strategy C) ────────────────────
+// Same auto-scroll approach but reads intercepted GraphQL data from the MAIN world
+// interceptor instead of scraping the DOM. Much faster scroll wait (400ms vs 1500ms)
+// because we don't need to wait for React to render.
+
+const INTERCEPT_SCROLL_WAIT_MS = 400;
+
+let interceptBuffer: TweetData[] = [];
+let interceptListener: ((event: MessageEvent) => void) | null = null;
+
+function setupInterceptListener() {
+  interceptBuffer = [];
+  interceptListener = (event: MessageEvent) => {
+    if (event.source !== window) return;
+    if (event.data?.source !== 'hal-x-interceptor') return;
+    if (event.data.type !== 'X_INTERCEPT_BOOKMARKS') return;
+
+    const tweets: TweetData[] = event.data.tweets || [];
+    interceptBuffer.push(...tweets);
+  };
+  window.addEventListener('message', interceptListener);
+}
+
+function teardownInterceptListener() {
+  if (interceptListener) {
+    window.removeEventListener('message', interceptListener);
+    interceptListener = null;
+  }
+  interceptBuffer = [];
+}
+
+export function startScrollInterceptImport(callbacks: BulkImportCallbacks) {
+  if (!window.location.href.includes('/i/bookmarks')) {
+    callbacks.onError('Navigate to x.com/i/bookmarks first');
+    return;
+  }
+
+  aborted = false;
+  injectOverlay();
+  setupInterceptListener();
+
+  keepaliveTimer = setInterval(() => {
+    try {
+      chrome.runtime.sendMessage({ type: 'BULK_IMPORT_KEEPALIVE' }, () => {
+        void chrome.runtime.lastError;
+      });
+    } catch { /* ignore */ }
+  }, KEEPALIVE_INTERVAL_MS);
+
+  let totalFound = 0;
+  let totalImported = 0;
+  let totalSkipped = 0;
+  let emptyScrolls = 0;
+  // Track if we ever received intercepted data — if not after a few scrolls, signal failure
+  let receivedInterceptedData = false;
+
+  async function scrollLoop() {
+    if (aborted) { cleanup(); teardownInterceptListener(); return; }
+
+    // Drain the intercept buffer
+    const newTweets = interceptBuffer.splice(0);
+    const newCount = newTweets.length;
+
+    if (newCount > 0) {
+      receivedInterceptedData = true;
+      totalFound += newCount;
+    }
+
+    // Flush in batches
+    while (newTweets.length >= BATCH_SIZE) {
+      const batch = newTweets.splice(0, BATCH_SIZE);
+      updateOverlay(totalFound, totalImported, totalSkipped);
+      const result = await callbacks.onBatch(batch);
+      totalImported += result.imported || 0;
+      totalSkipped += result.skipped || 0;
+    }
+
+    // Remaining tweets stay for next flush
+    if (newTweets.length > 0) {
+      interceptBuffer.unshift(...newTweets);
+    }
+
+    updateOverlay(totalFound, totalImported, totalSkipped);
+
+    if (newCount === 0) {
+      emptyScrolls++;
+    } else {
+      emptyScrolls = 0;
+    }
+
+    // If we haven't received any intercepted data after 5 scrolls, signal error
+    // so the orchestrator can fall back to DOM scraping
+    if (!receivedInterceptedData && emptyScrolls >= 5) {
+      teardownInterceptListener();
+      cleanup();
+      callbacks.onError('intercept_failed');
+      return;
+    }
+
+    if (emptyScrolls >= MAX_EMPTY_SCROLLS && receivedInterceptedData) {
+      // Flush remaining buffer
+      const remaining = interceptBuffer.splice(0);
+      if (remaining.length > 0) {
+        const result = await callbacks.onBatch(remaining);
+        totalImported += result.imported || 0;
+        totalSkipped += result.skipped || 0;
+      }
+      updateOverlay(totalFound, totalImported, totalSkipped, true);
+      teardownInterceptListener();
+      callbacks.onDone();
+      cleanupTimers();
+      return;
+    }
+
+    window.scrollBy(0, SCROLL_PX);
+    await sleep(INTERCEPT_SCROLL_WAIT_MS);
+    scrollLoop();
+  }
+
+  scrollLoop();
+}
