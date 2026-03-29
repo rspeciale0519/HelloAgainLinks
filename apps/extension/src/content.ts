@@ -45,13 +45,9 @@ function syncHalPostIds() {
 
 let showHalButton = true;
 
-// Load setting
-chrome.storage.sync.get({ showHalButton: true }, (result) => {
-  showHalButton = result.showHalButton;
-});
-
 // Listen for setting changes
-chrome.storage.onChanged.addListener((changes) => {
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== 'sync') return;
   if (changes.showHalButton) {
     showHalButton = changes.showHalButton.newValue;
     // Toggle visibility of all existing HAL buttons
@@ -386,7 +382,12 @@ chrome.runtime.onMessage.addListener((message) => {
   if (message.type === 'START_BULK_IMPORT') {
     startBulkImport({
       onBatch: (tweets) => {
-        chrome.runtime.sendMessage({ type: 'BULK_IMPORT_BATCH', tweets });
+        return new Promise((resolve) => {
+          chrome.runtime.sendMessage({ type: 'BULK_IMPORT_BATCH', tweets }, (response) => {
+            void chrome.runtime.lastError;
+            resolve({ imported: response?.imported || 0, skipped: response?.skipped || 0 });
+          });
+        });
       },
       onDone: () => {
         chrome.runtime.sendMessage({ type: 'BULK_IMPORT_DONE' });
@@ -404,10 +405,14 @@ chrome.runtime.onMessage.addListener((message) => {
   }
 });
 
-// Start — load HAL post IDs from API, then observe timeline
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => { syncHalPostIds(); observeTimeline(); });
-} else {
-  syncHalPostIds();
-  observeTimeline();
-}
+// Start — load settings first, then HAL post IDs + observe timeline
+chrome.storage.sync.get({ showHalButton: true }, (result) => {
+  showHalButton = result.showHalButton;
+
+  const init = () => { syncHalPostIds(); observeTimeline(); };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+});
