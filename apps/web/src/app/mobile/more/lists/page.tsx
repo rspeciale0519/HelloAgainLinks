@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { authFetch } from '@/lib/auth-fetch';
 
 interface SharedList { id: string; name: string; description?: string; member_count?: number; }
 
@@ -13,11 +13,8 @@ export default function MobileListsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const supabase = getSupabaseBrowserClient();
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!session) return;
-      const res = await fetch('/api/shared-lists', { headers: { Authorization: `Bearer ${session.access_token}` } });
-      if (res.ok) { const d = await res.json(); setLists(d.lists || d || []); }
+    authFetch('/api/shared-lists').then(async (res) => {
+      if (res?.ok) { const d = await res.json(); setLists(d.lists || d || []); }
       setLoading(false);
     });
   }, []);

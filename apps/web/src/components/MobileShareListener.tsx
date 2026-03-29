@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { CapacitorShareTarget } from '@capgo/capacitor-share-target';
-import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { authPost } from '@/lib/auth-fetch';
 import { isNativeApp, triggerHaptic } from '@/lib/mobile';
 
 function extractTweetUrl(input: string): string | null {
@@ -24,20 +24,9 @@ export function MobileShareListener() {
       const tweetUrl = extractTweetUrl(joined);
       if (!tweetUrl) return;
 
-      const supabase = getSupabaseBrowserClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      const res = await authPost('/api/mobile/share', { url: tweetUrl });
 
-      const res = await fetch('/api/mobile/share', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ url: tweetUrl }),
-      });
-
-      if (res.ok) {
+      if (res?.ok) {
         await triggerHaptic();
       }
     });

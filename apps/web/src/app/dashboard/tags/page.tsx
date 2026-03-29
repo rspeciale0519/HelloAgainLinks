@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { useEffect, useState, useCallback } from 'react';
-import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { authFetch, authPost } from '@/lib/auth-fetch';
 
 interface Tag {
   id: string;
@@ -17,14 +17,8 @@ export default function TagsPage() {
   const [creating, setCreating] = useState(false);
 
   const fetchTags = useCallback(async () => {
-    const supabase = getSupabaseBrowserClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-
-    const res = await fetch('/api/tags', {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
-    if (res.ok) {
+    const res = await authFetch('/api/tags');
+    if (res?.ok) {
       const data = await res.json();
       setTags(data.tags || data || []);
     }
@@ -36,20 +30,8 @@ export default function TagsPage() {
   const handleCreate = async () => {
     if (!newTag.trim()) return;
     setCreating(true);
-    const supabase = getSupabaseBrowserClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-
-    const res = await fetch('/api/tags', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${session.access_token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ name: newTag.trim() }),
-    });
-
-    if (res.ok) {
+    const res = await authPost('/api/tags', { name: newTag.trim() });
+    if (res?.ok) {
       setNewTag('');
       fetchTags();
     }
@@ -57,14 +39,7 @@ export default function TagsPage() {
   };
 
   const handleDelete = async (tagId: string) => {
-    const supabase = getSupabaseBrowserClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-
-    await fetch(`/api/tags/${tagId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
+    await authFetch(`/api/tags/${tagId}`, { method: 'DELETE' });
     setTags(tags.filter(t => t.id !== tagId));
   };
 

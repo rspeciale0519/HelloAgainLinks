@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { hexToRgba } from '@helloagain/shared';
 
 export interface TagInfo {
   id: string;
@@ -16,12 +17,6 @@ interface TagPopoverProps {
   onClose: () => void;
 }
 
-function hexToRgba(hex: string, alpha: number): string {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r},${g},${b},${alpha})`;
-}
 
 export default function TagPopover({ allTags, activeTagIds, onToggle, onClose }: TagPopoverProps) {
   const popoverRef = useRef<HTMLDivElement>(null);

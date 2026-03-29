@@ -1,5 +1,7 @@
 // HelloAgain — Service Worker (Background Script)
 
+import type { ExtensionMessage, TweetData, TabMessage, ExternalMessage } from './message-types';
+
 const API_BASE = 'https://helloagainlinks.com';
 
 interface AuthData {
@@ -108,14 +110,7 @@ interface ImportSession {
 
 let currentImport: ImportSession | null = null;
 
-interface TweetData {
-  content: string;
-  author: string;
-  authorName: string;
-  postId: string;
-  timestamp: string;
-  mediaUrls: string[];
-}
+
 
 async function handleStartBulkImport() {
   // Open bookmarks in a separate window so the user can keep working
@@ -194,10 +189,8 @@ async function handleBulkImportBatch(tweets: TweetData[]) {
   session.skipped += result.skipped || 0;
   session.limitReached = result.limitReached || false;
 
-  // Update post ID cache
-  for (const t of tweets) {
-    await addToPostIdCache(t.postId);
-  }
+  // Update post ID cache (single read-write instead of N)
+  await addBatchToPostIdCache(tweets.map((t) => t.postId));
 
   if (currentImport === session) {
     broadcastImportProgress();
@@ -283,9 +276,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 
 // Listen for messages from the web app (external messages)
-chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessageExternal.addListener((message: ExternalMessage, sender, sendResponse) => {
   if (message.type === 'AUTH_TOKEN' && message.data) {
-    setAuth(message.data).then(() => {
+    setAuth(message.data as AuthData).then(() => {
       sendResponse({ success: true });
       if (sender.tab?.id) {
         chrome.tabs.remove(sender.tab.id);
@@ -315,13 +308,13 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
   }
 });
 
-async function handleMessage(message: Record<string, unknown>) {
+async function handleMessage(message: ExtensionMessage) {
   switch (message.type) {
     case 'SAVE_BOOKMARK':
-      return handleSaveBookmark(message.data as Record<string, string>);
+      return handleSaveBookmark(message.data);
 
     case 'DELETE_BOOKMARK':
-      return handleDeleteBookmark(message.data as Record<string, string>);
+      return handleDeleteBookmark(message.data);
 
     case 'GET_AUTH_STATUS':
       return getAuthStatus();
@@ -340,10 +333,10 @@ async function handleMessage(message: Record<string, unknown>) {
       return { success: true };
 
     case 'SEARCH_BOOKMARKS':
-      return handleSearch(message.query as string);
+      return handleSearch(message.query);
 
     case 'GET_BOOKMARKS':
-      return handleGetBookmarks(message.params as Record<string, string> | undefined);
+      return handleGetBookmarks(message.params);
 
     case 'GET_TAGS':
       return apiCall('/api/tags');
@@ -361,14 +354,14 @@ async function handleMessage(message: Record<string, unknown>) {
       return handleStartBulkImport();
 
     case 'BULK_IMPORT_BATCH':
-      return handleBulkImportBatch(message.tweets as TweetData[]);
+      return handleBulkImportBatch(message.tweets);
 
     case 'BULK_IMPORT_DONE':
       handleBulkImportDone();
       return { success: true };
 
     case 'BULK_IMPORT_ERROR':
-      handleBulkImportError(message.error as string);
+      handleBulkImportError(message.error);
       return { success: true };
 
     case 'BULK_IMPORT_STOP':
@@ -393,7 +386,7 @@ async function handleMessage(message: Record<string, unknown>) {
       const win = await chrome.windows.getLastFocused({ windowTypes: ['normal'], populate: true });
       const activeTab = win?.tabs?.find(t => t.active);
       if (activeTab?.id !== undefined) {
-        chrome.tabs.update(activeTab.id, { url: message.url as string });
+        chrome.tabs.update(activeTab.id, { url: message.url });
       }
       return { success: true };
     }
@@ -403,7 +396,7 @@ async function handleMessage(message: Record<string, unknown>) {
   }
 }
 
-async function handleDeleteBookmark(data: Record<string, string>) {
+async function handleDeleteBookmark(data: { postId: string }) {
   const result = await apiCall(`/api/bookmarks?x_post_id=${encodeURIComponent(data.postId)}`, {
     method: 'DELETE',
   });
@@ -422,13 +415,22 @@ async function addToPostIdCache(postId: string) {
   }
 }
 
+async function addBatchToPostIdCache(postIds: string[]) {
+  const result = await chrome.storage.local.get('hal_post_ids');
+  const existing = new Set<string>(result.hal_post_ids || []);
+  const newIds = postIds.filter((id) => !existing.has(id));
+  if (newIds.length > 0) {
+    await chrome.storage.local.set({ hal_post_ids: [...existing, ...newIds] });
+  }
+}
+
 async function removeFromPostIdCache(postId: string) {
   const result = await chrome.storage.local.get('hal_post_ids');
   const ids: string[] = result.hal_post_ids || [];
   await chrome.storage.local.set({ hal_post_ids: ids.filter((id) => id !== postId) });
 }
 
-function broadcastToXTabs(message: Record<string, unknown>) {
+function broadcastToXTabs(message: TabMessage) {
   chrome.tabs.query({ url: ['https://x.com/*', 'https://twitter.com/*'] }, (tabs) => {
     for (const tab of tabs) {
       if (tab.id) chrome.tabs.sendMessage(tab.id, message).catch(() => {});
@@ -436,7 +438,7 @@ function broadcastToXTabs(message: Record<string, unknown>) {
   });
 }
 
-async function handleSaveBookmark(data: Record<string, string>) {
+async function handleSaveBookmark(data: { postId: string; author: string; authorName?: string; content: string; mediaUrls?: string; timestamp?: string }) {
   const result = await apiCall('/api/bookmarks', {
     method: 'POST',
     body: JSON.stringify({

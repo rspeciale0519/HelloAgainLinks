@@ -25,17 +25,22 @@ export async function getAuthContext(
   const token = authHeader.slice(7);
   const serviceClient = getServiceClient();
 
-  const { data: { user }, error } = await serviceClient.auth.getUser(token);
+  // Decode JWT payload to get user ID for parallel profile fetch
+  const payloadB64 = token.split('.')[1];
+  const userId = payloadB64 ? JSON.parse(Buffer.from(payloadB64, 'base64').toString()).sub as string : null;
+
+  // Run auth verification and profile fetch in parallel
+  const [authResult, profileResult] = await Promise.all([
+    serviceClient.auth.getUser(token),
+    userId
+      ? serviceClient.from('profiles').select('plan').eq('id', userId).single()
+      : Promise.resolve({ data: null }),
+  ]);
+
+  const { data: { user }, error } = authResult;
   if (error || !user) {
     return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
   }
-
-  // Get user plan
-  const { data: profile } = await serviceClient
-    .from('profiles')
-    .select('plan')
-    .eq('id', user.id)
-    .single();
 
   const userClient = getUserClient(token);
 
@@ -43,7 +48,7 @@ export async function getAuthContext(
     userId: user.id,
     userClient,
     serviceClient,
-    plan: (profile?.plan as Plan) || 'free',
+    plan: (profileResult.data?.plan as Plan) || 'free',
   };
 }
 

@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { HalLogo } from '@helloagain/ui';
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 function LoginContent() {
@@ -58,24 +59,7 @@ function LoginContent() {
         }}
       >
         {/* Logo */}
-        <div
-          style={{
-            width: '56px',
-            height: '56px',
-            borderRadius: '14px',
-            background: 'linear-gradient(135deg, #00d4ff, #0ea5e9)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '24px',
-            fontWeight: 700,
-            color: '#0a0a0f',
-            margin: '0 auto 24px',
-            boxShadow: '0 0 30px rgba(0,212,255,0.3)',
-          }}
-        >
-          H
-        </div>
+        <HalLogo size={56} style={{ margin: '0 auto 24px' }} />
 
         <h1 style={{ fontSize: '24px', fontWeight: 600, color: '#f0f0f5', marginBottom: '8px' }}>
           Welcome back

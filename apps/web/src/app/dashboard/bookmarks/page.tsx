@@ -3,7 +3,7 @@
 import { motion } from 'framer-motion';
 import { useEffect, useState, useCallback } from 'react';
 import { ImpactStyle } from '@capacitor/haptics';
-import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { authFetch } from '@/lib/auth-fetch';
 import { isNativeApp, triggerHaptic } from '@/lib/mobile';
 import BookmarkCard, { type BookmarkWithTags, type BookmarkTag, type TagInfo } from '@/components/BookmarkCard';
 
@@ -13,17 +13,21 @@ export default function BookmarksPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
   const [pullDistance, setPullDistance] = useState(0);
   const [isPulling, setIsPulling] = useState(false);
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
   const pageSize = 20;
 
+  // Debounce search input (300ms)
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const fetchBookmarks = useCallback(async () => {
     setLoading(true);
-    const supabase = getSupabaseBrowserClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
 
     const params = new URLSearchParams({
       page: page.toString(),
@@ -31,29 +35,21 @@ export default function BookmarksPage() {
       sort: 'bookmarked_at',
       order: 'desc',
     });
-    if (search) params.set('q', search);
+    if (debouncedSearch) params.set('q', debouncedSearch);
 
-    const res = await fetch(`/api/bookmarks?${params}`, {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
+    const res = await authFetch(`/api/bookmarks?${params}`);
 
-    if (res.ok) {
+    if (res?.ok) {
       const data = await res.json();
       setBookmarks(data.data || []);
       setTotal(data.count || 0);
     }
     setLoading(false);
-  }, [page, search]);
+  }, [page, debouncedSearch]);
 
   const fetchTags = useCallback(async () => {
-    const supabase = getSupabaseBrowserClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-
-    const res = await fetch('/api/tags', {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
-    if (res.ok) {
+    const res = await authFetch('/api/tags');
+    if (res?.ok) {
       const data = await res.json();
       const tags = data.tags || data || [];
       setAllTags(tags.map((t: TagInfo & Record<string, unknown>) => ({ id: t.id, name: t.name, color: t.color })));
@@ -85,15 +81,8 @@ export default function BookmarksPage() {
   }, []);
 
   const handleDelete = useCallback(async (bookmarkId: string, xPostId: string) => {
-    const supabase = getSupabaseBrowserClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-
-    const res = await fetch(`/api/bookmarks/${bookmarkId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
-    if (res.ok) {
+    const res = await authFetch(`/api/bookmarks/${bookmarkId}`, { method: 'DELETE' });
+    if (res?.ok) {
       setBookmarks((prev) => prev.filter((bm) => bm.id !== bookmarkId));
       setTotal((prev) => prev - 1);
       // Notify extension to deactivate HAL button on any open X tabs

@@ -8,6 +8,7 @@ import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';
 import { Preferences } from '@capacitor/preferences';
 import { ImpactStyle } from '@capacitor/haptics';
+import { HalLogo } from '@helloagain/ui';
 import { triggerHaptic } from '@/lib/mobile';
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { MobileShareSheet } from '@/components/MobileShareSheet';
@@ -74,13 +75,7 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
         minHeight: '100vh', background: '#0a0a0f',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
-        <div style={{
-          width: 56, height: 56, borderRadius: 14,
-          background: 'linear-gradient(135deg, #00d4ff, #0ea5e9)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 24, fontWeight: 700, color: '#0a0a0f',
-          boxShadow: '0 0 30px rgba(0,212,255,0.4)',
-        }}>H</div>
+        <HalLogo size={56} />
       </div>
     );
   }

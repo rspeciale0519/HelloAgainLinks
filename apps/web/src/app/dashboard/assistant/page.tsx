@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { useState, useRef, useEffect } from 'react';
-import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { authPost } from '@/lib/auth-fetch';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -30,25 +30,16 @@ export default function AssistantPage() {
     setSending(true);
 
     try {
-      const supabase = getSupabaseBrowserClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      const res = await authPost('/api/ai/assistant', {
+        message: userMsg,
+        history: messages.slice(-10),
+      });
+
+      if (!res) {
         setMessages(prev => [...prev, { role: 'assistant', content: 'Please sign in to use the assistant.' }]);
         setSending(false);
         return;
       }
-
-      const res = await fetch('/api/ai/assistant', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: userMsg,
-          history: messages.slice(-10),
-        }),
-      });
 
       if (res.ok) {
         const data = await res.json();
