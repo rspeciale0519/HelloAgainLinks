@@ -16,8 +16,15 @@ export function useAuth() {
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
+      // Proactively refresh if token is about to expire
+      if (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') {
+        setLoading(false);
+      }
+      if (event === 'SIGNED_OUT') {
+        setUser(null);
+      }
     });
 
     return () => subscription.unsubscribe();

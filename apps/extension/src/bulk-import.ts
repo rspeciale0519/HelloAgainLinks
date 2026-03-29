@@ -63,8 +63,14 @@ function injectOverlay(): HTMLDivElement {
   status.id = 'hal-import-status';
   overlay.appendChild(status);
 
+  // Keep-visible notice
+  const notice = createEl('div', {
+    fontSize: '11px', color: '#f59e0b', marginTop: '10px', lineHeight: '1.4',
+  }, 'Do not minimize this window. You can resize it and work in other windows.');
+  overlay.appendChild(notice);
+
   // Stop button
-  const btnRow = createEl('div', { marginTop: '14px', display: 'flex', gap: '8px' });
+  const btnRow = createEl('div', { marginTop: '10px', display: 'flex', gap: '8px' });
   const stopBtn = createEl('button', {
     flex: '1', padding: '8px 16px', borderRadius: '10px',
     border: '1px solid rgba(239,68,68,0.3)', background: 'transparent',
@@ -162,11 +168,35 @@ export function startBulkImport(callbacks: BulkImportCallbacks) {
   let totalSent = 0;
   let emptyScrolls = 0;
 
+  async function waitForVisible(): Promise<void> {
+    if (document.visibilityState === 'visible') return;
+    const notice = document.getElementById('hal-import-status');
+    if (notice) {
+      notice.textContent = '';
+      notice.appendChild(createEl('div', { color: '#f59e0b', fontWeight: '600' }, 'Paused — window is hidden'));
+      notice.appendChild(createEl('div', { fontSize: '11px', color: '#8a8a9a', marginTop: '4px' },
+        'Restore this window to resume importing.'));
+    }
+    return new Promise((resolve) => {
+      function onVisible() {
+        if (document.visibilityState === 'visible') {
+          document.removeEventListener('visibilitychange', onVisible);
+          resolve();
+        }
+      }
+      document.addEventListener('visibilitychange', onVisible);
+    });
+  }
+
   async function scrollLoop() {
     if (aborted) {
       cleanup();
       return;
     }
+
+    // Pause if window is minimized or hidden
+    await waitForVisible();
+    if (aborted) { cleanup(); return; }
 
     // Scrape unprocessed articles
     const articles = document.querySelectorAll(

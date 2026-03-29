@@ -37,7 +37,7 @@ function SetSessionContent() {
         const tokenData = encodeURIComponent(JSON.stringify({
           access_token: data.session.access_token,
           refresh_token: data.session.refresh_token,
-          expires_at: Math.floor(Date.now() / 1000) + 3600,
+          expires_at: data.session.expires_at || Math.floor(Date.now() / 1000) + 3600,
           user: {
             id: data.user?.id || '',
             handle: profile?.preferred_username || '',
