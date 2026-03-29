@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
-  let query = ctx.userClient
+  let query = ctx.serviceClient
     .from('bookmarks')
     .select('*, bookmark_tags(tag_id, tags(*)), bookmark_folders(folder_id, folders(*))', { count: 'exact' })
     .eq('user_id', ctx.userId)
