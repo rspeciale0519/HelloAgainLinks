@@ -31,6 +31,8 @@ interface FolderItem {
 function ImportButton() {
   const [state, setState] = useState<'idle' | 'running' | 'done'>('idle');
   const [imported, setImported] = useState(0);
+  const [phaseMessage, setPhaseMessage] = useState('');
+  const [startedAt, setStartedAt] = useState(0);
 
   useEffect(() => {
     const listener = (changes: Record<string, chrome.storage.StorageChange>) => {
@@ -38,6 +40,8 @@ function ImportButton() {
       const p = changes.import_progress.newValue;
       if (!p) return;
       setImported(p.imported || 0);
+      if (p.phaseMessage) setPhaseMessage(p.phaseMessage);
+      if (p.startedAt) setStartedAt(p.startedAt);
       setState(p.done ? 'done' : 'running');
     };
     chrome.storage.local.onChanged.addListener(listener);
@@ -48,10 +52,22 @@ function ImportButton() {
     return () => chrome.storage.local.onChanged.removeListener(listener);
   }, []);
 
+  const speed = state === 'running' && startedAt && imported > 0
+    ? Math.round(imported / ((Date.now() - startedAt) / 1000))
+    : 0;
+
   if (state === 'running') {
     return (
-      <span style={{ fontSize: '11px', color: '#00d4ff', fontWeight: 500 }}>
-        Importing... {imported}
+      <span style={{ fontSize: '11px', color: '#00d4ff', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <span style={{
+          display: 'inline-block', width: '5px', height: '5px', borderRadius: '50%',
+          background: '#00d4ff', animation: 'hal-sp-pulse 1.2s ease-in-out infinite',
+        }} />
+        {imported > 0
+          ? <>{imported} imported{speed > 0 && <span style={{ color: '#4a4a5a' }}> ({speed}/s)</span>}</>
+          : (phaseMessage || 'Connecting...')
+        }
+        <style>{`@keyframes hal-sp-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }`}</style>
       </span>
     );
   }
@@ -74,6 +90,8 @@ function ImportButton() {
     <button
       onClick={() => {
         setState('running');
+        setImported(0);
+        setPhaseMessage('Connecting...');
         chrome.runtime.sendMessage({ type: 'START_BULK_IMPORT' });
       }}
       style={{

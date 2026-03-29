@@ -24,9 +24,12 @@ function ImportBookmarks() {
   const [skipped, setSkipped] = useState(0);
   const [limitReached, setLimitReached] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [phaseMessage, setPhaseMessage] = useState('');
+  const [strategy, setStrategy] = useState<string | null>(null);
+  const [startedAt, setStartedAt] = useState(0);
+  const [speed, setSpeed] = useState(0);
 
   useEffect(() => {
-    // Listen for storage-based progress (more reliable for MV3)
     const storageListener = (changes: Record<string, chrome.storage.StorageChange>) => {
       if (!changes.import_progress) return;
       const p = changes.import_progress.newValue;
@@ -34,6 +37,9 @@ function ImportBookmarks() {
       setImported(p.imported || 0);
       setSkipped(p.skipped || 0);
       setLimitReached(p.limitReached || false);
+      if (p.phaseMessage) setPhaseMessage(p.phaseMessage);
+      if (p.strategy) setStrategy(p.strategy);
+      if (p.startedAt) setStartedAt(p.startedAt);
       if (p.error) {
         setErrorMsg(p.error);
         setState('error');
@@ -45,7 +51,6 @@ function ImportBookmarks() {
     };
     chrome.storage.local.onChanged.addListener(storageListener);
 
-    // Check if import is already running
     chrome.runtime.sendMessage({ type: 'GET_IMPORT_STATUS' }, (res) => {
       void chrome.runtime.lastError;
       if (res?.running) {
@@ -60,11 +65,21 @@ function ImportBookmarks() {
     };
   }, []);
 
+  // Calculate speed
+  useEffect(() => {
+    if (state !== 'running' || !startedAt || imported === 0) { setSpeed(0); return; }
+    const elapsed = (Date.now() - startedAt) / 1000;
+    setSpeed(elapsed > 0 ? Math.round(imported / elapsed) : 0);
+  }, [imported, startedAt, state]);
+
   const handleStart = () => {
     setState('running');
     setImported(0);
     setSkipped(0);
     setLimitReached(false);
+    setPhaseMessage('Connecting to X...');
+    setStrategy(null);
+    setSpeed(0);
     chrome.runtime.sendMessage({ type: 'START_BULK_IMPORT' });
   };
 
@@ -94,10 +109,42 @@ function ImportBookmarks() {
       )}
       {state === 'running' && (
         <div>
-          <div style={{ fontSize: '12px', color: '#8a8a9a', marginBottom: '6px' }}>
-            Importing... <span style={{ color: '#00d4ff', fontWeight: 600 }}>{imported}</span> saved
-            {skipped > 0 && <span> ({skipped} skipped)</span>}
+          {/* Phase message */}
+          <div style={{ fontSize: '11px', color: '#6a6a7a', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{
+              display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%',
+              background: '#00d4ff', animation: 'hal-pulse 1.2s ease-in-out infinite',
+            }} />
+            {phaseMessage || 'Importing...'}
           </div>
+          {/* Main counter */}
+          <div style={{ fontSize: '12px', color: '#8a8a9a', marginBottom: '6px' }}>
+            <motion.span
+              key={imported}
+              initial={{ opacity: 0.6, y: -2 }}
+              animate={{ opacity: 1, y: 0 }}
+              style={{ color: '#00d4ff', fontWeight: 600, fontSize: '16px' }}
+            >
+              {imported}
+            </motion.span>
+            <span style={{ marginLeft: '4px' }}>imported</span>
+            {speed > 0 && (
+              <span style={{ color: '#4a4a5a', marginLeft: '6px', fontSize: '11px' }}>
+                ({speed}/sec)
+              </span>
+            )}
+            {skipped > 0 && (
+              <span style={{ marginLeft: '6px', fontSize: '11px' }}>
+                · {skipped} skipped
+              </span>
+            )}
+          </div>
+          {/* Strategy label */}
+          {strategy && (
+            <div style={{ fontSize: '10px', color: '#3a3a4a', marginBottom: '6px' }}>
+              {strategy}
+            </div>
+          )}
           <button
             onClick={handleStop}
             style={{
@@ -108,6 +155,7 @@ function ImportBookmarks() {
           >
             Stop Import
           </button>
+          <style>{`@keyframes hal-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }`}</style>
         </div>
       )}
       {state === 'done' && (

@@ -1,6 +1,12 @@
 // HelloAgain — Service Worker (Background Script)
 
 import type { ExtensionMessage, TweetData, TabMessage, ExternalMessage } from './message-types';
+import {
+  storeXSession, getXSession, isXSessionFresh,
+  setImportTiming, broadcastExtendedProgress,
+  waitForTabLoad, ensureXTab, waitForCredentialCapture,
+  handleBookmarksPageResult, directGraphQLImport,
+} from './direct-import';
 
 const API_BASE = 'https://helloagainlinks.com';
 
@@ -91,7 +97,7 @@ async function apiCall(path: string, options: RequestInit = {}) {
     });
 
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) return { error: data.error || 'Request failed', status: res.status };
+    if (!res.ok) return { ...data, error: data.error || 'Request failed', status: res.status };
     return data;
   } catch (err) {
     console.error('[HelloAgain] API call failed:', path, err);
@@ -113,50 +119,83 @@ let currentImport: ImportSession | null = null;
 
 
 async function handleStartBulkImport() {
-  // Open bookmarks in a separate window so the user can keep working
-  // Chrome throttles/pauses JS in inactive tabs, so a dedicated window is required
-  const tabs = await chrome.tabs.query({ url: ['https://x.com/*', 'https://twitter.com/*'] });
-  const existingTab = tabs.find((t) => t.url?.includes('/i/bookmarks'));
+  setImportTiming('connecting', null, Date.now());
+  currentImport = { tabId: -1, imported: 0, skipped: 0, limitReached: false };
+  broadcastExtendedProgress(getImportProgress, 'connecting', 'Connecting to X...');
 
-  let bookmarkTab: chrome.tabs.Tab;
-  if (existingTab?.id && existingTab.windowId) {
-    // Focus existing tab and its window
-    await chrome.tabs.update(existingTab.id, { active: true, url: 'https://x.com/i/bookmarks' });
-    await chrome.windows.update(existingTab.windowId, { focused: true });
-    bookmarkTab = existingTab;
-  } else {
-    // Create a small window that can be tucked in a corner — must stay visible (not minimized)
+  const runDirectImport = async (tabId: number) => {
+    return directGraphQLImport(
+      tabId,
+      () => !!currentImport,
+      (tweets) => handleBulkImportBatch(tweets),
+      getImportProgress,
+    );
+  };
+
+  // Step 1: Ensure we have a tab with fresh content scripts.
+  // ensureXTab() navigates to x.com/i/bookmarks, which triggers the XHR
+  // interceptor to capture credentials during the page load.
+  const tabId = await ensureXTab();
+  if (!tabId) {
+    handleBulkImportError('Could not open X.com tab');
+    return { error: 'Could not open X.com tab' };
+  }
+  currentImport.tabId = tabId;
+
+  // Step 2: Wait for credentials (captured during page load by XHR interceptor).
+  // The XHR interceptor fires when X makes the Bookmarks GraphQL request,
+  // which can happen several seconds after the page starts loading (SPA bootstrap).
+  // Poll storage every 500ms for up to 15 seconds.
+  let session: Awaited<ReturnType<typeof getXSession>> = null;
+  for (let i = 0; i < 30; i++) {
+    session = await getXSession();
+    if (session && isXSessionFresh(session)) break;
+    session = null;
+    await new Promise((r) => setTimeout(r, 500));
+  }
+
+  // Step 3: If we have fresh credentials, try direct API (fastest path)
+  if (session && isXSessionFresh(session)) {
+    const result = await runDirectImport(tabId);
+    if (result.success) { handleBulkImportDone(); return { success: true }; }
+    if (result.error === 'rate_limited') {
+      handleBulkImportError(result.error);
+      return { error: result.error };
+    }
+    // Other errors (timeout, communication) → fall through to scroll-based
+  }
+
+  // Step 4: Direct API failed or no credentials — fall back to scroll-based import
+  setImportTiming('scroll_intercept', 'Fast scan', Date.now());
+  broadcastExtendedProgress(getImportProgress, 'scroll_intercept', 'Scanning bookmarks...');
+
+  // Make tab visible and ensure it's on the bookmarks page
+  try {
+    await chrome.tabs.update(tabId, { active: true, url: 'https://x.com/i/bookmarks' });
+    const tab = await chrome.tabs.get(tabId);
+    if (tab.windowId) await chrome.windows.update(tab.windowId, { focused: true });
+  } catch {
     const screen = await chrome.windows.getLastFocused();
     const win = await chrome.windows.create({
       url: 'https://x.com/i/bookmarks',
-      width: 480,
-      height: 600,
+      width: 480, height: 600,
       left: (screen.left || 0) + (screen.width || 1200) - 500,
       top: screen.top || 0,
       type: 'normal',
     });
-    bookmarkTab = win.tabs?.[0] || {} as chrome.tabs.Tab;
+    const fallbackTab = win.tabs?.[0];
+    if (!fallbackTab?.id) {
+      handleBulkImportError('Could not open bookmarks window');
+      return { error: 'Could not open bookmarks window' };
+    }
+    currentImport.tabId = fallbackTab.id;
   }
 
-  if (!bookmarkTab.id) return { error: 'Could not open bookmarks window' };
-
-  currentImport = {
-    tabId: bookmarkTab.id,
-    imported: 0,
-    skipped: 0,
-    limitReached: false,
-  };
-
-  // Wait for tab to finish loading, then tell content script to start
-  const tabId = bookmarkTab.id;
-  await waitForTabLoad(tabId);
-
-  // Small delay for content script to initialize
+  await waitForTabLoad(currentImport.tabId);
   await new Promise((r) => setTimeout(r, 1000));
 
-  chrome.tabs.sendMessage(tabId, { type: 'START_BULK_IMPORT' }).catch(() => {});
+  chrome.tabs.sendMessage(currentImport.tabId, { type: 'START_BULK_IMPORT' }).catch(() => {});
   broadcastImportProgress();
-
   return { success: true };
 }
 
@@ -181,8 +220,9 @@ async function handleBulkImportBatch(tweets: TweetData[]) {
   });
 
   if (result.error) {
-    console.error('[BulkImport] Batch API error:', result);
-    return result;
+    const errorMsg = result.details ? `${result.error}: ${result.details}` : result.error;
+    console.error('[BulkImport] Batch API error:', errorMsg, result);
+    return { ...result, error: errorMsg };
   }
 
   session.imported += result.imported || 0;
@@ -240,23 +280,22 @@ function broadcastImportProgress() {
   chrome.storage.local.set({ import_progress: progress });
 }
 
-function waitForTabLoad(tabId: number): Promise<void> {
-  return new Promise((resolve) => {
-    function check(id: number, info: chrome.tabs.TabChangeInfo) {
-      if (id === tabId && info.status === 'complete') {
-        chrome.tabs.onUpdated.removeListener(check);
-        resolve();
-      }
-    }
-    chrome.tabs.onUpdated.addListener(check);
-    // Also check if already loaded
-    chrome.tabs.get(tabId, (tab) => {
-      if (tab.status === 'complete') {
-        chrome.tabs.onUpdated.removeListener(check);
-        resolve();
-      }
-    });
-  });
+// ── Helpers for direct import integration ───────────────────
+
+function getImportProgress() {
+  return {
+    imported: currentImport?.imported || 0,
+    skipped: currentImport?.skipped || 0,
+    limitReached: currentImport?.limitReached || false,
+  };
+}
+
+async function fetchServerQueryId(): Promise<{ queryId: string; features: string } | null> {
+  try {
+    const result = await apiCall('/api/x-config');
+    if (result.queryId) return { queryId: result.queryId, features: result.features || '' };
+  } catch { /* best effort */ }
+  return null;
 }
 
 // ── Message handlers ─────────────────────────────────────────
@@ -381,6 +420,26 @@ async function handleMessage(message: ExtensionMessage) {
         skipped: currentImport?.skipped || 0,
         limitReached: currentImport?.limitReached || false,
       };
+
+    case 'X_CREDENTIALS_CAPTURED':
+      await storeXSession(message.credentials);
+      // Also report query_id to server (Phase 5 — will add endpoint later)
+      apiCall('/api/x-config', {
+        method: 'POST',
+        body: JSON.stringify({
+          queryId: message.credentials.queryId,
+          features: message.credentials.features,
+        }),
+      }).catch(() => {}); // Best-effort, don't block
+      return { success: true };
+
+    case 'X_BOOKMARKS_PAGE_RESULT':
+      handleBookmarksPageResult(
+        message.tweets || [],
+        message.cursor || null,
+        (message as unknown as { error?: string }).error || null,
+      );
+      return { success: true };
 
     case 'OPEN_IN_CURRENT_TAB': {
       const win = await chrome.windows.getLastFocused({ windowTypes: ['normal'], populate: true });
