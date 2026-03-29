@@ -19,6 +19,7 @@ export interface BookmarkWithTags {
   content_text: string;
   media_urls: string[];
   bookmarked_at: string;
+  post_created_at?: string;
   bookmark_tags?: BookmarkTag[];
 }
 
@@ -37,14 +38,9 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'Just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
+function formatDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 export default function BookmarkCard({ bookmark, index, allTags, onTagsChanged, onDelete }: BookmarkCardProps) {
@@ -137,8 +133,11 @@ export default function BookmarkCard({ bookmark, index, allTags, onTagsChanged, 
             <line x1="10" y1="14" x2="21" y2="3" />
           </svg>
         </a>
-        <span style={{ fontSize: '12px', color: '#4a4a5a', marginLeft: 'auto' }}>
-          {timeAgo(bookmark.bookmarked_at)}
+        <span style={{ fontSize: '12px', color: '#4a4a5a', marginLeft: 'auto', display: 'flex', gap: '10px' }}>
+          {bookmark.post_created_at && (
+            <span>Posted {formatDate(bookmark.post_created_at)}</span>
+          )}
+          <span>Added {formatDate(bookmark.bookmarked_at)}</span>
         </span>
         {onDelete && (
           <button
