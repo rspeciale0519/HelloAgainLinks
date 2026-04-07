@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext, isAuthError } from '@/lib/auth';
 import { getServiceClient } from '@/lib/supabase-server';
 import { mergeUpsertBookmarks } from '@/lib/bookmark-upsert';
-import { autoTagBookmark } from '@/lib/grok';
+import { classifyBookmark } from '@/lib/grok';
 import { refreshXToken } from '@/lib/x-auth';
 import { createSyncGuards } from '@helloagain/shared';
 
@@ -123,9 +123,18 @@ async function syncUser(
     },
   }).eq('id', userId);
 
-  // Auto-tag newly created bookmarks
+  // Two-tier classify + auto-tag newly created bookmarks
   for (const bm of allInsertedRows) {
-    const tags = await autoTagBookmark(bm.content_text || '');
+    const { tags, category, domain } = await classifyBookmark(bm.content_text || '');
+
+    // Write classification to bookmark row
+    if (category || domain) {
+      await serviceClient
+        .from('bookmarks')
+        .update({ primary_category: category, primary_domain: domain })
+        .eq('id', bm.id);
+    }
+
     for (const tagName of tags) {
       const { data: tag } = await serviceClient
         .from('tags')

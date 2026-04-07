@@ -2,6 +2,8 @@
 // Grok API Client — Server-side (Hello Again Links)
 // ============================================================
 
+import { classifyByRegex } from '@helloagain/shared';
+
 const XAI_API_KEY = process.env.XAI_API_KEY!;
 const BASE_URL = 'https://api.x.ai/v1';
 const MODEL_FAST = process.env.GROK_MODEL_FAST || 'grok-3-mini';
@@ -60,13 +62,14 @@ const TAG_TAXONOMY = [
 
 export async function autoTagBookmark(content: string, customTags: string[] = []): Promise<string[]> {
   const allTags = [...new Set([...TAG_TAXONOMY, ...customTags])];
+  const safeContent = sanitizeForLLM(content);
 
   const result = await chat([
     {
       role: 'system',
       content: `You categorize tweets/posts into topic tags. Choose 1-5 tags from this list that best match the content:\n\n${allTags.join(', ')}\n\nIf none fit well, you may suggest ONE new tag. Return ONLY a JSON array of strings. No explanation.`,
     },
-    { role: 'user', content },
+    { role: 'user', content: safeContent },
   ]);
 
   try {
@@ -75,6 +78,39 @@ export async function autoTagBookmark(content: string, customTags: string[] = []
   } catch {
     return [];
   }
+}
+
+// ── Two-tier classification ──────────────────────────────
+
+/** Strip prompt injection patterns and cap length before sending to LLM. */
+function sanitizeForLLM(text: string): string {
+  return text
+    .replace(/ignore\s+(previous|above|all)\s+instructions?/gi, '[filtered]')
+    .replace(/you\s+are\s+now\s+/gi, '[filtered]')
+    .replace(/system\s*:\s*/gi, '[filtered]')
+    .slice(0, 500);
+}
+
+/**
+ * Two-tier classification: regex fast-path first, then LLM fallback.
+ * Returns tags (from LLM) + category/domain (from regex or LLM).
+ */
+export async function classifyBookmark(
+  content: string,
+  urls: string[] = [],
+  customTags: string[] = [],
+): Promise<{ tags: string[]; category: string | null; domain: string | null }> {
+  // Tier 1: Regex (instant, free)
+  const regex = classifyByRegex(content, urls);
+
+  // Tier 2: LLM for tags (always) — could skip if regex has high confidence
+  const tags = await autoTagBookmark(content, customTags);
+
+  return {
+    tags,
+    category: regex.category,
+    domain: regex.domain,
+  };
 }
 
 // ── Batch auto-tagging ────────────────────────────────────
