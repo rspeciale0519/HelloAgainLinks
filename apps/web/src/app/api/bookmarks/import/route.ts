@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext, isAuthError } from '@/lib/auth';
 import { mergeUpsertBookmarks } from '@/lib/bookmark-upsert';
-import { PLAN_LIMITS } from '@helloagain/shared';
+import { PLAN_LIMITS, createSyncGuards } from '@helloagain/shared';
 
 interface XBookmark {
   id: string;
@@ -45,6 +45,24 @@ export async function POST(req: NextRequest) {
     let paginationToken: string | undefined;
     const remaining = limit === Infinity ? Infinity : limit - (currentCount ?? 0);
 
+    // Load sync state for caught-up detection
+    const { data: profileData } = await ctx.serviceClient
+      .from('profiles')
+      .select('sync_state')
+      .eq('id', ctx.userId)
+      .single();
+    const syncState = profileData?.sync_state as Record<string, unknown> | null;
+    const newestKnownId = (syncState?.newestKnownPostId as string) || null;
+
+    const guards = createSyncGuards({
+      maxStalePages: 3,
+      maxDurationMs: 120_000,
+      targetAdds: remaining === Infinity ? undefined : remaining,
+    });
+
+    let caughtUp = false;
+    let firstPageFirstId: string | null = null;
+
     do {
       const url = new URL(`https://api.x.com/2/users/${x_user_id}/bookmarks`);
       url.searchParams.set('max_results', '100');
@@ -75,6 +93,15 @@ export async function POST(req: NextRequest) {
       const users: XUser[] = xData.includes?.users || [];
       const userMap = new Map(users.map((u) => [u.id, u]));
 
+      if (!firstPageFirstId && tweets.length > 0) {
+        firstPageFirstId = tweets[0].id;
+      }
+
+      // Guard 5: Caught-up detection
+      if (newestKnownId && tweets.some((t) => t.id === newestKnownId)) {
+        caughtUp = true;
+      }
+
       const rows = tweets.map((tweet) => {
         const author = userMap.get(tweet.author_id || '');
         return {
@@ -90,26 +117,34 @@ export async function POST(req: NextRequest) {
         };
       });
 
-      // Respect plan limit — cap rows before merge
-      const canAttempt = remaining === Infinity
-        ? rows
-        : rows.slice(0, remaining - totalImported);
-
-      const result = await mergeUpsertBookmarks(ctx.serviceClient, ctx.userId, canAttempt);
+      const result = await mergeUpsertBookmarks(ctx.serviceClient, ctx.userId, rows);
       totalImported += result.inserted;
       totalUpdated += result.updated;
-      totalSkipped += result.skipped + (rows.length - canAttempt.length);
+      totalSkipped += result.skipped;
 
       paginationToken = xData.meta?.next_token;
 
-      if (remaining !== Infinity && totalImported >= remaining) break;
-    } while (paginationToken);
+      const stopReason = guards.check(result.inserted, !!paginationToken);
+      if (stopReason || caughtUp) break;
+    } while (true);
+
+    // Save checkpoint
+    await ctx.serviceClient.from('profiles').update({
+      sync_state: {
+        lastSyncAt: new Date().toISOString(),
+        lastCursor: paginationToken || null,
+        stopReason: guards.state.stopReason || (caughtUp ? 'caught_up' : 'end_of_data'),
+        totalSynced: totalImported,
+        newestKnownPostId: firstPageFirstId || newestKnownId,
+      },
+    }).eq('id', ctx.userId);
 
     return NextResponse.json({
       imported: totalImported,
       updated: totalUpdated,
       skipped: totalSkipped,
-      limitReached: remaining !== Infinity && totalImported >= remaining,
+      limitReached: guards.state.stopReason === 'target_reached',
+      stopReason: guards.state.stopReason || (caughtUp ? 'caught_up' : null),
     });
   } catch (err) {
     console.error('[Import]', err);
