@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext, isAuthError } from '@/lib/auth';
-import { PLAN_LIMITS } from '@helloagain/shared';
+import { mergeUpsertBookmarks } from '@/lib/bookmark-upsert';
+import { PLAN_LIMITS, createSyncGuards } from '@helloagain/shared';
 
 interface XBookmark {
   id: string;
@@ -32,20 +33,37 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing x_access_token or x_user_id' }, { status: 400 });
     }
 
-    // Check current bookmark count for plan limit
     const limit = PLAN_LIMITS[ctx.plan].bookmarks;
-    const { count: currentCount } = await ctx.userClient
+    const { count: currentCount } = await ctx.serviceClient
       .from('bookmarks')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', ctx.userId);
 
     let totalImported = 0;
+    let totalUpdated = 0;
     let totalSkipped = 0;
     let paginationToken: string | undefined;
     const remaining = limit === Infinity ? Infinity : limit - (currentCount ?? 0);
 
+    // Load sync state for caught-up detection
+    const { data: profileData } = await ctx.serviceClient
+      .from('profiles')
+      .select('sync_state')
+      .eq('id', ctx.userId)
+      .single();
+    const syncState = profileData?.sync_state as Record<string, unknown> | null;
+    const newestKnownId = (syncState?.newestKnownPostId as string) || null;
+
+    const guards = createSyncGuards({
+      maxStalePages: 3,
+      maxDurationMs: 120_000,
+      targetAdds: remaining === Infinity ? undefined : remaining,
+    });
+
+    let caughtUp = false;
+    let firstPageFirstId: string | null = null;
+
     do {
-      // Fetch bookmarks from X API v2
       const url = new URL(`https://api.x.com/2/users/${x_user_id}/bookmarks`);
       url.searchParams.set('max_results', '100');
       url.searchParams.set('tweet.fields', 'created_at,author_id,attachments');
@@ -75,7 +93,15 @@ export async function POST(req: NextRequest) {
       const users: XUser[] = xData.includes?.users || [];
       const userMap = new Map(users.map((u) => [u.id, u]));
 
-      // Prepare rows
+      if (!firstPageFirstId && tweets.length > 0) {
+        firstPageFirstId = tweets[0].id;
+      }
+
+      // Guard 5: Caught-up detection
+      if (newestKnownId && tweets.some((t) => t.id === newestKnownId)) {
+        caughtUp = true;
+      }
+
       const rows = tweets.map((tweet) => {
         const author = userMap.get(tweet.author_id || '');
         return {
@@ -87,43 +113,38 @@ export async function POST(req: NextRequest) {
           media_urls: [] as string[],
           post_created_at: tweet.created_at || new Date().toISOString(),
           bookmarked_at: new Date().toISOString(),
+          ingested_via: 'api' as const,
         };
       });
 
-      // Deduplicate against existing
-      const postIds = rows.map((r) => r.x_post_id);
-      const { data: existing } = await ctx.userClient
-        .from('bookmarks')
-        .select('x_post_id')
-        .eq('user_id', ctx.userId)
-        .in('x_post_id', postIds);
-
-      const existingSet = new Set((existing || []).map((e) => e.x_post_id));
-      const newRows = rows.filter((r) => !existingSet.has(r.x_post_id));
-      totalSkipped += rows.length - newRows.length;
-
-      // Respect plan limit
-      const canInsert = remaining === Infinity ? newRows : newRows.slice(0, remaining - totalImported);
-
-      if (canInsert.length > 0) {
-        const { error } = await ctx.userClient.from('bookmarks').insert(canInsert);
-        if (error) {
-          console.error('[Import] Insert error:', error);
-        } else {
-          totalImported += canInsert.length;
-        }
-      }
+      const result = await mergeUpsertBookmarks(ctx.serviceClient, ctx.userId, rows);
+      totalImported += result.inserted;
+      totalUpdated += result.updated;
+      totalSkipped += result.skipped;
 
       paginationToken = xData.meta?.next_token;
 
-      // Stop if at limit
-      if (remaining !== Infinity && totalImported >= remaining) break;
-    } while (paginationToken);
+      const stopReason = guards.check(result.inserted, !!paginationToken);
+      if (stopReason || caughtUp) break;
+    } while (true);
+
+    // Save checkpoint
+    await ctx.serviceClient.from('profiles').update({
+      sync_state: {
+        lastSyncAt: new Date().toISOString(),
+        lastCursor: paginationToken || null,
+        stopReason: guards.state.stopReason || (caughtUp ? 'caught_up' : 'end_of_data'),
+        totalSynced: totalImported,
+        newestKnownPostId: firstPageFirstId || newestKnownId,
+      },
+    }).eq('id', ctx.userId);
 
     return NextResponse.json({
       imported: totalImported,
+      updated: totalUpdated,
       skipped: totalSkipped,
-      limitReached: remaining !== Infinity && totalImported >= remaining,
+      limitReached: guards.state.stopReason === 'target_reached',
+      stopReason: guards.state.stopReason || (caughtUp ? 'caught_up' : null),
     });
   } catch (err) {
     console.error('[Import]', err);

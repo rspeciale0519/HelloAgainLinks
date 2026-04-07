@@ -4,6 +4,7 @@
 // via the MAIN world relay, and the multi-strategy fallback orchestrator.
 
 import type { ExtensionMessage, TweetData, XSessionCredentials, ImportPhase, ImportStrategy, ImportProgress } from './message-types';
+import { createSyncGuards } from '@helloagain/shared';
 
 // ── X session credentials ───────────────────────────────────
 
@@ -154,12 +155,17 @@ async function fetchBookmarksPageViaRelay(tabId: number, cursor: string | null):
 export async function directGraphQLImport(
   tabId: number,
   isActive: () => boolean,
-  onBatch: (tweets: TweetData[]) => Promise<{ error?: string }>,
+  onBatch: (tweets: TweetData[]) => Promise<{ error?: string; inserted?: number }>,
   getProgress: () => { imported: number; skipped: number; limitReached: boolean },
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; stopReason?: string }> {
   importPhase = 'direct_api';
   importStrategy = 'Direct API';
   broadcastExtendedProgress(getProgress, 'direct_api', 'Importing bookmarks...');
+
+  const guards = createSyncGuards({
+    maxStalePages: 3,
+    maxDurationMs: 5 * 60 * 1000, // 5 minutes max for extension imports
+  });
 
   let cursor: string | null = null;
   let consecutiveErrors = 0;
@@ -172,7 +178,7 @@ export async function directGraphQLImport(
 
     if (result.error) {
       if (result.error === 'rate_limited') {
-        return { success: false, error: 'X rate limit reached — try again in 15 minutes' };
+        return { success: false, error: 'X rate limit reached -- try again in 15 minutes' };
       }
       if (result.error === 'auth_expired') {
         return { success: false, error: 'auth_expired' };
@@ -186,20 +192,23 @@ export async function directGraphQLImport(
     }
 
     consecutiveErrors = 0;
+    let pageNewCount = 0;
 
     if (result.tweets.length > 0) {
       const batchResult = await onBatch(result.tweets);
       if (batchResult.error) {
         return { success: false, error: batchResult.error };
       }
+      pageNewCount = batchResult.inserted ?? result.tweets.length;
       broadcastExtendedProgress(getProgress, 'direct_api', 'Importing bookmarks...');
     }
 
-    if (!result.cursor) break;
     cursor = result.cursor;
+    const stopReason = guards.check(pageNewCount, !!cursor);
+    if (stopReason) {
+      return { success: true, stopReason };
+    }
 
     await new Promise((r) => setTimeout(r, 200));
   }
-
-  return { success: true };
 }

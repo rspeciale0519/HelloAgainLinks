@@ -1,7 +1,7 @@
 # Fieldtheory-Inspired Upgrades
 
 > **Origin:** Analysis of [fieldtheory-cli](https://github.com/afar1/fieldtheory-cli) (v1.2.1) — a single-user X bookmark CLI with patterns HAL should adopt.
-> **Full analysis:** `docs/temp/research-fieldtheory-cli-analysis.md`
+> **Full analysis:** [Fieldtheory-CLI Analysis](../temp/research-fieldtheory-cli-analysis.md) | **API reference:** [X API Bookmarks Reference](../x-api/bookmarks-reference.md)
 > **Date:** 2026-04-05
 
 This document covers four upgrades to HAL's backend, ordered by impact. Each section includes the current state, target state, implementation steps, code/SQL, and files to modify.
