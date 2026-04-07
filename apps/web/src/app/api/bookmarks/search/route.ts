@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext, isAuthError } from '@/lib/auth';
-import { sanitizePostgrestSearchTerm } from '@/lib/postgrest-search';
+import { sanitizeFtsQuery } from '@/lib/postgrest-search';
 import { searchBookmarksSchema } from '@helloagain/shared';
 
 export const dynamic = 'force-dynamic';
@@ -16,37 +16,51 @@ export async function GET(req: NextRequest) {
   }
 
   const { q, page, pageSize, author, date_from, date_to } = parsed.data;
-  const safeQuery = sanitizePostgrestSearchTerm(q);
+  const safeQuery = sanitizeFtsQuery(q);
   if (!safeQuery) {
     return NextResponse.json({ error: 'Search query contains no searchable text' }, { status: 400 });
   }
 
   const from = (page - 1) * pageSize;
-  const to = from + pageSize - 1;
 
-  // Search content and handle; strip leading @ for handle matching
-  const handleQ = safeQuery.startsWith('@') ? safeQuery.slice(1) : safeQuery;
+  // Step 1: Ranked search via RPC (SECURITY DEFINER — bypasses RLS, filters by user_id)
+  const { data: ranked, error: rpcError } = await ctx.serviceClient.rpc('search_bookmarks', {
+    p_user_id: ctx.userId,
+    p_query: safeQuery,
+    p_limit: pageSize,
+    p_offset: from,
+    p_author: author || null,
+    p_date_from: date_from || null,
+    p_date_to: date_to || null,
+  });
 
-  let query = ctx.userClient
+  if (rpcError) return NextResponse.json({ error: rpcError.message }, { status: 500 });
+
+  const results = (ranked ?? []) as { id: string; rank: number; total_count: number }[];
+  if (results.length === 0) {
+    return NextResponse.json({ data: [], count: 0, page, pageSize, hasMore: false });
+  }
+
+  const totalCount = Number(results[0].total_count);
+  const ids = results.map((r) => r.id);
+
+  // Step 2: Hydrate full bookmark rows with tags/folders via RLS-enforced client
+  const { data, error } = await ctx.userClient
     .from('bookmarks')
-    .select('*, bookmark_tags(tag_id, tags(*)), bookmark_folders(folder_id, folders(*))', { count: 'exact' })
-    .eq('user_id', ctx.userId)
-    .or(`content_text.ilike.%${safeQuery}%,x_author_handle.ilike.%${handleQ}%`)
-    .range(from, to)
-    .order('bookmarked_at', { ascending: false });
+    .select('*, bookmark_tags(tag_id, tags(*)), bookmark_folders(folder_id, folders(*))')
+    .in('id', ids);
 
-  if (author) query = query.eq('x_author_handle', author);
-  if (date_from) query = query.gte('bookmarked_at', date_from);
-  if (date_to) query = query.lte('bookmarked_at', date_to);
-
-  const { data, count, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  // Re-sort by rank (the .in() query doesn't preserve RPC ordering)
+  const rankMap = new Map(results.map((r) => [r.id, r.rank]));
+  const sorted = (data ?? []).sort((a, b) => (rankMap.get(b.id) ?? 0) - (rankMap.get(a.id) ?? 0));
+
   return NextResponse.json({
-    data: data ?? [],
-    count: count ?? 0,
+    data: sorted,
+    count: totalCount,
     page,
     pageSize,
-    hasMore: (count ?? 0) > from + pageSize,
+    hasMore: totalCount > from + pageSize,
   });
 }

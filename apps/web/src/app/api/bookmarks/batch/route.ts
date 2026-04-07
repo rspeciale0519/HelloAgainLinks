@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext, isAuthError } from '@/lib/auth';
+import { mergeUpsertBookmarks } from '@/lib/bookmark-upsert';
 import { batchImportSchema, PLAN_LIMITS, type BatchImportInput } from '@helloagain/shared';
 
 type BookmarkInput = BatchImportInput['bookmarks'][number];
@@ -23,7 +24,6 @@ export async function POST(req: NextRequest) {
     const { bookmarks } = parsed.data;
     const limit = PLAN_LIMITS[ctx.plan].bookmarks;
 
-    // Get current bookmark count (atomic snapshot)
     const { count: currentCount } = await ctx.serviceClient
       .from('bookmarks')
       .select('*', { count: 'exact', head: true })
@@ -40,12 +40,10 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Respect plan limit — only attempt to insert up to `remaining`
     const toAttempt =
       remaining === Infinity ? bookmarks : bookmarks.slice(0, remaining);
     const droppedByLimit = bookmarks.length - toAttempt.length;
 
-    // Build rows for insert
     const rows = toAttempt.map((b: BookmarkInput) => ({
       user_id: ctx.userId,
       x_post_id: b.x_post_id,
@@ -55,35 +53,27 @@ export async function POST(req: NextRequest) {
       media_urls: b.media_urls || [],
       post_created_at: b.post_created_at || new Date().toISOString(),
       bookmarked_at: b.bookmarked_at || new Date().toISOString(),
+      x_author_avatar_url: b.x_author_avatar_url || null,
+      engagement: b.engagement || null,
+      language: b.language || null,
+      conversation_id: b.conversation_id || null,
+      in_reply_to_status_id: b.in_reply_to_status_id || null,
+      quoted_status_id: b.quoted_status_id || null,
+      possibly_sensitive: b.possibly_sensitive ?? false,
+      ingested_via: b.ingested_via || 'extension',
     }));
 
-    // Atomic upsert with ignoreDuplicates — DB handles dedup via unique constraint.
-    // .select('id') returns ONLY the rows that were actually inserted (not skipped dupes).
-    // Note: with ignoreDuplicates, Supabase returns only newly inserted rows.
-    const { data: inserted, error } = await ctx.serviceClient
-      .from('bookmarks')
-      .upsert(rows, { onConflict: 'user_id,x_post_id', ignoreDuplicates: true })
-      .select('id');
+    const result = await mergeUpsertBookmarks(ctx.serviceClient, ctx.userId, rows);
 
-    if (error) {
-      console.error('[Batch Import] Upsert error:', error);
-      return NextResponse.json(
-        { error: 'Insert failed', details: error.message },
-        { status: 500 }
-      );
-    }
-
-    // Count actual inserts from DB response
-    const imported = inserted?.length ?? 0;
-    const duplicates = toAttempt.length - imported;
-    const limitReached = remaining !== Infinity && (imported >= remaining || droppedByLimit > 0);
-
+    const totalProcessed = result.inserted + result.updated;
+    const limitReached = remaining !== Infinity && (totalProcessed >= remaining || droppedByLimit > 0);
     const newRemaining =
-      remaining === Infinity ? Infinity : remaining - imported;
+      remaining === Infinity ? Infinity : remaining - result.inserted;
 
     return NextResponse.json({
-      imported,
-      skipped: duplicates + droppedByLimit,
+      imported: result.inserted,
+      updated: result.updated,
+      skipped: result.skipped + droppedByLimit,
       limitReached,
       remaining: newRemaining === Infinity ? -1 : Math.max(0, newRemaining),
     });

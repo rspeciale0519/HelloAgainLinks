@@ -28,6 +28,24 @@ export interface Bookmark {
   created_at: string;
   tags?: Tag[];
   folders?: Folder[];
+  x_author_avatar_url?: string;
+  engagement?: {
+    like_count?: number;
+    retweet_count?: number;
+    reply_count?: number;
+    quote_count?: number;
+    bookmark_count?: number;
+    view_count?: number;
+  };
+  language?: string;
+  conversation_id?: string;
+  in_reply_to_status_id?: string;
+  quoted_status_id?: string;
+  possibly_sensitive?: boolean;
+  ingested_via?: 'api' | 'graphql' | 'extension';
+  updated_at?: string;
+  primary_category?: string;
+  primary_domain?: string;
 }
 
 export interface Tag {
