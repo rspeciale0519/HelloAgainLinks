@@ -157,12 +157,13 @@ async function handleStartBulkImport() {
   // Step 3: If we have fresh credentials, try direct API (fastest path)
   if (session && isXSessionFresh(session)) {
     const result = await runDirectImport(tabId);
-    if (result.success) { handleBulkImportDone(); return { success: true }; }
-    if (result.error === 'rate_limited') {
-      handleBulkImportError(result.error);
-      return { error: result.error };
+    if (result.success && (currentImport?.imported || 0) > 0) {
+      // Direct API worked and imported something — done
+      handleBulkImportDone();
+      return { success: true };
     }
-    // Other errors (timeout, communication) → fall through to scroll-based
+    // Direct API found nothing or failed — fall through to scroll-based
+    // (rate limit, stale pages with 0 imports, communication errors, etc.)
   }
 
   // Step 4: Direct API failed or no credentials — fall back to scroll-based import
