@@ -135,10 +135,13 @@
       "mcp__stripe__list_prices",
       "Skill(commit-commands:commit)",
       "mcp__firecrawl__firecrawl_map",
-      "mcp__firecrawl__firecrawl_scrape"
+      "mcp__firecrawl__firecrawl_scrape",
+      "mcp__supabase__apply_migration",
+      "mcp__supabase__list_tables"
     ]
   },
   "enabledMcpjsonServers": [
-    "stripe"
+    "stripe",
+    "supabase"
   ]
 }
