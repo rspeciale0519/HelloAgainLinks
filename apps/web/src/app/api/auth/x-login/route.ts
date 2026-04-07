@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
+import {
+  hashMobileAuthNonce,
+  isValidMobileAuthNonce,
+} from '@/lib/mobile-auth-handoff';
 
 const X_CLIENT_ID = process.env.X_CLIENT_ID!;
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
-  const extensionId = url.searchParams.get('extension_id');
   const platform = url.searchParams.get('platform');
+  const mobileNonce = url.searchParams.get('mobile_nonce');
 
   // Generate PKCE challenge
   const codeVerifier = crypto.randomBytes(32).toString('base64url');
@@ -22,12 +26,21 @@ export async function GET(req: NextRequest) {
   // Build callback URL
   const callbackUrl = `${APP_URL}/api/auth/x-callback`;
 
+  const mobileNonceHash =
+    platform === 'mobile' && isValidMobileAuthNonce(mobileNonce)
+      ? hashMobileAuthNonce(mobileNonce)
+      : null;
+
+  if (platform === 'mobile' && !mobileNonceHash) {
+    return NextResponse.redirect(`${APP_URL}/login?error=invalid_mobile_nonce`);
+  }
+
   // Store verifier + state in cookie
   const stateData = JSON.stringify({
     codeVerifier,
     state,
-    extensionId: extensionId || null,
     platform: platform || null,
+    mobileNonceHash,
   });
 
   const xAuthUrl = new URL('https://x.com/i/oauth2/authorize');
