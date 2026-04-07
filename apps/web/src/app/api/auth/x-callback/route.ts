@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { createMobileAuthHandoff } from '@/lib/mobile-auth-handoff';
 
 const X_CLIENT_ID = process.env.X_CLIENT_ID!;
 const X_CLIENT_SECRET = process.env.X_CLIENT_SECRET!;
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+const MOBILE_AUTH_CALLBACK_URL =
+  process.env.NEXT_PUBLIC_MOBILE_AUTH_CALLBACK_URL ||
+  `${APP_URL}/auth/mobile-callback`;
 
 const X_API_DOMAINS = ['https://api.x.com', 'https://api.twitter.com'];
 const USER_FIELDS = 'profile_image_url,name,username';
@@ -63,7 +67,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(`${APP_URL}/login?error=no_state`);
   }
 
-  let stateData: { codeVerifier: string; state: string; extensionId: string | null; platform: string | null };
+  let stateData: {
+    codeVerifier: string;
+    state: string;
+    platform: string | null;
+    mobileNonceHash: string | null;
+  };
   try {
     stateData = JSON.parse(stateCookie);
   } catch {
@@ -204,23 +213,32 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(`${APP_URL}/login?error=verify_failed`);
     }
 
-    // Mobile: redirect to custom scheme with tokens so Capacitor can intercept
+    // Mobile: redirect with an opaque, nonce-bound handoff instead of raw session tokens.
     if (stateData.platform === 'mobile') {
-      const mobileUrl = new URL('helloagainlinks://auth/callback');
-      mobileUrl.searchParams.set('access_token', verifyData.session.access_token);
-      mobileUrl.searchParams.set('refresh_token', verifyData.session.refresh_token);
+      if (!stateData.mobileNonceHash) {
+        console.error('[X OAuth] Missing mobile nonce hash in state');
+        return NextResponse.redirect(`${APP_URL}/login?error=missing_mobile_nonce`);
+      }
+
+      const handoff = createMobileAuthHandoff({
+        accessToken: verifyData.session.access_token,
+        refreshToken: verifyData.session.refresh_token,
+        sessionExpiresAt: verifyData.session.expires_at ?? null,
+        nonceHash: stateData.mobileNonceHash,
+      });
+      const mobileUrl = new URL(MOBILE_AUTH_CALLBACK_URL);
+      mobileUrl.hash = new URLSearchParams({ handoff }).toString();
       const response = NextResponse.redirect(mobileUrl.toString());
       response.cookies.delete('x-oauth-state');
       return response;
     }
 
-    // Web: existing flow
+    // Web: deliver the session via URL fragment so it never enters request logs.
     const sessionUrl = new URL(`${APP_URL}/auth/set-session`);
-    sessionUrl.searchParams.set('access_token', verifyData.session.access_token);
-    sessionUrl.searchParams.set('refresh_token', verifyData.session.refresh_token);
-    if (stateData.extensionId) {
-      sessionUrl.searchParams.set('extension_id', stateData.extensionId);
-    }
+    sessionUrl.hash = new URLSearchParams({
+      access_token: verifyData.session.access_token,
+      refresh_token: verifyData.session.refresh_token,
+    }).toString();
 
     const response = NextResponse.redirect(sessionUrl.toString());
     response.cookies.delete('x-oauth-state');

@@ -359,8 +359,7 @@ async function handleMessage(message: ExtensionMessage) {
       return getAuthStatus();
 
     case 'LOGIN': {
-      const extensionId = chrome.runtime.id;
-      const loginUrl = `${API_BASE}/login?extension_id=${extensionId}`;
+      const loginUrl = `${API_BASE}/login`;
       chrome.tabs.create({ url: loginUrl });
       return { success: true };
     }
