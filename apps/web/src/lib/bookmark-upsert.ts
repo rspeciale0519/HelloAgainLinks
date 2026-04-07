@@ -59,10 +59,19 @@ export async function mergeUpsertBookmarks(
           existing as Record<string, unknown>,
           row as Record<string, unknown>,
         );
-        // Remove fields that shouldn't be overwritten
-        delete merged.id;
-        delete merged.created_at;
-        toUpdate.push({ id: existing.id as string, data: merged });
+        // Only keep writable bookmark columns
+        const WRITABLE_FIELDS = new Set([
+          'x_author_handle', 'x_author_name', 'content_text', 'media_urls',
+          'post_created_at', 'bookmarked_at', 'x_author_avatar_url',
+          'engagement', 'language', 'conversation_id', 'in_reply_to_status_id',
+          'quoted_status_id', 'possibly_sensitive', 'ingested_via',
+          'primary_category', 'primary_domain',
+        ]);
+        const updateData: Record<string, unknown> = {};
+        for (const [key, value] of Object.entries(merged)) {
+          if (WRITABLE_FIELDS.has(key)) updateData[key] = value;
+        }
+        toUpdate.push({ id: existing.id as string, data: updateData });
       } else {
         skipped++;
       }

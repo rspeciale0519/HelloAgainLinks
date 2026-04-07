@@ -70,7 +70,10 @@ async function syncUser(
     const xRes = await fetch(url.toString(), {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
-    if (!xRes.ok) break;
+    if (!xRes.ok) {
+      console.error(`[Sync] X API error ${xRes.status}:`, await xRes.text().catch(() => ''));
+      break;
+    }
 
     const data = await xRes.json();
     const tweets: Record<string, string>[] = data.data || [];
