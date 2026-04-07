@@ -4,6 +4,8 @@
 > This document consolidates everything HAL needs to interact with the X API v2 Bookmarks endpoints, including authentication, scopes, rate limits, pagination, fields/expansions, the full data dictionary for returned objects, and end-to-end integration flows.
 >
 > **Scraping note:** `docs.x.com` is not supported by the Firecrawl MCP; content below was gathered via `WebFetch` + `WebSearch` against the same public documentation pages.
+>
+> **See also:** [Fieldtheory-CLI Analysis](../temp/research-fieldtheory-cli-analysis.md) | [Upgrade Implementation Guide](../dev-docs/fieldtheory-inspired-upgrades.md)
 
 ---
 
