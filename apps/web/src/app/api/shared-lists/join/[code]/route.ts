@@ -57,7 +57,7 @@ export async function POST(
   }
 
   const { code } = await params;
-  const { role } = await req.json().catch(() => ({ role: undefined }));
+  await req.json().catch(() => null);
 
   const { data: list } = await ctx.serviceClient
     .from('shared_lists')
@@ -83,8 +83,7 @@ export async function POST(
     return NextResponse.json({ error: 'Already a member', listId: list.id }, { status: 409 });
   }
 
-  // Default role is viewer unless owner specifies editor in invite
-  const joinRole = role === 'editor' ? 'editor' : 'viewer';
+  const joinRole = 'viewer';
 
   const { error } = await ctx.serviceClient
     .from('shared_list_members')

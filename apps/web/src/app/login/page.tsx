@@ -4,15 +4,22 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { HalLogo } from '@helloagain/ui';
 import { useSearchParams } from 'next/navigation';
-import { Suspense } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 function LoginContent() {
   const searchParams = useSearchParams();
-  const extensionId = searchParams.get('extension_id');
   const error = searchParams.get('error');
+  const [isExtensionFlow, setIsExtensionFlow] = useState(false);
+
+  useEffect(() => {
+    try {
+      setIsExtensionFlow(Boolean(localStorage.getItem('hal_extension_id')));
+    } catch {
+      setIsExtensionFlow(false);
+    }
+  }, []);
 
   const handleLogin = () => {
-    const loginUrl = `/api/auth/x-login${extensionId ? `?extension_id=${extensionId}` : ''}`;
-    window.location.href = loginUrl;
+    window.location.href = '/api/auth/x-login';
   };
 
   return (
@@ -65,7 +72,7 @@ function LoginContent() {
           Welcome back
         </h1>
         <p style={{ fontSize: '14px', color: '#8a8a9a', marginBottom: '32px' }}>
-          {extensionId
+          {isExtensionFlow
             ? 'Sign in with X to connect your extension'
             : 'Sign in with your X account to continue'}
         </p>

@@ -25,7 +25,7 @@ export async function GET(
   if (!member) {
     const { data: list } = await ctx.serviceClient
       .from('shared_lists')
-      .select('*')
+      .select('id, owner_id, name, description, visibility, slug, bookmark_count, member_count, created_at, updated_at')
       .eq('id', id)
       .eq('visibility', 'public')
       .single();
@@ -36,7 +36,7 @@ export async function GET(
 
   const { data: list } = await ctx.serviceClient
     .from('shared_lists')
-    .select('*')
+    .select('id, owner_id, name, description, visibility, slug, bookmark_count, member_count, created_at, updated_at')
     .eq('id', id)
     .single();
 

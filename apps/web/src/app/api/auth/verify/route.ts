@@ -9,7 +9,6 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const tokenHash = url.searchParams.get('token_hash');
   const type = url.searchParams.get('type') as 'magiclink';
-  const extensionId = url.searchParams.get('extension_id');
 
   if (!tokenHash) {
     return NextResponse.redirect(`${APP_URL}/login?error=no_token`);
@@ -26,30 +25,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(`${APP_URL}/login?error=verify_failed`);
   }
 
-  // If from extension, redirect to extension callback page
-  if (extensionId) {
-    const tokenPayload = encodeURIComponent(
-      JSON.stringify({
-        access_token: data.session.access_token,
-        refresh_token: data.session.refresh_token,
-        expires_at: data.session.expires_at,
-        user: {
-          id: data.session.user.id,
-          handle: data.session.user.user_metadata?.preferred_username || '',
-          name: data.session.user.user_metadata?.full_name || '',
-          avatar: data.session.user.user_metadata?.avatar_url || '',
-        },
-      })
-    );
-    return NextResponse.redirect(
-      `${APP_URL}/auth/extension-callback?token=${tokenPayload}&extension_id=${extensionId}`
-    );
-  }
-
-  // Redirect to client-side page that sets Supabase session in browser
+  // Redirect to client-side page that sets Supabase session in browser.
+  // Use the fragment so tokens do not end up in server logs or referrers.
   const sessionUrl = new URL(`${APP_URL}/auth/set-session`);
-  sessionUrl.searchParams.set('access_token', data.session.access_token);
-  sessionUrl.searchParams.set('refresh_token', data.session.refresh_token);
+  sessionUrl.hash = new URLSearchParams({
+    access_token: data.session.access_token,
+    refresh_token: data.session.refresh_token,
+  }).toString();
 
   return NextResponse.redirect(sessionUrl.toString());
 }
