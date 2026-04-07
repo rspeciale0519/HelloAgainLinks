@@ -4,6 +4,7 @@
 **Version analyzed:** 1.2.1  
 **Date:** 2026-04-05  
 **Purpose:** Extract architectural patterns, sync techniques, and implementation ideas for HAL
+**See also:** [X API Bookmarks Reference](../x-api/bookmarks-reference.md) | [Upgrade Implementation Guide](../dev-docs/fieldtheory-inspired-upgrades.md)
 
 ---
 
