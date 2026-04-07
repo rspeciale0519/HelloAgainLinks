@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext, isAuthError } from '@/lib/auth';
 import { getServiceClient } from '@/lib/supabase-server';
+import { mergeUpsertBookmarks } from '@/lib/bookmark-upsert';
 import { autoTagBookmark } from '@/lib/grok';
 import { refreshXToken } from '@/lib/x-auth';
 
@@ -41,7 +42,6 @@ async function syncUser(serviceClient: ReturnType<typeof getServiceClient>, user
   const userMap = new Map<string, { username: string; name: string }>();
   for (const u of users) userMap.set(u.id, { username: u.username, name: u.name });
 
-  // Batch insert bookmarks (skip duplicates)
   const rows = tweets.map((tweet: Record<string, string>) => {
     const author = userMap.get(tweet.author_id) || { username: 'unknown', name: '' };
     return {
@@ -50,23 +50,19 @@ async function syncUser(serviceClient: ReturnType<typeof getServiceClient>, user
       x_author_handle: author.username,
       x_author_name: author.name,
       content_text: tweet.text || '',
-      media_urls: [],
+      media_urls: [] as string[],
       post_created_at: tweet.created_at || new Date().toISOString(),
       bookmarked_at: new Date().toISOString(),
+      ingested_via: 'api' as const,
     };
   });
 
-  const { data: insertedRows } = await serviceClient
-    .from('bookmarks')
-    .upsert(rows, { onConflict: 'user_id,x_post_id', ignoreDuplicates: true })
-    .select('id, content_text');
-
-  const created = insertedRows ?? [];
-  imported = created.length;
-  skipped = rows.length - imported;
+  const result = await mergeUpsertBookmarks(serviceClient, userId, rows);
+  imported = result.inserted;
+  skipped = result.skipped;
 
   // Auto-tag newly created bookmarks (AI calls are inherently sequential)
-  for (const bm of created) {
+  for (const bm of result.insertedRows) {
     const tags = await autoTagBookmark(bm.content_text || '');
     for (const tagName of tags) {
       const { data: tag } = await serviceClient
