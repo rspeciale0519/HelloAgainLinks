@@ -12,6 +12,21 @@ export const createBookmarkSchema = z.object({
   media_urls: z.array(z.string()).optional().default([]),
   post_created_at: z.string().optional(),
   bookmarked_at: z.string().optional(),
+  x_author_avatar_url: z.string().optional(),
+  engagement: z.object({
+    like_count: z.number().optional(),
+    retweet_count: z.number().optional(),
+    reply_count: z.number().optional(),
+    quote_count: z.number().optional(),
+    bookmark_count: z.number().optional(),
+    view_count: z.number().optional(),
+  }).optional(),
+  language: z.string().optional(),
+  conversation_id: z.string().optional(),
+  in_reply_to_status_id: z.string().optional(),
+  quoted_status_id: z.string().optional(),
+  possibly_sensitive: z.boolean().optional(),
+  ingested_via: z.enum(['api', 'graphql', 'extension']).optional(),
 });
 
 export const updateBookmarkSchema = z.object({
