@@ -29,15 +29,23 @@ export default function BookmarksPage() {
   const fetchBookmarks = useCallback(async () => {
     setLoading(true);
 
-    const params = new URLSearchParams({
-      page: page.toString(),
-      pageSize: pageSize.toString(),
-      sort: 'bookmarked_at',
-      order: 'desc',
-    });
-    if (debouncedSearch) params.set('q', debouncedSearch);
-
-    const res = await authFetch(`/api/bookmarks?${params}`);
+    let res: Response | null;
+    if (debouncedSearch) {
+      const params = new URLSearchParams({
+        q: debouncedSearch,
+        page: page.toString(),
+        pageSize: pageSize.toString(),
+      });
+      res = await authFetch(`/api/bookmarks/search?${params}`);
+    } else {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        pageSize: pageSize.toString(),
+        sort: 'bookmarked_at',
+        order: 'desc',
+      });
+      res = await authFetch(`/api/bookmarks?${params}`);
+    }
 
     if (res?.ok) {
       const data = await res.json();
