@@ -22,6 +22,17 @@ const TABS = [
 ] as const;
 
 type AppState = 'loading' | 'onboarding' | 'app';
+const MOBILE_AUTH_NONCE_KEY = 'mobile_auth_handoff_nonce';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://helloagainlinks.com';
+const MOBILE_AUTH_CALLBACK_URL =
+  process.env.NEXT_PUBLIC_MOBILE_AUTH_CALLBACK_URL ||
+  `${APP_URL}/auth/mobile-callback`;
+
+function extractHandoffParam(url: string): string | null {
+  const parsedUrl = new URL(url);
+  const hashParams = new URLSearchParams(parsedUrl.hash.startsWith('#') ? parsedUrl.hash.slice(1) : parsedUrl.hash);
+  return hashParams.get('handoff') || parsedUrl.searchParams.get('handoff');
+}
 
 export default function MobileLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -36,36 +47,112 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
       return;
     }
 
-    // Deep-link auth callback handler
-    const appListenerPromise = App.addListener('appUrlOpen', async ({ url }) => {
-      if (url.startsWith('helloagainlinks://auth/callback')) {
-        const params = new URL(url).searchParams;
+    let cancelled = false;
+
+    const completeMobileAuth = async (handoff: string) => {
+      const { value: mobileNonce } = await Preferences.get({ key: MOBILE_AUTH_NONCE_KEY });
+      if (!mobileNonce) {
+        console.error('[Mobile auth] Missing stored mobile auth nonce');
+        return false;
+      }
+
+      try {
+        const response = await fetch(`${APP_URL}/api/auth/mobile-session`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            handoff,
+            nonce: mobileNonce,
+          }),
+        });
+
+        if (!response.ok) {
+          console.error('[Mobile auth] Session exchange failed:', response.status);
+          return false;
+        }
+
+        const payload = await response.json();
         const supabase = getSupabaseBrowserClient();
         const { error } = await supabase.auth.setSession({
-          access_token: params.get('access_token')!,
-          refresh_token: params.get('refresh_token')!,
+          access_token: payload.access_token,
+          refresh_token: payload.refresh_token,
         });
-        if (!error) {
-          await Preferences.set({ key: 'onboarding_complete', value: 'true' });
+
+        if (error) {
+          console.error('[Mobile auth] Supabase session setup failed:', error);
+          return false;
+        }
+
+        await Preferences.set({ key: 'onboarding_complete', value: 'true' });
+        if (!cancelled) {
           router.replace('/mobile/home');
           setAppState('app');
         }
+        return true;
+      } finally {
+        await Preferences.remove({ key: MOBILE_AUTH_NONCE_KEY });
       }
+    };
+
+    const consumeMobileAuthUrl = async (url: string) => {
+      if (
+        !url.startsWith('helloagainlinks://auth/callback') &&
+        !url.startsWith(MOBILE_AUTH_CALLBACK_URL)
+      ) {
+        return false;
+      }
+
+      const handoff = extractHandoffParam(url);
+      if (!handoff) {
+        console.error('[Mobile auth] Missing handoff parameter');
+        return false;
+      }
+
+      return completeMobileAuth(handoff);
+    };
+
+    // Deep-link auth callback handler
+    const appListenerPromise = App.addListener('appUrlOpen', async ({ url }) => {
+      await consumeMobileAuthUrl(url);
     });
 
-    // Check onboarding status
-    Preferences.get({ key: 'onboarding_complete' }).then(({ value }) => {
-      if (value === 'true') {
-        setAppState('app');
-      } else {
-        setAppState('onboarding');
-        if (!pathname.startsWith('/mobile/onboarding')) {
+    const initializeAppState = async () => {
+      try {
+        const launchUrl = await App.getLaunchUrl();
+        if (launchUrl?.url) {
+          const handled = await consumeMobileAuthUrl(launchUrl.url);
+          if (handled) {
+            return;
+          }
+        }
+
+        const { value } = await Preferences.get({ key: 'onboarding_complete' });
+        if (value === 'true') {
+          if (!cancelled) {
+            setAppState('app');
+          }
+          return;
+        }
+
+        if (!cancelled) {
+          setAppState('onboarding');
+        }
+        if (!cancelled && !pathname.startsWith('/mobile/onboarding')) {
           router.replace('/mobile/onboarding');
         }
+      } catch (error) {
+        console.error('[Mobile auth] Failed to initialize app state:', error);
       }
-    });
+    };
 
-    return () => { appListenerPromise.then(handle => handle.remove()).catch(() => {}); };
+    void initializeAppState();
+
+    return () => {
+      cancelled = true;
+      appListenerPromise.then(handle => handle.remove()).catch(() => {});
+    };
   }, [router, pathname]);
 
   // Splash screen while checking onboarding

@@ -12,6 +12,13 @@ import { triggerHaptic } from '@/lib/mobile';
 
 const isIOS = Capacitor.getPlatform() === 'ios';
 const TOTAL_STEPS = isIOS ? 5 : 4; // Android skips share extension setup
+const MOBILE_AUTH_NONCE_KEY = 'mobile_auth_handoff_nonce';
+
+function createMobileAuthNonce() {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -33,14 +40,19 @@ export default function OnboardingPage() {
     router.replace('/mobile/home');
   };
 
-  const openSignIn = () => {
+  const openSignIn = async () => {
     // window.open with '_system' target opens in the device's default browser,
     // which preserves the appUrlOpen listener mounted in layout.tsx.
     // Do NOT use window.location.href — that navigates the WebView away from
     // the app shell and destroys the listener before the deep-link fires.
     // Use absolute production URL — relative URLs resolve to http://localhost in the system browser.
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://helloagainlinks.com';
-    window.open(`${appUrl}/api/auth/x-login?platform=mobile`, '_system');
+    const mobileNonce = createMobileAuthNonce();
+    await Preferences.set({ key: MOBILE_AUTH_NONCE_KEY, value: mobileNonce });
+    window.open(
+      `${appUrl}/api/auth/x-login?platform=mobile&mobile_nonce=${mobileNonce}`,
+      '_system'
+    );
   };
 
   return (

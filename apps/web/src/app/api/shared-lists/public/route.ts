@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceClient } from '@/lib/supabase-server';
+import { sanitizePostgrestSearchTerm } from '@/lib/postgrest-search';
 
 // Browse public shared lists (no auth required)
 export async function GET(req: NextRequest) {
@@ -21,7 +22,12 @@ export async function GET(req: NextRequest) {
     .eq('visibility', 'public');
 
   if (search) {
-    query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%`);
+    const safeSearch = sanitizePostgrestSearchTerm(search);
+    if (!safeSearch) {
+      return NextResponse.json({ error: 'Search query contains no searchable text' }, { status: 400 });
+    }
+
+    query = query.or(`name.ilike.%${safeSearch}%,description.ilike.%${safeSearch}%`);
   }
 
   const sortCol = ['bookmark_count', 'member_count', 'created_at'].includes(sort)

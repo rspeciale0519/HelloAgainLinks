@@ -8,7 +8,6 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const code = url.searchParams.get('code');
-  const extensionId = url.searchParams.get('extension_id');
   const redirect = url.searchParams.get('redirect');
 
   if (!code) {
@@ -37,26 +36,6 @@ export async function GET(req: NextRequest) {
     },
     { onConflict: 'id' }
   );
-
-  // If from extension, redirect to a page that posts the token back
-  if (extensionId) {
-    const tokenPayload = encodeURIComponent(
-      JSON.stringify({
-        access_token: data.session.access_token,
-        refresh_token: data.session.refresh_token,
-        expires_at: data.session.expires_at,
-        user: {
-          id: user.id,
-          handle: meta.preferred_username || meta.user_name || '',
-          name: meta.full_name || meta.name || '',
-          avatar: meta.avatar_url || meta.picture || '',
-        },
-      })
-    );
-    return NextResponse.redirect(
-      `${APP_URL}/auth/extension-callback?token=${tokenPayload}&extension_id=${extensionId}`
-    );
-  }
 
   // Normal web login — set cookies and redirect
   const response = NextResponse.redirect(redirect ? `${APP_URL}${redirect}` : `${APP_URL}/dashboard`);

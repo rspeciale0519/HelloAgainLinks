@@ -7,13 +7,11 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
-  const extensionId = url.searchParams.get('extension_id');
   const redirect = url.searchParams.get('redirect');
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   const redirectTo = new URL(`${APP_URL}/api/auth/callback`);
-  if (extensionId) redirectTo.searchParams.set('extension_id', extensionId);
   if (redirect) redirectTo.searchParams.set('redirect', redirect);
 
   const { data, error } = await supabase.auth.signInWithOAuth({

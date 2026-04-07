@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext, isAuthError } from '@/lib/auth';
+import { sanitizePostgrestSearchTerm } from '@/lib/postgrest-search';
 import { searchBookmarksSchema } from '@helloagain/shared';
 
 export const dynamic = 'force-dynamic';
@@ -15,17 +16,22 @@ export async function GET(req: NextRequest) {
   }
 
   const { q, page, pageSize, author, date_from, date_to } = parsed.data;
+  const safeQuery = sanitizePostgrestSearchTerm(q);
+  if (!safeQuery) {
+    return NextResponse.json({ error: 'Search query contains no searchable text' }, { status: 400 });
+  }
+
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
   // Search content and handle; strip leading @ for handle matching
-  const handleQ = q.startsWith('@') ? q.slice(1) : q;
+  const handleQ = safeQuery.startsWith('@') ? safeQuery.slice(1) : safeQuery;
 
   let query = ctx.userClient
     .from('bookmarks')
     .select('*, bookmark_tags(tag_id, tags(*)), bookmark_folders(folder_id, folders(*))', { count: 'exact' })
     .eq('user_id', ctx.userId)
-    .or(`content_text.ilike.%${q}%,x_author_handle.ilike.%${handleQ}%`)
+    .or(`content_text.ilike.%${safeQuery}%,x_author_handle.ilike.%${handleQ}%`)
     .range(from, to)
     .order('bookmarked_at', { ascending: false });
 
