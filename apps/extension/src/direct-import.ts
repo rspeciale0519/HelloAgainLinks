@@ -155,7 +155,7 @@ async function fetchBookmarksPageViaRelay(tabId: number, cursor: string | null):
 export async function directGraphQLImport(
   tabId: number,
   isActive: () => boolean,
-  onBatch: (tweets: TweetData[]) => Promise<{ error?: string; inserted?: number }>,
+  onBatch: (tweets: TweetData[]) => Promise<{ error?: string; inserted?: number; imported?: number }>,
   getProgress: () => { imported: number; skipped: number; limitReached: boolean },
 ): Promise<{ success: boolean; error?: string; stopReason?: string }> {
   importPhase = 'direct_api';
@@ -168,6 +168,7 @@ export async function directGraphQLImport(
   });
 
   let cursor: string | null = null;
+  let prevCursor: string | null = null;
   let consecutiveErrors = 0;
 
   // eslint-disable-next-line no-constant-condition
@@ -199,11 +200,18 @@ export async function directGraphQLImport(
       if (batchResult.error) {
         return { success: false, error: batchResult.error };
       }
-      pageNewCount = batchResult.inserted ?? result.tweets.length;
+      pageNewCount = batchResult.inserted ?? batchResult.imported ?? 0;
       broadcastExtendedProgress(getProgress, 'direct_api', 'Importing bookmarks...');
     }
 
+    prevCursor = cursor;
     cursor = result.cursor;
+
+    // X API returns the same cursor when there's no more data
+    if (cursor && cursor === prevCursor) {
+      return { success: true, stopReason: 'end_of_data_duplicate_cursor' };
+    }
+
     const stopReason = guards.check(pageNewCount, !!cursor);
     if (stopReason) {
       return { success: true, stopReason };
