@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { authFetch } from '@/lib/auth-fetch';
@@ -226,12 +227,13 @@ export default function UserMenu({ avatarUrl, displayName, plan = 'free', onNavi
         }}
       >
         {avatarUrl ? (
-          <img
+          <Image
             src={avatarUrl}
             alt=""
+            width={32}
+            height={32}
+            unoptimized
             style={{
-              width: '32px',
-              height: '32px',
               borderRadius: '50%',
               border: open ? '1px solid rgba(0,212,255,0.4)' : '1px solid rgba(0,212,255,0.2)',
               transition: 'border-color 0.15s ease',

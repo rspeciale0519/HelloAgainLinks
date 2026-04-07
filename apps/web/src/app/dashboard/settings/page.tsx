@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { authFetch, authPost } from '@/lib/auth-fetch';
@@ -272,7 +273,14 @@ export default function SettingsPage() {
         <h2 style={{ fontSize: '16px', fontWeight: 600, color: '#f0f0f5', marginBottom: '16px' }}>Profile</h2>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           {user?.avatar ? (
-            <img src={user.avatar} alt="" style={{ width: '56px', height: '56px', borderRadius: '50%', border: '2px solid rgba(0,212,255,0.2)' }} />
+            <Image
+              src={user.avatar}
+              alt=""
+              width={56}
+              height={56}
+              unoptimized
+              style={{ borderRadius: '50%', border: '2px solid rgba(0,212,255,0.2)' }}
+            />
           ) : (
             <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(0,212,255,0.1)', border: '2px solid rgba(0,212,255,0.2)' }} />
           )}
