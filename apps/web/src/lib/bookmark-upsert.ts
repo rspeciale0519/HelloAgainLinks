@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { scoreBookmarkRecord, mergeBookmarkRecords } from '@helloagain/shared';
+import { scoreBookmarkRecord, mergeBookmarkRecords, classifyByRegex } from '@helloagain/shared';
 
 interface BookmarkRow {
   user_id: string;
@@ -89,6 +89,21 @@ export async function mergeUpsertBookmarks(
       console.error('[mergeUpsert] Insert error:', error);
     } else {
       insertedRows = data ?? [];
+    }
+
+    // Regex-classify newly inserted bookmarks (instant, free)
+    for (const row of insertedRows) {
+      const contentText = (row as Record<string, unknown>).content_text as string || '';
+      const { category, domain } = classifyByRegex(contentText);
+      if (category || domain) {
+        await serviceClient
+          .from('bookmarks')
+          .update({
+            ...(category ? { primary_category: category } : {}),
+            ...(domain ? { primary_domain: domain } : {}),
+          })
+          .eq('id', row.id);
+      }
     }
   }
 
