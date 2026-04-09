@@ -19,6 +19,9 @@ export default function BookmarksPage() {
   const [isPulling, setIsPulling] = useState(false);
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
   const pageSize = 20;
+  const [unclassifiedCount, setUnclassifiedCount] = useState(0);
+  const [userPlan, setUserPlan] = useState<string>('free');
+  const [classifying, setClassifying] = useState(false);
 
   // Debounce search input (300ms)
   useEffect(() => {
@@ -64,8 +67,33 @@ export default function BookmarksPage() {
     }
   }, []);
 
+  const fetchClassifyInfo = useCallback(async () => {
+    const res = await authFetch('/api/bookmarks/classify');
+    if (res?.ok) {
+      const data = await res.json();
+      setUnclassifiedCount(data.unclassified || 0);
+      setUserPlan(data.plan || 'free');
+    }
+  }, []);
+
+  const handleClassify = useCallback(async () => {
+    setClassifying(true);
+    const res = await authFetch('/api/bookmarks/classify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ limit: 50 }),
+    });
+    if (res?.ok) {
+      const data = await res.json();
+      setUnclassifiedCount(data.remaining || 0);
+      fetchBookmarks();
+    }
+    setClassifying(false);
+  }, [fetchBookmarks]);
+
   useEffect(() => { fetchBookmarks(); }, [fetchBookmarks]);
   useEffect(() => { fetchTags(); }, [fetchTags]);
+  useEffect(() => { fetchClassifyInfo(); }, [fetchClassifyInfo]);
 
   // Live updates from the extension
   useEffect(() => {
@@ -166,6 +194,40 @@ export default function BookmarksPage() {
           }}
         />
       </div>
+
+      {/* Classification banner */}
+      {unclassifiedCount > 0 && userPlan !== 'free' && (
+        <div style={{
+          marginBottom: '16px',
+          padding: '12px 16px',
+          borderRadius: '10px',
+          border: '1px solid rgba(0,212,255,0.15)',
+          background: 'rgba(0,212,255,0.05)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}>
+          <span style={{ color: '#8a8a9a', fontSize: '13px' }}>
+            {unclassifiedCount} bookmark{unclassifiedCount !== 1 ? 's' : ''} can be AI-classified
+          </span>
+          <button
+            onClick={handleClassify}
+            disabled={classifying}
+            style={{
+              padding: '6px 14px',
+              borderRadius: '8px',
+              border: '1px solid rgba(0,212,255,0.3)',
+              background: classifying ? 'rgba(0,212,255,0.1)' : 'rgba(0,212,255,0.15)',
+              color: '#00d4ff',
+              fontSize: '13px',
+              cursor: classifying ? 'default' : 'pointer',
+              fontFamily: "'Inter', sans-serif",
+            }}
+          >
+            {classifying ? 'Classifying...' : 'Classify'}
+          </button>
+        </div>
+      )}
 
       {/* Bookmarks list */}
       {loading ? (
