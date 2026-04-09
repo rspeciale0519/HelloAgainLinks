@@ -213,6 +213,14 @@ async function handleBulkImportBatch(tweets: TweetData[]) {
     media_urls: t.mediaUrls,
     post_created_at: t.timestamp || new Date().toISOString(),
     bookmarked_at: new Date().toISOString(),
+    x_author_avatar_url: t.avatarUrl || null,
+    language: t.language || null,
+    engagement: t.engagement || null,
+    conversation_id: t.conversationId || null,
+    in_reply_to_status_id: t.inReplyToStatusId || null,
+    quoted_status_id: t.quotedStatusId || null,
+    possibly_sensitive: t.possiblySensitive ?? false,
+    ingested_via: 'extension' as const,
   }));
 
   const result = await apiCall('/api/bookmarks/batch', {

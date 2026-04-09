@@ -40,11 +40,16 @@ function extractTweetFromResult(result: Record<string, unknown>): TweetData | nu
   const core = tweet.core as Record<string, unknown> | undefined;
   const userResults = core?.user_results as Record<string, unknown> | undefined;
   const userResult = userResults?.result as Record<string, unknown> | undefined;
-  // X moved screen_name/name from user.legacy to user.core — check both
   const userCore = userResult?.core as Record<string, unknown> | undefined;
   const userLegacy = userResult?.legacy as Record<string, unknown> | undefined;
   const author = (userCore?.screen_name as string) || (userLegacy?.screen_name as string) || '';
   const authorName = (userCore?.name as string) || (userLegacy?.name as string) || '';
+
+  // Avatar URL
+  const avatarUrl =
+    (userCore?.profile_image_url_https as string) ||
+    (userLegacy?.profile_image_url_https as string) ||
+    undefined;
 
   // Tweet content: legacy.full_text
   const legacy = tweet.legacy as Record<string, unknown> | undefined;
@@ -61,7 +66,37 @@ function extractTweetFromResult(result: Record<string, unknown>): TweetData | nu
     .map((m) => (m.media_url_https as string) || '')
     .filter(Boolean);
 
-  return { content, author, authorName, postId, timestamp, mediaUrls };
+  // Language
+  const language = (legacy?.lang as string) || undefined;
+
+  // Engagement metrics
+  const views = tweet.views as Record<string, unknown> | undefined;
+  const engagement = {
+    like_count: (legacy?.favorite_count as number) || undefined,
+    retweet_count: (legacy?.retweet_count as number) || undefined,
+    reply_count: (legacy?.reply_count as number) || undefined,
+    quote_count: (legacy?.quote_count as number) || undefined,
+    bookmark_count: (legacy?.bookmark_count as number) || undefined,
+    view_count: views?.count != null ? Number(views.count) : undefined,
+  };
+  const hasEngagement = Object.values(engagement).some((v) => v !== undefined);
+
+  // Conversation/reply/quote metadata
+  const conversationId = (legacy?.conversation_id_str as string) || undefined;
+  const inReplyToStatusId = (legacy?.in_reply_to_status_id_str as string) || undefined;
+  const quotedStatusId = (legacy?.quoted_status_id_str as string) || undefined;
+  const possiblySensitive = legacy?.possibly_sensitive === true ? true : undefined;
+
+  return {
+    content, author, authorName, postId, timestamp, mediaUrls,
+    avatarUrl,
+    language,
+    engagement: hasEngagement ? engagement : undefined,
+    conversationId,
+    inReplyToStatusId,
+    quotedStatusId,
+    possiblySensitive,
+  };
 }
 
 export function parseBookmarksResponse(json: unknown): ParsedBookmarksPage {
