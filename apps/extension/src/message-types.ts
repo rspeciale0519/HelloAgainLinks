@@ -5,6 +5,20 @@ export interface TweetData {
   postId: string;
   timestamp: string;
   mediaUrls: string[];
+  avatarUrl?: string;
+  language?: string;
+  engagement?: {
+    like_count?: number;
+    retweet_count?: number;
+    reply_count?: number;
+    quote_count?: number;
+    bookmark_count?: number;
+    view_count?: number;
+  };
+  conversationId?: string;
+  inReplyToStatusId?: string;
+  quotedStatusId?: string;
+  possiblySensitive?: boolean;
 }
 
 // X.com session credentials captured by the MAIN world interceptor
