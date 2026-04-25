@@ -1,4 +1,4 @@
-// packages/ui/hal/src/sidebar/Index.tsx
+// packages/ui/hal/src/sidebar/IndexSidebar.tsx
 'use client';
 
 import type { ReactNode } from 'react';
@@ -6,6 +6,13 @@ import { Icon, type IconName } from '../primitives/Icon';
 import { StatusDot } from '../primitives/StatusDot';
 import { SectionHead } from './SectionHead';
 import { NavItem } from './NavItem';
+
+export interface AppNavItem {
+  id: string;
+  label: string;
+  icon: IconName;
+  href: string;
+}
 
 export interface SidebarFolder {
   id: string;
@@ -20,12 +27,23 @@ export interface SidebarTag {
 }
 
 export interface IndexProps {
-  folders: SidebarFolder[];
-  activeFolder: string;
-  onSelectFolder: (id: string) => void;
-  tags: SidebarTag[];
-  activeTags: string[];
-  onToggleTag: (id: string) => void;
+  /** App-level route nav (Dashboard / Bookmarks / Tags / etc). Always rendered. */
+  appNav: AppNavItem[];
+  /** Current pathname; used to highlight the active app-nav item. */
+  activePath: string;
+  /** Invoked when the user clicks an app-nav item. Caller handles haptics, drawer-close, router.push. */
+  onAppNavClick: (href: string) => void;
+
+  /** When true, render Library + Subjects + Signal sections beneath the app nav. */
+  showBookmarkSections?: boolean;
+  folders?: SidebarFolder[];
+  activeFolder?: string;
+  onSelectFolder?: (id: string) => void;
+  tags?: SidebarTag[];
+  activeTags?: string[];
+  onToggleTag?: (id: string) => void;
+
+  /** Opens the command palette (⌘K). */
   onOpenCmd: () => void;
   collapsed: boolean;
   onToggleCollapsed: () => void;
@@ -42,18 +60,22 @@ const ACTIVITY_STUB = [
 
 export function Index(props: IndexProps) {
   const {
-    folders,
+    appNav,
+    activePath,
+    onAppNavClick,
+    showBookmarkSections = false,
+    folders = [],
     activeFolder,
     onSelectFolder,
-    tags,
-    activeTags,
+    tags = [],
+    activeTags = [],
     onToggleTag,
     onOpenCmd,
     collapsed,
     onToggleCollapsed,
     userFooter,
     brandLabel = 'H.A.L.',
-    brandSubline = 'v0.4 · synced',
+    brandSubline = 'Hello Again Links',
   } = props;
 
   if (collapsed) {
@@ -69,66 +91,70 @@ export function Index(props: IndexProps) {
           gap: 4,
           alignItems: 'center',
           background: 'var(--hal-bg-1)',
+          height: '100%',
         }}
       >
         <button
           type="button"
           onClick={onToggleCollapsed}
-          style={{
-            width: 32,
-            height: 32,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--hal-text-2)',
-            background: 'transparent',
-            border: 'none',
-            cursor: 'pointer',
-          }}
+          style={iconBtnStyle('var(--hal-text-2)')}
           title="Expand (⌘B)"
         >
           <Icon name="menu" size={16} />
         </button>
         <div style={{ height: 12 }} />
-        {folders.map((f) => (
-          <button
-            key={f.id}
-            type="button"
-            onClick={() => onSelectFolder(f.id)}
-            title={f.name}
-            style={{
-              width: 32,
-              height: 32,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: activeFolder === f.id ? 'var(--hal-a)' : 'var(--hal-text-2)',
-              position: 'relative',
-              borderRadius: 6,
-              background: activeFolder === f.id ? 'var(--hal-a-dim)' : 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-            }}
-          >
-            <Icon name={f.icon} size={15} />
-          </button>
-        ))}
+
+        {/* App nav (collapsed icons) */}
+        {appNav.map((item) => {
+          const isActive = activePath === item.href;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onAppNavClick(item.href)}
+              title={item.label}
+              style={{
+                ...iconBtnStyle(isActive ? 'var(--hal-a)' : 'var(--hal-text-2)'),
+                background: isActive ? 'var(--hal-a-dim)' : 'transparent',
+                borderRadius: 6,
+              }}
+            >
+              <Icon name={item.icon} size={15} />
+            </button>
+          );
+        })}
+
+        {/* Bookmark folders (collapsed icons) */}
+        {showBookmarkSections && folders.length > 0 && (
+          <>
+            <div style={{ width: 24, height: 1, background: 'var(--hal-line-1)', margin: '6px 0' }} />
+            {folders.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => onSelectFolder?.(f.id)}
+                title={f.name}
+                style={{
+                  ...iconBtnStyle(activeFolder === f.id ? 'var(--hal-a)' : 'var(--hal-text-2)'),
+                  background: activeFolder === f.id ? 'var(--hal-a-dim)' : 'transparent',
+                  borderRadius: 6,
+                }}
+              >
+                <Icon name={f.icon} size={15} />
+              </button>
+            ))}
+          </>
+        )}
+
         <div style={{ flex: 1 }} />
         <button
           type="button"
           onClick={onOpenCmd}
           title="Command (⌘K)"
           style={{
-            width: 32,
-            height: 32,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--hal-a)',
+            ...iconBtnStyle('var(--hal-a)'),
             border: '1px solid var(--hal-a-dim)',
             borderRadius: 6,
-            background: 'transparent',
-            cursor: 'pointer',
           }}
         >
           <Icon name="command" size={14} />
@@ -147,6 +173,7 @@ export function Index(props: IndexProps) {
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
+        height: '100%',
       }}
     >
       {/* Brand header */}
@@ -195,7 +222,7 @@ export function Index(props: IndexProps) {
               fontFamily: 'var(--hal-mono)',
               fontSize: 9,
               color: 'var(--hal-text-3)',
-              letterSpacing: '0.08em',
+              letterSpacing: '0.04em',
               marginTop: 2,
             }}
           >
@@ -258,134 +285,152 @@ export function Index(props: IndexProps) {
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '8px 8px 16px' }}>
-        {/* Library section */}
-        <SectionHead
-          label="Library"
-          right={
-            <span style={{ fontFamily: 'var(--hal-mono)', fontSize: 9, color: 'var(--hal-text-3)' }}>
-              {folders.length}
-            </span>
-          }
-        />
-        {folders.map((f) => (
+        {/* APP nav — always rendered */}
+        <SectionHead label="App" />
+        {appNav.map((item) => (
           <NavItem
-            key={f.id}
-            icon={f.icon}
-            label={f.name}
-            count={f.count}
-            active={activeFolder === f.id}
-            onClick={() => onSelectFolder(f.id)}
+            key={item.id}
+            icon={item.icon}
+            label={item.label}
+            active={activePath === item.href}
+            onClick={() => onAppNavClick(item.href)}
           />
         ))}
 
-        {/* Subjects section */}
-        <div style={{ marginTop: 18 }}>
-          <SectionHead
-            label="Subjects"
-            right={
-              <span style={{ fontFamily: 'var(--hal-mono)', fontSize: 9, color: 'var(--hal-text-3)' }}>
-                {tags.length}
-              </span>
-            }
-          />
-          <div
-            style={{
-              padding: '2px 6px 0',
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: 4,
-            }}
-          >
-            {tags.slice(0, 14).map((t) => {
-              const active = activeTags.includes(t.id);
-              return (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => onToggleTag(t.id)}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 5,
-                    padding: '4px 8px',
-                    fontSize: 11,
-                    fontFamily: 'var(--hal-mono)',
-                    color: active ? 'var(--hal-a)' : 'var(--hal-text-2)',
-                    background: active ? 'var(--hal-a-dim)' : 'transparent',
-                    border: `1px solid ${active ? 'var(--hal-a)' : 'var(--hal-line-1)'}`,
-                    borderRadius: 3,
-                    transition: 'all 0.12s',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {t.name}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        {showBookmarkSections && (
+          <>
+            {/* Library section */}
+            <div style={{ marginTop: 18 }}>
+              <SectionHead
+                label="Library"
+                right={
+                  <span style={{ fontFamily: 'var(--hal-mono)', fontSize: 9, color: 'var(--hal-text-3)' }}>
+                    {folders.length}
+                  </span>
+                }
+              />
+              {folders.map((f) => (
+                <NavItem
+                  key={f.id}
+                  icon={f.icon}
+                  label={f.name}
+                  count={f.count}
+                  active={activeFolder === f.id}
+                  onClick={() => onSelectFolder?.(f.id)}
+                />
+              ))}
+            </div>
 
-        {/* Activity / Signal preview */}
-        <div style={{ marginTop: 22 }}>
-          <SectionHead
-            label="Signal"
-            right={
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                <StatusDot size={5} />
-                <span
-                  style={{
-                    fontFamily: 'var(--hal-mono)',
-                    fontSize: 9,
-                    color: 'var(--hal-a)',
-                    letterSpacing: '0.08em',
-                  }}
-                >
-                  LIVE
-                </span>
-              </span>
-            }
-          />
-          <div style={{ padding: '4px 10px' }}>
-            {/* TODO Phase 4: replace stub with real activity events */}
-            {ACTIVITY_STUB.map((e, i) => (
+            {/* Subjects section */}
+            <div style={{ marginTop: 18 }}>
+              <SectionHead
+                label="Subjects"
+                right={
+                  <span style={{ fontFamily: 'var(--hal-mono)', fontSize: 9, color: 'var(--hal-text-3)' }}>
+                    {tags.length}
+                  </span>
+                }
+              />
               <div
-                key={`${e.t}-${i}`}
                 style={{
+                  padding: '2px 6px 0',
                   display: 'flex',
-                  alignItems: 'baseline',
-                  gap: 8,
-                  padding: '5px 0',
-                  fontSize: 11,
-                  borderBottom: i < ACTIVITY_STUB.length - 1 ? '1px solid var(--hal-line-0)' : 'none',
+                  flexWrap: 'wrap',
+                  gap: 4,
                 }}
               >
-                <span
-                  style={{
-                    fontFamily: 'var(--hal-mono)',
-                    color: 'var(--hal-text-3)',
-                    fontSize: 9,
-                    width: 20,
-                  }}
-                >
-                  {e.t}
-                </span>
-                <span style={{ flex: 1, color: 'var(--hal-text-1)', lineHeight: 1.35 }}>
-                  <span
+                {tags.slice(0, 14).map((t) => {
+                  const active = activeTags.includes(t.id);
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => onToggleTag?.(t.id)}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 5,
+                        padding: '4px 8px',
+                        fontSize: 11,
+                        fontFamily: 'var(--hal-mono)',
+                        color: active ? 'var(--hal-a)' : 'var(--hal-text-2)',
+                        background: active ? 'var(--hal-a-dim)' : 'transparent',
+                        border: `1px solid ${active ? 'var(--hal-a)' : 'var(--hal-line-1)'}`,
+                        borderRadius: 3,
+                        transition: 'all 0.12s',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {t.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Activity / Signal preview */}
+            <div style={{ marginTop: 22 }}>
+              <SectionHead
+                label="Signal"
+                right={
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <StatusDot size={5} />
+                    <span
+                      style={{
+                        fontFamily: 'var(--hal-mono)',
+                        fontSize: 9,
+                        color: 'var(--hal-a)',
+                        letterSpacing: '0.08em',
+                      }}
+                    >
+                      LIVE
+                    </span>
+                  </span>
+                }
+              />
+              <div style={{ padding: '4px 10px' }}>
+                {/* TODO Phase 4: replace stub with real activity events */}
+                {ACTIVITY_STUB.map((e, i) => (
+                  <div
+                    key={`${e.t}-${i}`}
                     style={{
-                      color: e.a === 'HAL' ? 'var(--hal-a)' : 'var(--hal-text-0)',
-                      fontFamily: 'var(--hal-mono)',
-                      fontSize: 10,
+                      display: 'flex',
+                      alignItems: 'baseline',
+                      gap: 8,
+                      padding: '5px 0',
+                      fontSize: 11,
+                      borderBottom: i < ACTIVITY_STUB.length - 1 ? '1px solid var(--hal-line-0)' : 'none',
                     }}
                   >
-                    {e.a}
-                  </span>
-                  <span style={{ color: 'var(--hal-text-2)', margin: '0 4px' }}>·</span>
-                  <span style={{ color: 'var(--hal-text-2)' }}>{e.x}</span>
-                </span>
+                    <span
+                      style={{
+                        fontFamily: 'var(--hal-mono)',
+                        color: 'var(--hal-text-3)',
+                        fontSize: 9,
+                        width: 20,
+                      }}
+                    >
+                      {e.t}
+                    </span>
+                    <span style={{ flex: 1, color: 'var(--hal-text-1)', lineHeight: 1.35 }}>
+                      <span
+                        style={{
+                          color: e.a === 'HAL' ? 'var(--hal-a)' : 'var(--hal-text-0)',
+                          fontFamily: 'var(--hal-mono)',
+                          fontSize: 10,
+                        }}
+                      >
+                        {e.a}
+                      </span>
+                      <span style={{ color: 'var(--hal-text-2)', margin: '0 4px' }}>·</span>
+                      <span style={{ color: 'var(--hal-text-2)' }}>{e.x}</span>
+                    </span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Footer slot — caller passes UserMenu to avoid coupling */}
@@ -401,4 +446,18 @@ export function Index(props: IndexProps) {
       )}
     </aside>
   );
+}
+
+function iconBtnStyle(color: string): React.CSSProperties {
+  return {
+    width: 32,
+    height: 32,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color,
+    background: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
+  };
 }
