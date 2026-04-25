@@ -391,6 +391,16 @@ async function handleMessage(message: ExtensionMessage) {
     case 'GET_FOLDERS':
       return apiCall('/api/folders');
 
+    case 'HAL_FOLDERS_IMPORT_X': {
+      // Phase 3: forward the assembled { folders, assignments } payload to
+      // the HAL backend with the user's auth token attached.
+      const result = await apiCall('/api/folders/import-x', {
+        method: 'POST',
+        body: JSON.stringify(message.payload),
+      });
+      return { ok: !result?.error, ...result };
+    }
+
     case 'GET_BOOKMARK_COUNT':
       return apiCall('/api/bookmarks/count');
 

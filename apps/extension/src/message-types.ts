@@ -69,6 +69,12 @@ export interface ImportProgress {
   strategy: ImportStrategy | null;
 }
 
+// Phase 3: payload for the folder-walk import POST.
+export interface FolderImportPayload {
+  folders: Array<{ x_folder_id: string; name: string }>;
+  assignments: Array<{ bookmark_x_post_id: string; x_folder_id: string }>;
+}
+
 // Messages sent TO the background script (from popup, sidepanel, content)
 export type ExtensionMessage =
   | { type: 'SAVE_BOOKMARK'; data: { postId: string; author: string; authorName?: string; content: string; mediaUrls?: string; timestamp?: string } }
@@ -92,7 +98,9 @@ export type ExtensionMessage =
   | { type: 'OPEN_IN_CURRENT_TAB'; url: string }
   // New: MAIN world interceptor messages (relayed by content script)
   | { type: 'X_CREDENTIALS_CAPTURED'; credentials: XSessionCredentials }
-  | { type: 'X_BOOKMARKS_PAGE_RESULT'; tweets: TweetData[]; cursor: string | null };
+  | { type: 'X_BOOKMARKS_PAGE_RESULT'; tweets: TweetData[]; cursor: string | null }
+  // Phase 3: folder-walk import endpoint relay
+  | { type: 'HAL_FOLDERS_IMPORT_X'; payload: FolderImportPayload };
 
 // Messages sent FROM the background script (to content scripts / tabs)
 export type TabMessage =
