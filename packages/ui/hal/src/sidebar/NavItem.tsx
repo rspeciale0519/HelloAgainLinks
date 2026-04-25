@@ -27,11 +27,16 @@ export function NavItem({ icon, label, count, active, onClick, pulse }: NavItemP
         fontSize: 13,
         color: active ? 'var(--hal-text-0)' : 'var(--hal-text-1)',
         background: active ? 'var(--hal-bg-3)' : 'transparent',
+        // Use longhand for all four borders so React doesn't warn about
+        // mixing shorthand (`border`) with longhand (`borderLeft`) when the
+        // active state changes during a rerender.
+        borderTop: 'none',
+        borderRight: 'none',
+        borderBottom: 'none',
         borderLeft: active ? '2px solid var(--hal-a)' : '2px solid transparent',
         paddingLeft: active ? 8 : 10,
         transition: 'all 0.1s',
         position: 'relative',
-        border: 'none',
         cursor: 'pointer',
         fontFamily: 'var(--hal-sans)',
         textAlign: 'left',
