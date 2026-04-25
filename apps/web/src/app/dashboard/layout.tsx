@@ -145,10 +145,15 @@ function DashboardChrome({ children }: { children: React.ReactNode }) {
 
   const handleImportXFolders = useCallback(() => {
     // Bridge to the extension content script (apps/extension/src/content.ts).
+    // The dashboard origin doesn't have the extension content script, so we
+    // also open x.com/i/bookmarks in a new tab — the extension picks up the
+    // pending walk via chrome.storage state once it's loaded there.
     window.postMessage(
       { source: 'hal-app', type: 'HAL_START_FOLDER_WALK_IMPORT' },
       window.location.origin,
     );
+    // Hand off to x.com so the extension's content script can run.
+    window.open('https://x.com/i/bookmarks?hal_folder_walk=1', '_blank', 'noopener');
   }, []);
 
   const sidebarNode = (

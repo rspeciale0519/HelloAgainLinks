@@ -514,9 +514,17 @@ window.addEventListener('message', (event) => {
 });
 
 // Phase 3: when this script loads on /i/bookmarks/* due to a folder-walk
-// navigation, resume from chrome.storage state.
+// navigation, resume from chrome.storage state. If the URL also carries
+// ?hal_folder_walk=1, kick off a fresh walk (this is the path used when
+// the user clicks "Import X folders" from the HAL dashboard which then
+// opens x.com/i/bookmarks?hal_folder_walk=1 in a new tab).
 function maybeResumeOnLoad() {
   if (!/^\/i\/bookmarks(\/|$)/.test(window.location.pathname)) return;
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('hal_folder_walk') === '1') {
+    void startFolderWalkImport();
+    return;
+  }
   void maybeResumeFolderWalk();
 }
 
