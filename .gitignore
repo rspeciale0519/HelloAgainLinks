@@ -8,3 +8,4 @@ dist/
 .vercel
 temp/.claude/settings.local.json
 .worktrees/
+.superpowers/
