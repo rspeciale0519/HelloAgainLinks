@@ -19,7 +19,16 @@
   - [x] `@helloagain/ui-hal` package scaffold + workspace registration
   - [x] Theme tokens + scoped CSS (`globals.css` under `[data-hal="on"]`)
   - [x] Six primitives: `Icon`, `Chip`, `HalButton`, `StatusDot`, `BackgroundLayers`, `SegButton`
-- [ ] **Phase 2 — Shell + feed** — rewrite `/dashboard/bookmarks` as 3-pane shell with all preserved features
+- [x] **Phase 2 — Shell + feed** *(complete)*
+  - [x] Hooks: `relative-time`, `use-sync-time`, `use-keyboard-shortcuts`, `use-tweaks`, `use-bookmarks-data`, `use-bookmark-mutations`
+  - [x] `/api/profile/sync-state` endpoint
+  - [x] `ClassificationBanner` ported (non-free plan-gated)
+  - [x] `Card` (3 density modes — comfortable / compact / grid; grid extracted to `Card.grid.tsx`)
+  - [x] `FeedHeader` with density toggles + Live pill + Signal toggle
+  - [x] `Feed` container with stagger animation + pagination + status bar
+  - [x] `IndexSidebar` + `NavItem` + `SectionHead` (Library section uses placeholder folders, marked `// TODO Phase 3`)
+  - [x] `/dashboard/bookmarks/page.tsx` rewritten as 3-pane shell with `data-hal="on"` scoped tokens
+  - [x] Every spec 5.7 preserved feature wired (search, pagination, classification, tag popover, delete modal, dates, view-on-X, pull-to-refresh + haptics, extension live updates, ⌘K/⌘J/⌘B/Esc)
 - [ ] **Phase 3 — Folders + X import** — folder CRUD + extension folder-walk import
 - [ ] **Phase 4 — Signal rail** — Ask + Threads + Related, real AI with conversation persistence
 - [ ] **Phase 5 — Palette + Spread + Tweaks + AI annotations** — ⌘K palette, detail modal, classification pipeline extension
