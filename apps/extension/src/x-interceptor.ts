@@ -14,6 +14,11 @@
 // Inline the parser to avoid module import issues in MAIN world context.
 // This must be self-contained since MAIN world scripts can't import extension modules.
 
+interface FolderContext {
+  x_folder_id: string;
+  folder_name: string | null;
+}
+
 interface TweetData {
   content: string;
   author: string;
@@ -21,11 +26,39 @@ interface TweetData {
   postId: string;
   timestamp: string;
   mediaUrls: string[];
+  folder_context?: FolderContext;
 }
 
 interface ParsedBookmarksPage {
   tweets: TweetData[];
   cursor: string | null;
+  folderContext?: FolderContext;
+}
+
+const FOLDER_URL_PATTERN = /\/i\/bookmarks\/([^/?#]+)/;
+
+function extractFolderContext(url: string): FolderContext | null {
+  const match = url.match(FOLDER_URL_PATTERN);
+  if (!match) return null;
+  const folderId = decodeURIComponent(match[1] ?? '');
+  if (!folderId) return null;
+  // DOM scrape for folder name — best effort. X renders the folder
+  // title in <h2> inside primaryColumn. If the DOM hasn't hydrated yet
+  // (e.g. first request right after navigation), we return null and
+  // the import-x backend will use the id as a fallback display name.
+  // TODO(user): validate selector against live X DOM.
+  let folderName: string | null = null;
+  try {
+    const el =
+      document.querySelector('[data-testid="primaryColumn"] h2[role="heading"] span') ||
+      document.querySelector('[data-testid="primaryColumn"] h2 span') ||
+      document.querySelector('header h2 span');
+    const txt = el?.textContent?.trim();
+    if (txt && txt.length > 0 && txt.length <= 200) folderName = txt;
+  } catch {
+    // ignore — DOM access can fail in some contexts
+  }
+  return { x_folder_id: folderId, folder_name: folderName };
 }
 
 interface CapturedCredentials {
@@ -36,7 +69,9 @@ interface CapturedCredentials {
   capturedAt: number;
 }
 
-const BOOKMARKS_PATTERN = /\/i\/api\/graphql\/([^/]+)\/Bookmarks/;
+// Matches both `/Bookmarks` (root) and `/BookmarkFolderTimeline` (folder-scoped)
+// GraphQL operations. The first capture group is the queryId.
+const BOOKMARKS_PATTERN = /\/i\/api\/graphql\/([^/]+)\/(Bookmarks|BookmarkFolderTimeline)/;
 
 // ── Inline GraphQL parser ────────────────────────────────────
 
@@ -91,10 +126,14 @@ function parseBookmarksResponse(json: unknown): ParsedBookmarksPage {
   const data = (json as Record<string, unknown>).data as Record<string, unknown> | undefined;
   if (!data) return empty;
 
-  const timeline_v2 = data.bookmark_timeline_v2 as Record<string, unknown> | undefined;
-  if (!timeline_v2) return empty;
+  // Phase 3: support both Bookmarks (root) and BookmarkFolderTimeline (folder-scoped)
+  // operations. They share the same nested timeline shape.
+  const timelineRoot =
+    (data.bookmark_timeline_v2 as Record<string, unknown> | undefined) ??
+    (data.bookmark_collection_timeline_v2 as Record<string, unknown> | undefined);
+  if (!timelineRoot) return empty;
 
-  const timeline = timeline_v2.timeline as Record<string, unknown> | undefined;
+  const timeline = timelineRoot.timeline as Record<string, unknown> | undefined;
   if (!timeline) return empty;
 
   const instructions = timeline.instructions as Array<Record<string, unknown>> | undefined;
@@ -243,16 +282,25 @@ XMLHttpRequest.prototype.send = function (body?: Document | XMLHttpRequestBodyIn
     }
 
     // Listen for the response
+    const requestUrl = meta.url;
     this.addEventListener('load', function () {
       try {
         const json = JSON.parse(this.responseText);
         const parsed = parseBookmarksResponse(json);
         if (parsed.tweets.length > 0) {
+          // Phase 3: when the request was to the folder-scoped operation,
+          // tag every tweet with the folder context so the orchestrator
+          // can build the bookmark→folder assignment list.
+          const folderCtx = extractFolderContext(requestUrl) ?? extractFolderContext(window.location.href);
+          const tweetsWithCtx = folderCtx
+            ? parsed.tweets.map((t) => ({ ...t, folder_context: folderCtx }))
+            : parsed.tweets;
           window.postMessage({
             source: 'hal-x-interceptor',
             type: 'X_INTERCEPT_BOOKMARKS',
-            tweets: parsed.tweets,
+            tweets: tweetsWithCtx,
             cursor: parsed.cursor,
+            folderContext: folderCtx ?? null,
           }, '*');
         }
       } catch {
@@ -353,11 +401,20 @@ async function fetchBookmarksPage(cursor: string | null): Promise<void> {
     const json = await response.json();
     const parsed = parseBookmarksResponse(json);
 
+    // Phase 3: attach folder context if the page (or the URL we just fetched)
+    // is folder-scoped.
+    const folderCtx =
+      extractFolderContext(url) ?? extractFolderContext(window.location.href);
+    const tweetsWithCtx = folderCtx
+      ? parsed.tweets.map((t) => ({ ...t, folder_context: folderCtx }))
+      : parsed.tweets;
+
     window.postMessage({
       source: 'hal-x-interceptor',
       type: 'X_BOOKMARKS_PAGE_RESULT',
-      tweets: parsed.tweets,
+      tweets: tweetsWithCtx,
       cursor: parsed.cursor,
+      folderContext: folderCtx ?? null,
       error: null,
     }, '*');
   } catch (err) {
