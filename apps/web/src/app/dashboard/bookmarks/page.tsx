@@ -1,299 +1,385 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { useEffect, useState, useCallback } from 'react';
+import '@helloagain/ui-hal/styles';
+
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { ImpactStyle } from '@capacitor/haptics';
-import { authFetch } from '@/lib/auth-fetch';
+
+import {
+  BackgroundLayers,
+  ClassificationBanner,
+  Feed,
+  Index as IndexSidebar,
+  type CardBookmark,
+  type SidebarFolder,
+  type SidebarTag,
+} from '@helloagain/ui-hal';
+
 import { isNativeApp, triggerHaptic } from '@/lib/mobile';
-import BookmarkCard, { type BookmarkWithTags, type BookmarkTag, type TagInfo } from '@/components/BookmarkCard';
+import { useAuth } from '@/lib/use-auth';
+import { usePlan } from '@/lib/use-plan';
+import { useSyncTime } from '@/lib/use-sync-time';
+import { useTweaks } from '@/lib/use-tweaks';
+import { useKeyboardShortcuts } from '@/lib/use-keyboard-shortcuts';
+import { useBookmarksData, type RawBookmark } from '@/lib/use-bookmarks-data';
+import { useBookmarkMutations } from '@/lib/use-bookmark-mutations';
+
+import UserMenu from '@/components/UserMenu';
+import { DeleteConfirmModal } from '@/components/hal/DeleteConfirmModal';
+import { TagPopoverAnchored, type TagAnchorRect } from '@/components/hal/TagPopoverAnchored';
+import { HalMobileBar } from '@/components/hal/HalMobileBar';
+import { HalDrawer } from '@/components/hal/HalDrawer';
+import { SignalPlaceholder } from '@/components/hal/SignalPlaceholder';
+import { HalSearchBar, PullIndicator } from '@/components/hal/HalSearchBar';
+
+const MOBILE_BREAKPOINT = 768;
+const PAGE_SIZE = 20;
+
+// Phase 2 placeholder folders. TODO Phase 3: replace with /api/folders.
+const PLACEHOLDER_FOLDERS: SidebarFolder[] = [
+  { id: 'f_all', name: 'All', icon: 'inbox', count: '?' },
+  { id: 'f_unread', name: 'Unread', icon: 'bookmark', count: '?' },
+  { id: 'f_brain', name: 'Brain food', icon: 'cpu', count: '?' },
+  { id: 'f_design', name: 'Design craft', icon: 'layers', count: '?' },
+  { id: 'f_read', name: 'Read later', icon: 'clock', count: '?' },
+];
+
+function toCardBookmark(b: RawBookmark): CardBookmark {
+  return {
+    id: b.id,
+    x_post_id: b.x_post_id,
+    x_author_handle: b.x_author_handle,
+    x_author_name: b.x_author_name,
+    content_text: b.content_text,
+    media_urls: b.media_urls ?? [],
+    bookmarked_at: b.bookmarked_at,
+    post_created_at: b.post_created_at ?? null,
+    bookmark_tags: b.bookmark_tags ?? [],
+    ai_summary: b.ai_summary ?? null,
+    ai_tags: b.ai_tags ?? null,
+    folder_id: b.folder_id ?? null,
+  };
+}
+
+interface TagAnchor {
+  bookmarkId: string;
+  rect: TagAnchorRect;
+}
 
 export default function BookmarksPage() {
-  const [bookmarks, setBookmarks] = useState<BookmarkWithTags[]>([]);
-  const [allTags, setAllTags] = useState<TagInfo[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const meta = user?.user_metadata || {};
+  const displayName = meta.preferred_username || meta.user_name || 'User';
+  const avatarUrl = meta.avatar_url || meta.picture || '';
+  const userPlanLive = usePlan(user?.id);
+
+  const [tweaks, setTweaks] = useTweaks();
+
+  // ---- Search (debounced) + paging ----
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
-  const [pullDistance, setPullDistance] = useState(0);
-  const [isPulling, setIsPulling] = useState(false);
-  const [touchStartY, setTouchStartY] = useState<number | null>(null);
-  const pageSize = 20;
-  const [unclassifiedCount, setUnclassifiedCount] = useState(0);
-  const [userPlan, setUserPlan] = useState<string>('free');
-  const [classifying, setClassifying] = useState(false);
-
-  // Debounce search input (300ms)
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(search), 300);
-    return () => clearTimeout(timer);
+    const t = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(t);
   }, [search]);
 
-  const fetchBookmarks = useCallback(async () => {
-    setLoading(true);
+  const data = useBookmarksData({ page, pageSize: PAGE_SIZE, search: debouncedSearch });
+  const {
+    rawBookmarks,
+    setRawBookmarks,
+    total,
+    setTotal,
+    loading,
+    allTags,
+    unclassifiedCount,
+    setUnclassifiedCount,
+    userPlan,
+    refetch: fetchBookmarks,
+  } = data;
 
-    let res: Response | null;
-    if (debouncedSearch) {
-      const params = new URLSearchParams({
-        q: debouncedSearch,
-        page: page.toString(),
-        pageSize: pageSize.toString(),
-      });
-      res = await authFetch(`/api/bookmarks/search?${params}`);
-    } else {
-      const params = new URLSearchParams({
-        page: page.toString(),
-        pageSize: pageSize.toString(),
-        sort: 'bookmarked_at',
-        order: 'desc',
-      });
-      res = await authFetch(`/api/bookmarks?${params}`);
-    }
+  const mutations = useBookmarkMutations({
+    allTags,
+    setRawBookmarks,
+    setTotal,
+    setUnclassifiedCount,
+    refetch: fetchBookmarks,
+  });
 
-    if (res?.ok) {
-      const data = await res.json();
-      setBookmarks(data.data || []);
-      setTotal(data.count || 0);
-    }
-    setLoading(false);
-  }, [page, debouncedSearch]);
+  // ---- UI state ----
+  const [activeFolder, setActiveFolder] = useState('f_all');
+  const [activeTags, setActiveTags] = useState<string[]>([]);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [signalOpen, setSignalOpen] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; xPostId: string } | null>(null);
+  const [tagAnchor, setTagAnchor] = useState<TagAnchor | null>(null);
 
-  const fetchTags = useCallback(async () => {
-    const res = await authFetch('/api/tags');
-    if (res?.ok) {
-      const data = await res.json();
-      const tags = data.tags || data || [];
-      setAllTags(tags.map((t: TagInfo & Record<string, unknown>) => ({ id: t.id, name: t.name, color: t.color })));
-    }
+  // ---- Mobile + pull-to-refresh ----
+  const [isMobile, setIsMobile] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isPulling, setIsPulling] = useState(false);
+  const touchStartY = useRef<number | null>(null);
+
+  // Apply data-hal scoping only on this route
+  useEffect(() => {
+    document.documentElement.setAttribute('data-hal', 'on');
+    return () => document.documentElement.removeAttribute('data-hal');
   }, []);
 
-  const fetchClassifyInfo = useCallback(async () => {
-    const res = await authFetch('/api/bookmarks/classify');
-    if (res?.ok) {
-      const data = await res.json();
-      setUnclassifiedCount(data.unclassified || 0);
-      setUserPlan(data.plan || 'free');
-    }
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
   }, []);
 
-  const handleClassify = useCallback(async () => {
-    setClassifying(true);
-    const res = await authFetch('/api/bookmarks/classify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ limit: 50 }),
-    });
-    if (res?.ok) {
-      const data = await res.json();
-      setUnclassifiedCount(data.remaining || 0);
-      fetchBookmarks();
-    }
-    setClassifying(false);
-  }, [fetchBookmarks]);
-
-  useEffect(() => { fetchBookmarks(); }, [fetchBookmarks]);
-  useEffect(() => { fetchTags(); }, [fetchTags]);
-  useEffect(() => { fetchClassifyInfo(); }, [fetchClassifyInfo]);
-
-  // Live updates from the extension
+  // Live updates from extension
   useEffect(() => {
     const handler = (event: MessageEvent) => {
       if (event.data?.source !== 'hal-extension') return;
       if (event.data.type === 'HAL_BOOKMARK_ADDED') {
         fetchBookmarks();
       } else if (event.data.type === 'HAL_BOOKMARK_DELETED') {
-        setBookmarks((prev) => prev.filter((bm) => bm.x_post_id !== event.data.postId));
+        setRawBookmarks((prev) => prev.filter((bm) => bm.x_post_id !== event.data.postId));
         setTotal((prev) => Math.max(0, prev - 1));
       }
     };
     window.addEventListener('message', handler);
     return () => window.removeEventListener('message', handler);
-  }, [fetchBookmarks]);
+  }, [fetchBookmarks, setRawBookmarks, setTotal]);
 
-  const handleTagsChanged = useCallback((bookmarkId: string, tags: BookmarkTag[]) => {
-    setBookmarks((prev) =>
-      prev.map((bm) => bm.id === bookmarkId ? { ...bm, bookmark_tags: tags } : bm)
+  const handleTagClickFromCard = useCallback(
+    (tagName: string) => {
+      const tag = allTags.find((t) => t.name === tagName);
+      if (!tag) return;
+      setActiveTags((prev) => (prev.includes(tag.id) ? prev : [...prev, tag.id]));
+    },
+    [allTags],
+  );
+
+  const handleOpenTagEditor = useCallback((bookmarkId: string, anchor: HTMLElement) => {
+    const r = anchor.getBoundingClientRect();
+    setTagAnchor({
+      bookmarkId,
+      rect: { top: r.top, left: r.left, right: r.right, bottom: r.bottom },
+    });
+  }, []);
+
+  const handleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }, []);
+
+  const handleClearFilters = useCallback(() => {
+    setActiveFolder('f_all');
+    setActiveTags([]);
+    setPage(1);
+  }, []);
+
+  // ---- Filtering (client-side tag filter for Phase 2) ----
+  const filtered = useMemo(() => {
+    if (activeTags.length === 0) return rawBookmarks;
+    const tagNames = new Set(
+      activeTags.map((id) => allTags.find((t) => t.id === id)?.name).filter(Boolean) as string[],
     );
-  }, []);
+    return rawBookmarks.filter((bm) => {
+      const own = (bm.bookmark_tags ?? []).map((bt) => bt.tags.name);
+      const ai = (bm.ai_tags ?? []).map((t) => t.label);
+      return own.some((n) => tagNames.has(n)) || ai.some((n) => tagNames.has(n));
+    });
+  }, [rawBookmarks, activeTags, allTags]);
 
-  const handleDelete = useCallback(async (bookmarkId: string, xPostId: string) => {
-    const res = await authFetch(`/api/bookmarks/${bookmarkId}`, { method: 'DELETE' });
-    if (res?.ok) {
-      setBookmarks((prev) => prev.filter((bm) => bm.id !== bookmarkId));
-      setTotal((prev) => prev - 1);
-      // Notify extension to deactivate HAL button on any open X tabs
-      const extensionId = localStorage.getItem('hal_extension_id');
-      if (extensionId) {
-        const w = window as unknown as { chrome?: { runtime?: { sendMessage?: (id: string, msg: unknown) => void } } };
-        try { w.chrome?.runtime?.sendMessage?.(extensionId, { type: 'BOOKMARK_DELETED', postId: xPostId }); } catch { /* not installed */ }
+  const cardBookmarks = useMemo(() => filtered.map(toCardBookmark), [filtered]);
+  const folderName = useMemo(
+    () => PLACEHOLDER_FOLDERS.find((f) => f.id === activeFolder)?.name ?? 'Archive',
+    [activeFolder],
+  );
+  const filterCount = activeTags.length + (activeFolder !== 'f_all' ? 1 : 0);
+  const sidebarTags: SidebarTag[] = useMemo(
+    () => allTags.map((t) => ({ id: t.id, name: t.name })),
+    [allTags],
+  );
+
+  const { label: syncLabel } = useSyncTime();
+
+  useKeyboardShortcuts({
+    onPalette: () => {
+      /* TODO Phase 5: command palette */
+    },
+    onSignal: () => setSignalOpen((v) => !v),
+    onNav: () => setSidebarCollapsed((v) => !v),
+    onEscape: () => {
+      if (confirmDelete) setConfirmDelete(null);
+      else if (tagAnchor) setTagAnchor(null);
+      else if (drawerOpen) setDrawerOpen(false);
+      else if (selectionMode) {
+        setSelectionMode(false);
+        setSelectedIds([]);
       }
-    }
-  }, []);
+    },
+  });
 
-  const totalPages = Math.ceil(total / pageSize);
-
+  // ---- Pull to refresh (mobile) ----
   const onTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     if (!isNativeApp() || window.scrollY > 0) return;
-    setTouchStartY(e.touches[0].clientY);
+    touchStartY.current = e.touches[0].clientY;
   };
-
   const onTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (!isNativeApp() || touchStartY === null) return;
-    const distance = e.touches[0].clientY - touchStartY;
+    if (!isNativeApp() || touchStartY.current === null) return;
+    const distance = e.touches[0].clientY - touchStartY.current;
     if (distance > 0 && window.scrollY === 0) {
       setIsPulling(true);
       setPullDistance(Math.min(80, distance));
     }
   };
-
   const onTouchEnd = async () => {
     if (isPulling && pullDistance > 60) {
       await triggerHaptic(ImpactStyle.Medium);
       await fetchBookmarks();
     }
-    setTouchStartY(null);
+    touchStartY.current = null;
     setIsPulling(false);
     setPullDistance(0);
   };
 
+  const layout = tweaks.layout;
+  const showSignalRail = !isMobile && layout === '3pane' && signalOpen;
+
+  const sidebarNode = (
+    <IndexSidebar
+      folders={PLACEHOLDER_FOLDERS}
+      activeFolder={activeFolder}
+      onSelectFolder={(id) => {
+        setActiveFolder(id);
+        setPage(1);
+        if (isMobile) setDrawerOpen(false);
+      }}
+      tags={sidebarTags}
+      activeTags={activeTags}
+      onToggleTag={(id) =>
+        setActiveTags((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+      }
+      onOpenCmd={() => {
+        /* TODO Phase 5 */
+      }}
+      collapsed={sidebarCollapsed && !isMobile}
+      onToggleCollapsed={() => setSidebarCollapsed((v) => !v)}
+      userFooter={
+        <UserMenu
+          avatarUrl={avatarUrl}
+          displayName={displayName}
+          plan={userPlanLive}
+          onNavigate={isMobile ? () => setDrawerOpen(false) : undefined}
+        />
+      }
+    />
+  );
+
+  const tagPopoverContent = (() => {
+    if (!tagAnchor) return null;
+    const bm = rawBookmarks.find((b) => b.id === tagAnchor.bookmarkId);
+    if (!bm) return null;
+    const activeTagIds = new Set((bm.bookmark_tags ?? []).map((bt) => bt.tag_id));
+    return (
+      <TagPopoverAnchored
+        rect={tagAnchor.rect}
+        allTags={allTags}
+        activeTagIds={activeTagIds}
+        onToggle={(tagId, add) => mutations.toggleTag(bm.id, tagId, add)}
+        onClose={() => setTagAnchor(null)}
+      />
+    );
+  })();
+
   return (
     <div onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
-      <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ fontSize: '28px', fontWeight: 600, color: '#f0f0f5', marginBottom: '4px' }}>
-          Bookmarks
-        </h1>
-        <p style={{ color: '#8a8a9a', fontSize: '14px' }}>
-          {total > 0 ? `${total} bookmarks saved` : 'Your saved X bookmarks will appear here.'}
-        </p>
-      </div>
+      <BackgroundLayers />
 
-      {isNativeApp() && isPulling && (
-        <div style={{ color: '#8a8a9a', fontSize: '12px', marginBottom: '10px' }}>
-          {pullDistance > 60 ? 'Release to refresh' : 'Pull to refresh'}
-        </div>
-      )}
+      {isMobile && <HalMobileBar syncLabel={syncLabel} onOpenDrawer={() => setDrawerOpen(true)} />}
+      <PullIndicator visible={isNativeApp() && isPulling} pullDistance={pullDistance} />
+      <HalSearchBar
+        value={search}
+        onChange={(v) => {
+          setSearch(v);
+          setPage(1);
+        }}
+      />
 
-      {/* Search */}
-      <div style={{ marginBottom: '24px' }}>
-        <input
-          type="text"
-          placeholder="Search bookmarks..."
-          value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          style={{
-            width: '100%',
-            maxWidth: '400px',
-            padding: '10px 14px',
-            borderRadius: '10px',
-            border: '1px solid rgba(0,212,255,0.15)',
-            background: 'rgba(15,16,25,0.8)',
-            color: '#f0f0f5',
-            fontSize: '14px',
-            fontFamily: "'Inter', sans-serif",
-            outline: 'none',
-          }}
-        />
-      </div>
-
-      {/* Classification banner */}
-      {unclassifiedCount > 0 && userPlan !== 'free' && (
-        <div style={{
-          marginBottom: '16px',
-          padding: '12px 16px',
-          borderRadius: '10px',
-          border: '1px solid rgba(0,212,255,0.15)',
-          background: 'rgba(0,212,255,0.05)',
+      <div
+        style={{
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}>
-          <span style={{ color: '#8a8a9a', fontSize: '13px' }}>
-            {unclassifiedCount} bookmark{unclassifiedCount !== 1 ? 's' : ''} can be AI-classified
-          </span>
-          <button
-            onClick={handleClassify}
-            disabled={classifying}
-            style={{
-              padding: '6px 14px',
-              borderRadius: '8px',
-              border: '1px solid rgba(0,212,255,0.3)',
-              background: classifying ? 'rgba(0,212,255,0.1)' : 'rgba(0,212,255,0.15)',
-              color: '#00d4ff',
-              fontSize: '13px',
-              cursor: classifying ? 'default' : 'pointer',
-              fontFamily: "'Inter', sans-serif",
-            }}
-          >
-            {classifying ? 'Classifying...' : 'Classify'}
-          </button>
-        </div>
-      )}
+          minHeight: 'calc(100vh - 56px)',
+          position: 'relative',
+          zIndex: 1,
+        }}
+      >
+        {!isMobile && sidebarNode}
 
-      {/* Bookmarks list */}
-      {loading ? (
-        <div style={{ color: '#4a4a5a', textAlign: 'center', padding: '40px' }}>Loading...</div>
-      ) : bookmarks.length === 0 ? (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="glass glow-border"
-          style={{ padding: '48px', borderRadius: '14px', textAlign: 'center' }}
-        >
-          <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔖</div>
-          <div style={{ fontSize: '18px', color: '#f0f0f5', fontWeight: 600, marginBottom: '8px' }}>
-            {search ? 'No bookmarks match your search' : 'No bookmarks yet'}
-          </div>
-          <div style={{ fontSize: '14px', color: '#8a8a9a' }}>
-            {search ? 'Try a different search term.' : 'Install the Chrome extension and save posts from X.'}
-          </div>
-        </motion.div>
-      ) : (
-        <>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {bookmarks.map((bm, i) => (
-              <BookmarkCard
-                key={bm.id}
-                bookmark={bm}
-                index={i}
-                allTags={allTags}
-                onTagsChanged={handleTagsChanged}
-                onDelete={handleDelete}
+        <Feed
+          bookmarks={cardBookmarks}
+          total={total}
+          page={page}
+          pageSize={PAGE_SIZE}
+          loading={loading}
+          onPageChange={async (p) => {
+            await triggerHaptic(ImpactStyle.Light);
+            setPage(p);
+          }}
+          folderName={folderName}
+          filterCount={filterCount}
+          onClearFilters={handleClearFilters}
+          density={tweaks.density}
+          onDensityChange={(d) => setTweaks((prev) => ({ ...prev, density: d }))}
+          selectionMode={selectionMode}
+          onToggleSelectionMode={() => {
+            setSelectionMode((v) => !v);
+            if (selectionMode) setSelectedIds([]);
+          }}
+          layout={layout}
+          signalOpen={signalOpen}
+          onToggleSignal={() => setSignalOpen((v) => !v)}
+          syncLabel={syncLabel}
+          onSelect={handleSelect}
+          onOpen={() => {
+            /* TODO Phase 5: Spread modal */
+          }}
+          onTagClick={handleTagClickFromCard}
+          onDelete={(id, xPostId) => setConfirmDelete({ id, xPostId })}
+          onOpenTagEditor={handleOpenTagEditor}
+          selectedIds={selectedIds}
+          emptyLabel={search ? 'No matches.' : 'No bookmarks yet.'}
+          classificationBanner={
+            unclassifiedCount > 0 && userPlan !== 'free' ? (
+              <ClassificationBanner
+                unclassifiedCount={unclassifiedCount}
+                classifying={mutations.classifying}
+                onClassify={mutations.classify}
               />
-            ))}
-          </div>
+            ) : null
+          }
+        />
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '24px' }}>
-              <button
-                onClick={async () => { await triggerHaptic(ImpactStyle.Light); setPage(p => Math.max(1, p - 1)); }}
-                disabled={page === 1}
-                style={{
-                  padding: '8px 14px', borderRadius: '8px', border: '1px solid rgba(0,212,255,0.15)',
-                  background: 'transparent', color: page === 1 ? '#4a4a5a' : '#00d4ff',
-                  cursor: page === 1 ? 'default' : 'pointer', fontFamily: "'Inter', sans-serif", fontSize: '13px',
-                }}
-              >
-                ← Prev
-              </button>
-              <span style={{ padding: '8px 14px', color: '#8a8a9a', fontSize: '13px' }}>
-                {page} / {totalPages}
-              </span>
-              <button
-                onClick={async () => { await triggerHaptic(ImpactStyle.Light); setPage(p => Math.min(totalPages, p + 1)); }}
-                disabled={page === totalPages}
-                style={{
-                  padding: '8px 14px', borderRadius: '8px', border: '1px solid rgba(0,212,255,0.15)',
-                  background: 'transparent', color: page === totalPages ? '#4a4a5a' : '#00d4ff',
-                  cursor: page === totalPages ? 'default' : 'pointer', fontFamily: "'Inter', sans-serif", fontSize: '13px',
-                }}
-              >
-                Next →
-              </button>
-            </div>
-          )}
-        </>
-      )}
+        {showSignalRail && <SignalPlaceholder />}
+      </div>
+
+      <HalDrawer open={isMobile && drawerOpen} onClose={() => setDrawerOpen(false)}>
+        {sidebarNode}
+      </HalDrawer>
+
+      {tagPopoverContent}
+
+      <DeleteConfirmModal
+        open={confirmDelete !== null}
+        onCancel={() => setConfirmDelete(null)}
+        onConfirm={() => {
+          if (!confirmDelete) return;
+          const target = confirmDelete;
+          setConfirmDelete(null);
+          mutations.remove(target.id, target.xPostId);
+        }}
+      />
     </div>
   );
 }
