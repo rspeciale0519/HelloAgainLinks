@@ -93,6 +93,9 @@ importers:
       '@helloagain/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@helloagain/ui-hal':
+        specifier: workspace:*
+        version: link:../../packages/ui/hal
       '@supabase/ssr':
         specifier: ^0.6.0
         version: 0.6.1(@supabase/supabase-js@2.95.3)
