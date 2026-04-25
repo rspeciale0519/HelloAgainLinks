@@ -1,12 +1,12 @@
 // packages/ui/hal/src/primitives/Chip.tsx
-import type { CSSProperties, ReactNode } from 'react';
+import type { CSSProperties, MouseEvent, ReactNode } from 'react';
 
 export interface ChipProps {
   children: ReactNode;
   /** 'accent' = lime (filter active / AI tag); 'neutral' = muted; 'active' = solid lime */
   variant?: 'accent' | 'neutral' | 'active';
   size?: 'xs' | 'sm';
-  onClick?: (e: React.MouseEvent) => void;
+  onClick?: (e: MouseEvent) => void;
   title?: string;
   className?: string;
   style?: CSSProperties;

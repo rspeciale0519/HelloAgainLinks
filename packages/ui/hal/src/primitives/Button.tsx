@@ -1,5 +1,5 @@
 // packages/ui/hal/src/primitives/Button.tsx
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import type { ButtonHTMLAttributes, CSSProperties, ReactNode } from 'react';
 
 type Variant = 'primary' | 'ghost' | 'icon' | 'danger';
 type Size = 'sm' | 'md';
@@ -11,14 +11,14 @@ export interface HalButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> 
 }
 
 export function HalButton({ variant = 'ghost', size = 'md', children, style, ...rest }: HalButtonProps) {
-  const byVariant: Record<Variant, React.CSSProperties> = {
+  const byVariant: Record<Variant, CSSProperties> = {
     primary: { color: 'var(--hal-bg-0)',   background: 'var(--hal-a)',     border: '1px solid var(--hal-a)' },
     ghost:   { color: 'var(--hal-text-1)', background: 'transparent',      border: '1px solid var(--hal-line-1)' },
     icon:    { color: 'var(--hal-text-2)', background: 'transparent',      border: 'none' },
     danger:  { color: '#ef4444',           background: 'transparent',      border: '1px solid rgba(239, 68, 68, 0.3)' },
   };
 
-  const bySize: Record<Size, React.CSSProperties> = {
+  const bySize: Record<Size, CSSProperties> = {
     sm: { padding: '4px 10px', fontSize: 11 },
     md: { padding: '6px 12px', fontSize: 13 },
   };
