@@ -2,6 +2,7 @@
 
 import { extractTweetData } from './tweet-utils';
 import { startBulkImport, startScrollInterceptImport, stopBulkImport } from './bulk-import';
+import { startFolderWalkImport, maybeResumeFolderWalk } from './folder-walk-import';
 import type { XSessionCredentials, TweetData } from './message-types';
 
 console.log('[HelloAgain] Content script loaded on', window.location.href);
@@ -496,11 +497,34 @@ chrome.runtime.onMessage.addListener((message) => {
   }
 });
 
+// Phase 3: bridge from the HAL web app — when the user clicks the
+// "Import X folders" button on the dashboard, that page posts a
+// HAL_START_FOLDER_WALK_IMPORT message via window.postMessage. The
+// extension content script (this file) is loaded on x.com only, so the
+// dashboard message reaches us only if the user already has x.com
+// open. To handle the typical case (user is on the dashboard, not on
+// x.com), the dashboard layout will detect "no extension answered" and
+// fall back to a tab-open redirect — that path is wired in a future
+// task. For now we capture the message when it does arrive on x.com.
+window.addEventListener('message', (event) => {
+  if (event.source !== window) return;
+  if (event.data?.source !== 'hal-app') return;
+  if (event.data.type !== 'HAL_START_FOLDER_WALK_IMPORT') return;
+  void startFolderWalkImport();
+});
+
+// Phase 3: when this script loads on /i/bookmarks/* due to a folder-walk
+// navigation, resume from chrome.storage state.
+function maybeResumeOnLoad() {
+  if (!/^\/i\/bookmarks(\/|$)/.test(window.location.pathname)) return;
+  void maybeResumeFolderWalk();
+}
+
 // Start — load settings first, then HAL post IDs + observe timeline
 chrome.storage.sync.get({ showHalButton: true }, (result) => {
   showHalButton = result.showHalButton;
 
-  const init = () => { syncHalPostIds(); observeTimeline(); };
+  const init = () => { syncHalPostIds(); observeTimeline(); maybeResumeOnLoad(); };
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {

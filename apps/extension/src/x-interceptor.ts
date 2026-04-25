@@ -1,18 +1,7 @@
-// HelloAgain — MAIN World Fetch Interceptor for x.com
-//
-// This script runs in the page's MAIN world (not the isolated extension world),
-// giving it access to the page's fetch() and cookie context. It:
-//   1. Monkey-patches window.fetch to intercept X's GraphQL Bookmarks requests/responses
-//   2. Captures X session credentials (bearer, csrf, queryId, features) for direct API calls
-//   3. Relays intercepted data to the content script via window.postMessage
-//   4. Handles FETCH_BOOKMARKS_PAGE relay requests from the content script (for Phase 2)
-//
-// Communication:
-//   MAIN → ISOLATED: window.postMessage({ source: 'hal-x-interceptor', ... })
-//   ISOLATED → MAIN: window.postMessage({ source: 'hal-content', ... })
-
-// Inline the parser to avoid module import issues in MAIN world context.
-// This must be self-contained since MAIN world scripts can't import extension modules.
+// HelloAgain — MAIN World Fetch Interceptor for x.com.
+// Runs in the page's MAIN world so it can patch fetch/XHR and capture
+// session credentials. Relays intercepted data via window.postMessage.
+// Self-contained — MAIN-world scripts can't import extension modules.
 
 interface FolderContext {
   x_folder_id: string;
@@ -37,16 +26,13 @@ interface ParsedBookmarksPage {
 
 const FOLDER_URL_PATTERN = /\/i\/bookmarks\/([^/?#]+)/;
 
+// Phase 3: extract { x_folder_id, folder_name? } from a folder-scoped URL.
+// folder_name is a defensive DOM scrape — TODO(user): validate selector.
 function extractFolderContext(url: string): FolderContext | null {
   const match = url.match(FOLDER_URL_PATTERN);
   if (!match) return null;
   const folderId = decodeURIComponent(match[1] ?? '');
   if (!folderId) return null;
-  // DOM scrape for folder name — best effort. X renders the folder
-  // title in <h2> inside primaryColumn. If the DOM hasn't hydrated yet
-  // (e.g. first request right after navigation), we return null and
-  // the import-x backend will use the id as a fallback display name.
-  // TODO(user): validate selector against live X DOM.
   let folderName: string | null = null;
   try {
     const el =
@@ -55,9 +41,7 @@ function extractFolderContext(url: string): FolderContext | null {
       document.querySelector('header h2 span');
     const txt = el?.textContent?.trim();
     if (txt && txt.length > 0 && txt.length <= 200) folderName = txt;
-  } catch {
-    // ignore — DOM access can fail in some contexts
-  }
+  } catch { /* ignore */ }
   return { x_folder_id: folderId, folder_name: folderName };
 }
 
@@ -72,6 +56,10 @@ interface CapturedCredentials {
 // Matches both `/Bookmarks` (root) and `/BookmarkFolderTimeline` (folder-scoped)
 // GraphQL operations. The first capture group is the queryId.
 const BOOKMARKS_PATTERN = /\/i\/api\/graphql\/([^/]+)\/(Bookmarks|BookmarkFolderTimeline)/;
+// Phase 3: separate operation that returns the user's bookmark folders.
+// Operation name varies across X clients; we match on the path suffix only.
+// TODO(user): validate the operation name against your live X session.
+const FOLDERS_LIST_PATTERN = /\/i\/api\/graphql\/[^/]+\/BookmarkFoldersSlice/;
 
 // ── Inline GraphQL parser ────────────────────────────────────
 
@@ -244,10 +232,50 @@ XMLHttpRequest.prototype.open = function (method: string, url: string | URL, ...
   const urlStr = typeof url === 'string' ? url : url.href;
   if (BOOKMARKS_PATTERN.test(urlStr)) {
     xhrMetaMap.set(this, { url: urlStr, headers: {} });
+  } else if (FOLDERS_LIST_PATTERN.test(urlStr)) {
+    // Phase 3: piggyback the folder-list response back to the orchestrator.
+    this.addEventListener('load', () => {
+      try {
+        const json = JSON.parse((this as XMLHttpRequest).responseText);
+        const folders = parseFoldersListResponse(json);
+        if (folders.length > 0) {
+          window.postMessage({
+            source: 'hal-x-interceptor',
+            type: 'X_INTERCEPT_FOLDERS_LIST',
+            folders,
+          }, '*');
+        }
+      } catch {
+        // ignore — folder-walk falls back to DOM scrape if needed
+      }
+    });
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return origXhrOpen.call(this, method, urlStr, ...(rest as [any, any, any]));
 };
+
+interface XFolderEntry { x_folder_id: string; folder_name: string }
+
+// Phase 3: defensive parser for X's folder-list GraphQL responses.
+// X's exact shape varies; we walk the tree and extract any object with
+// { rest_id|id, name }. TODO(user): tighten after observing live shape.
+function parseFoldersListResponse(json: unknown): XFolderEntry[] {
+  const out: XFolderEntry[] = [];
+  function walk(node: unknown) {
+    if (!node || typeof node !== 'object') return;
+    if (Array.isArray(node)) { for (const c of node) walk(c); return; }
+    const obj = node as Record<string, unknown>;
+    const id = (obj.rest_id as string) || (obj.id as string) || (obj.fldid as string) || '';
+    const name = (obj.name as string) || (obj.folder_name as string) || '';
+    if (typeof id === 'string' && typeof name === 'string' && id && name) {
+      out.push({ x_folder_id: id, folder_name: name });
+    }
+    for (const k of Object.keys(obj)) if (k !== '__typename') walk(obj[k]);
+  }
+  walk(json);
+  const seen = new Set<string>();
+  return out.filter((f) => (seen.has(f.x_folder_id) ? false : (seen.add(f.x_folder_id), true)));
+}
 
 XMLHttpRequest.prototype.setRequestHeader = function (name: string, value: string) {
   const meta = xhrMetaMap.get(this);
@@ -326,104 +354,54 @@ window.addEventListener('message', async (event) => {
   }
 });
 
+function postPageResult(
+  tweets: TweetData[],
+  cursor: string | null,
+  error: string | null,
+  folderContext?: FolderContext | null,
+): void {
+  window.postMessage({
+    source: 'hal-x-interceptor',
+    type: 'X_BOOKMARKS_PAGE_RESULT',
+    tweets, cursor, error,
+    folderContext: folderContext ?? null,
+  }, '*');
+}
+
 async function fetchBookmarksPage(cursor: string | null): Promise<void> {
-  if (!storedCredentials) {
-    window.postMessage({
-      source: 'hal-x-interceptor',
-      type: 'X_BOOKMARKS_PAGE_RESULT',
-      tweets: [],
-      cursor: null,
-      error: 'No credentials available',
-    }, '*');
-    return;
-  }
+  if (!storedCredentials) { postPageResult([], null, 'No credentials available'); return; }
 
   const { bearerToken, csrfToken, queryId, features } = storedCredentials;
-
-  // Build variables
   const variables: Record<string, unknown> = { count: 100 };
   if (cursor) variables.cursor = cursor;
-
-  const params = new URLSearchParams({
-    variables: JSON.stringify(variables),
-    features: features,
-  });
-
+  const params = new URLSearchParams({ variables: JSON.stringify(variables), features });
   const url = `https://x.com/i/api/graphql/${queryId}/Bookmarks?${params.toString()}`;
 
   try {
     const response = await originalFetch(url, {
-      method: 'GET',
-      credentials: 'include',
+      method: 'GET', credentials: 'include',
       headers: {
-        'authorization': bearerToken,
-        'x-csrf-token': csrfToken,
-        'x-twitter-active-user': 'yes',
-        'x-twitter-auth-type': 'OAuth2Session',
-        'x-twitter-client-language': 'en',
-        'content-type': 'application/json',
+        'authorization': bearerToken, 'x-csrf-token': csrfToken,
+        'x-twitter-active-user': 'yes', 'x-twitter-auth-type': 'OAuth2Session',
+        'x-twitter-client-language': 'en', 'content-type': 'application/json',
       },
     });
 
-    if (response.status === 429) {
-      window.postMessage({
-        source: 'hal-x-interceptor',
-        type: 'X_BOOKMARKS_PAGE_RESULT',
-        tweets: [],
-        cursor: null,
-        error: 'rate_limited',
-      }, '*');
-      return;
-    }
-
+    if (response.status === 429) { postPageResult([], null, 'rate_limited'); return; }
     if (response.status === 401 || response.status === 403) {
-      window.postMessage({
-        source: 'hal-x-interceptor',
-        type: 'X_BOOKMARKS_PAGE_RESULT',
-        tweets: [],
-        cursor: null,
-        error: 'auth_expired',
-      }, '*');
-      return;
+      postPageResult([], null, 'auth_expired'); return;
     }
-
-    if (!response.ok) {
-      window.postMessage({
-        source: 'hal-x-interceptor',
-        type: 'X_BOOKMARKS_PAGE_RESULT',
-        tweets: [],
-        cursor: null,
-        error: `HTTP ${response.status}`,
-      }, '*');
-      return;
-    }
+    if (!response.ok) { postPageResult([], null, `HTTP ${response.status}`); return; }
 
     const json = await response.json();
     const parsed = parseBookmarksResponse(json);
-
-    // Phase 3: attach folder context if the page (or the URL we just fetched)
-    // is folder-scoped.
-    const folderCtx =
-      extractFolderContext(url) ?? extractFolderContext(window.location.href);
+    // Phase 3: attach folder context if the URL is folder-scoped.
+    const folderCtx = extractFolderContext(url) ?? extractFolderContext(window.location.href);
     const tweetsWithCtx = folderCtx
       ? parsed.tweets.map((t) => ({ ...t, folder_context: folderCtx }))
       : parsed.tweets;
-
-    window.postMessage({
-      source: 'hal-x-interceptor',
-      type: 'X_BOOKMARKS_PAGE_RESULT',
-      tweets: tweetsWithCtx,
-      cursor: parsed.cursor,
-      folderContext: folderCtx ?? null,
-      error: null,
-    }, '*');
+    postPageResult(tweetsWithCtx, parsed.cursor, null, folderCtx);
   } catch (err) {
-    window.postMessage({
-      source: 'hal-x-interceptor',
-      type: 'X_BOOKMARKS_PAGE_RESULT',
-      tweets: [],
-      cursor: null,
-      error: (err as Error).message || 'Fetch failed',
-    }, '*');
+    postPageResult([], null, (err as Error).message || 'Fetch failed');
   }
 }
