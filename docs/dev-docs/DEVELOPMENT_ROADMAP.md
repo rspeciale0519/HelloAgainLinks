@@ -7,6 +7,26 @@
 
 ---
 
+## Active Initiative: HAL Dashboard Redesign
+
+> **Spec:** `docs/superpowers/specs/2026-04-22-hal-redesign-design.md`  
+> **Plan:** `.claude/plans/feature-hal-redesign.md`  
+> **Branch:** `feature/hal-redesign`  
+> **Goal:** Replace `/dashboard/bookmarks` with the new obsidian+lime 3-pane design while preserving every existing feature; add user-editable folders with X-import, fully-wired Signal AI rail, ⌘K palette, Spread modal, Tweaks panel, bulk selection.
+
+- [x] **Phase 1 — Foundation** *(complete)*
+  - [x] Migration 005 (folders, conversations, messages, bookmarks AI annotation columns)
+  - [x] `@helloagain/ui-hal` package scaffold + workspace registration
+  - [x] Theme tokens + scoped CSS (`globals.css` under `[data-hal="on"]`)
+  - [x] Six primitives: `Icon`, `Chip`, `HalButton`, `StatusDot`, `BackgroundLayers`, `SegButton`
+- [ ] **Phase 2 — Shell + feed** — rewrite `/dashboard/bookmarks` as 3-pane shell with all preserved features
+- [ ] **Phase 3 — Folders + X import** — folder CRUD + extension folder-walk import
+- [ ] **Phase 4 — Signal rail** — Ask + Threads + Related, real AI with conversation persistence
+- [ ] **Phase 5 — Palette + Spread + Tweaks + AI annotations** — ⌘K palette, detail modal, classification pipeline extension
+- [ ] **Phase 6 — Bulk + polish + cutover** — bulk selection, accessibility pass, remove boot splash + scanlines
+
+---
+
 ## Tech Stack
 
 | Layer | Technology | Version |
