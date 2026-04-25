@@ -84,14 +84,15 @@ export async function GET(req: NextRequest) {
 
   let query = ctx.serviceClient
     .from('bookmarks')
-    .select('*, bookmark_tags(tag_id, tags(*)), bookmark_folders(folder_id, folders(*))', { count: 'exact' })
+    .select('*, bookmark_tags(tag_id, tags(*))', { count: 'exact' })
     .eq('user_id', ctx.userId)
     .order(sort, { ascending: order === 'asc' })
     .range(from, to);
 
   if (author) query = query.eq('x_author_handle', author);
   if (tag_id) query = query.eq('bookmark_tags.tag_id', tag_id);
-  if (folder_id) query = query.eq('bookmark_folders.folder_id', folder_id);
+  // Phase 3: single-folder semantics — bookmarks.folder_id is the source of truth
+  if (folder_id) query = query.eq('folder_id', folder_id);
 
   const { data, count, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

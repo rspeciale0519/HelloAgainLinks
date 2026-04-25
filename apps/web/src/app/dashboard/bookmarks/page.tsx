@@ -21,7 +21,7 @@ import { TagPopoverAnchored, type TagAnchorRect } from '@/components/hal/TagPopo
 import { SignalPlaceholder } from '@/components/hal/SignalPlaceholder';
 import { HalSearchBar, PullIndicator } from '@/components/hal/HalSearchBar';
 
-import { useBookmarkSidebar } from '../bookmark-context';
+import { useBookmarkSidebar, ALL_FOLDER_ID } from '../bookmark-context';
 
 const MOBILE_BREAKPOINT = 768;
 const PAGE_SIZE = 20;
@@ -61,7 +61,15 @@ export default function BookmarksPage() {
     return () => clearTimeout(t);
   }, [search]);
 
-  const data = useBookmarksData({ page, pageSize: PAGE_SIZE, search: debouncedSearch });
+  const folderFilter =
+    sidebar.activeFolder && sidebar.activeFolder !== ALL_FOLDER_ID ? sidebar.activeFolder : undefined;
+
+  const data = useBookmarksData({
+    page,
+    pageSize: PAGE_SIZE,
+    search: debouncedSearch,
+    folderId: folderFilter,
+  });
   const {
     rawBookmarks,
     setRawBookmarks,
@@ -151,7 +159,7 @@ export default function BookmarksPage() {
   }, []);
 
   const handleClearFilters = useCallback(() => {
-    sidebar.setActiveFolder('f_all');
+    sidebar.setActiveFolder(ALL_FOLDER_ID);
     sidebar.setActiveTags([]);
     setPage(1);
   }, [sidebar]);
@@ -174,7 +182,8 @@ export default function BookmarksPage() {
     () => sidebar.folders.find((f) => f.id === sidebar.activeFolder)?.name ?? 'Archive',
     [sidebar.folders, sidebar.activeFolder],
   );
-  const filterCount = sidebar.activeTags.length + (sidebar.activeFolder !== 'f_all' ? 1 : 0);
+  const filterCount =
+    sidebar.activeTags.length + (sidebar.activeFolder !== ALL_FOLDER_ID ? 1 : 0);
 
   const { label: syncLabel } = useSyncTime();
 

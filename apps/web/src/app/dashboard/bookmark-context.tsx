@@ -3,10 +3,24 @@
 // Shared sidebar state between the dashboard layout (which renders the
 // HAL Index sidebar) and the bookmarks page (which uses the same active
 // folder / active tags for filtering its feed). Layout owns the state.
+//
+// Phase 3: folders are loaded from /api/folders. The synthetic "All"
+// folder (id "f_all") is always present and represents "no filter".
 'use client';
 
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 import type { SidebarFolder, SidebarTag } from '@helloagain/ui-hal';
+import { authFetch } from '@/lib/auth-fetch';
+
+export const ALL_FOLDER_ID = 'f_all';
 
 interface BookmarkSidebarState {
   folders: SidebarFolder[];
@@ -20,27 +34,69 @@ interface BookmarkSidebarState {
 
   activeTags: string[];
   setActiveTags: (ids: string[] | ((prev: string[]) => string[])) => void;
+
+  /** Re-fetch the live folder list from /api/folders. */
+  refetchFolders: () => Promise<void>;
 }
 
 const BookmarkSidebarContext = createContext<BookmarkSidebarState | null>(null);
 
-const PLACEHOLDER_FOLDERS: SidebarFolder[] = [
-  { id: 'f_all', name: 'All', icon: 'inbox', count: '?' },
-  { id: 'f_unread', name: 'Unread', icon: 'bookmark', count: '?' },
-  { id: 'f_brain', name: 'Brain food', icon: 'cpu', count: '?' },
-  { id: 'f_design', name: 'Design craft', icon: 'layers', count: '?' },
-  { id: 'f_read', name: 'Read later', icon: 'clock', count: '?' },
-];
+interface ApiFolder {
+  id: string;
+  name: string;
+  x_folder_id: string | null;
+  bookmark_count: number;
+}
+
+const ALL_FOLDER: SidebarFolder = {
+  id: ALL_FOLDER_ID,
+  name: 'All',
+  icon: 'inbox',
+  count: '?',
+};
 
 export function BookmarkSidebarProvider({ children }: { children: ReactNode }) {
-  const [folders, setFolders] = useState<SidebarFolder[]>(PLACEHOLDER_FOLDERS);
-  const [activeFolder, setActiveFolder] = useState('f_all');
+  const [folders, setFolders] = useState<SidebarFolder[]>([ALL_FOLDER]);
+  const [activeFolder, setActiveFolder] = useState<string>(ALL_FOLDER_ID);
   const [tags, setTags] = useState<SidebarTag[]>([]);
   const [activeTags, setActiveTags] = useState<string[]>([]);
 
+  const refetchFolders = useCallback(async () => {
+    const res = await authFetch('/api/folders');
+    if (!res?.ok) return;
+    const json = (await res.json()) as { folders?: ApiFolder[] };
+    const fetched = json.folders ?? [];
+
+    const total = fetched.reduce((sum, f) => sum + (f.bookmark_count ?? 0), 0);
+    const next: SidebarFolder[] = [
+      { ...ALL_FOLDER, count: total },
+      ...fetched.map<SidebarFolder>((f) => ({
+        id: f.id,
+        name: f.name,
+        icon: 'folder',
+        count: f.bookmark_count,
+      })),
+    ];
+    setFolders(next);
+  }, []);
+
+  useEffect(() => {
+    void refetchFolders();
+  }, [refetchFolders]);
+
   const value = useMemo<BookmarkSidebarState>(
-    () => ({ folders, setFolders, activeFolder, setActiveFolder, tags, setTags, activeTags, setActiveTags }),
-    [folders, activeFolder, tags, activeTags],
+    () => ({
+      folders,
+      setFolders,
+      activeFolder,
+      setActiveFolder,
+      tags,
+      setTags,
+      activeTags,
+      setActiveTags,
+      refetchFolders,
+    }),
+    [folders, activeFolder, tags, activeTags, refetchFolders],
   );
 
   return <BookmarkSidebarContext.Provider value={value}>{children}</BookmarkSidebarContext.Provider>;
