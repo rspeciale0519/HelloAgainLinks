@@ -1,3 +1,14 @@
+export interface FolderContext {
+  /** X.com's folder id from the /i/bookmarks/:folderId URL. */
+  x_folder_id: string;
+  /**
+   * Best-effort folder name (DOM scrape from X's page header). Null when
+   * we couldn't read it, in which case the HAL backend will fall back to
+   * the folder id while showing the folder in the sidebar.
+   */
+  folder_name: string | null;
+}
+
 export interface TweetData {
   content: string;
   author: string;
@@ -19,6 +30,8 @@ export interface TweetData {
   inReplyToStatusId?: string;
   quotedStatusId?: string;
   possiblySensitive?: boolean;
+  /** Phase 3: folder this tweet was scraped from (only present during folder-walk import). */
+  folder_context?: FolderContext;
 }
 
 // X.com session credentials captured by the MAIN world interceptor
