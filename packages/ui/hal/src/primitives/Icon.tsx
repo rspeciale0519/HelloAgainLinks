@@ -11,7 +11,7 @@ export type IconName =
   | 'archive' | 'check' | 'trash' | 'share' | 'filter' | 'sort' | 'grid'
   | 'list' | 'layers' | 'cpu' | 'signal' | 'at' | 'tag' | 'menu' | 'expand'
   | 'minimize' | 'copy' | 'external' | 'send' | 'users' | 'sliders' | 'radio'
-  | 'quote';
+  | 'quote' | 'edit' | 'download';
 
 export interface IconProps {
   name: IconName;
@@ -79,6 +79,8 @@ export function Icon({ name, size = 16, stroke = 1.5, className, style }: IconPr
     case 'sliders':   return <svg {...p}><path d="M4 6h12M4 10h12M4 14h12"/><circle cx="8" cy="6" r="2" fill="var(--hal-bg-2)"/><circle cx="13" cy="10" r="2" fill="var(--hal-bg-2)"/><circle cx="7" cy="14" r="2" fill="var(--hal-bg-2)"/></svg>;
     case 'radio':     return <svg {...p}><circle cx="10" cy="10" r="2.5" fill="currentColor" stroke="none"/><circle cx="10" cy="10" r="5.5" opacity="0.5"/><circle cx="10" cy="10" r="8.5" opacity="0.25"/></svg>;
     case 'quote':     return <svg {...p}><path d="M4 10c0-3 2-5 4-5M4 10v3a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1H4zm8 0c0-3 2-5 4-5m-4 5v3a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1h-3z"/></svg>;
+    case 'edit':      return <svg {...p}><path d="M14 3l3 3-9 9H5v-3l9-9z"/><path d="M12 5l3 3"/></svg>;
+    case 'download':  return <svg {...p}><path d="M10 3v10M5 9l5 4 5-4M3 17h14"/></svg>;
     default: return null;
   }
 }

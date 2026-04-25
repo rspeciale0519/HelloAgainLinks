@@ -16,8 +16,9 @@ import {
 import { useAuth } from '@/lib/use-auth';
 import { usePlan } from '@/lib/use-plan';
 import { triggerHaptic } from '@/lib/mobile';
+import { authFetch } from '@/lib/auth-fetch';
 import UserMenu from '@/components/UserMenu';
-import { BookmarkSidebarProvider, useBookmarkSidebar } from './bookmark-context';
+import { BookmarkSidebarProvider, useBookmarkSidebar, ALL_FOLDER_ID } from './bookmark-context';
 
 const APP_NAV: AppNavItem[] = [
   { id: 'home', label: 'Dashboard', icon: 'inbox', href: '/dashboard' },
@@ -83,6 +84,73 @@ function DashboardChrome({ children }: { children: React.ReactNode }) {
     [isMobile, router],
   );
 
+  // ── Phase 3: folder CRUD handlers ───────────────────────────
+  // v1 uses native browser dialogs; a custom inline-edit affordance
+  // can come in Phase 6 polish.
+
+  const handleCreateFolder = useCallback(async () => {
+    const name = window.prompt('Folder name:')?.trim();
+    if (!name) return;
+    const res = await authFetch('/api/folders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    if (!res?.ok) {
+      const body = await res?.json().catch(() => null);
+      window.alert(body?.error ?? 'Failed to create folder');
+      return;
+    }
+    await sidebar.refetchFolders();
+  }, [sidebar]);
+
+  const handleRenameFolder = useCallback(
+    async (id: string) => {
+      const current = sidebar.folders.find((f) => f.id === id);
+      const next = window.prompt('New folder name:', current?.name ?? '')?.trim();
+      if (!next || next === current?.name) return;
+      const res = await authFetch(`/api/folders/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: next }),
+      });
+      if (!res?.ok) {
+        const body = await res?.json().catch(() => null);
+        window.alert(body?.error ?? 'Failed to rename folder');
+        return;
+      }
+      await sidebar.refetchFolders();
+    },
+    [sidebar],
+  );
+
+  const handleDeleteFolder = useCallback(
+    async (id: string) => {
+      const target = sidebar.folders.find((f) => f.id === id);
+      const ok = window.confirm(
+        `Delete folder "${target?.name ?? 'this folder'}"? Bookmarks inside will become Unfiled.`,
+      );
+      if (!ok) return;
+      const res = await authFetch(`/api/folders/${id}`, { method: 'DELETE' });
+      if (!res?.ok) {
+        const body = await res?.json().catch(() => null);
+        window.alert(body?.error ?? 'Failed to delete folder');
+        return;
+      }
+      if (sidebar.activeFolder === id) sidebar.setActiveFolder(ALL_FOLDER_ID);
+      await sidebar.refetchFolders();
+    },
+    [sidebar],
+  );
+
+  const handleImportXFolders = useCallback(() => {
+    // Bridge to the extension content script (apps/extension/src/content.ts).
+    window.postMessage(
+      { source: 'hal-app', type: 'HAL_START_FOLDER_WALK_IMPORT' },
+      window.location.origin,
+    );
+  }, []);
+
   const sidebarNode = (
     <IndexSidebar
       appNav={APP_NAV}
@@ -95,6 +163,10 @@ function DashboardChrome({ children }: { children: React.ReactNode }) {
         sidebar.setActiveFolder(id);
         if (isMobile) setDrawerOpen(false);
       }}
+      onCreateFolder={handleCreateFolder}
+      onRenameFolder={handleRenameFolder}
+      onDeleteFolder={handleDeleteFolder}
+      onImportXFolders={handleImportXFolders}
       tags={sidebar.tags}
       activeTags={sidebar.activeTags}
       onToggleTag={(id) =>
