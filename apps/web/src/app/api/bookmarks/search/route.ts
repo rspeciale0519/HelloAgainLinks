@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
   // Step 2: Hydrate full bookmark rows with tags/folders via RLS-enforced client
   const { data, error } = await ctx.userClient
     .from('bookmarks')
-    .select('*, bookmark_tags(tag_id, tags(*)), bookmark_folders(folder_id, folders(*))')
+    .select('*, bookmark_tags(tag_id, tags(*))')
     .in('id', ids);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

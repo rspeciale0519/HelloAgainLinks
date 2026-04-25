@@ -23,6 +23,12 @@ export interface UseBookmarksDataOptions {
   page: number;
   pageSize: number;
   search: string;
+  /**
+   * Optional folder filter. When set, only bookmarks with this folder_id are
+   * returned. The HAL Index sidebar's "All" virtual folder leaves this
+   * undefined so the API returns every bookmark for the user.
+   */
+  folderId?: string;
 }
 
 export interface UseBookmarksDataState {
@@ -45,7 +51,7 @@ export interface UseBookmarksDataState {
  * within the 450 LOC budget.
  */
 export function useBookmarksData(opts: UseBookmarksDataOptions): UseBookmarksDataState {
-  const { page, pageSize, search } = opts;
+  const { page, pageSize, search, folderId } = opts;
 
   const [rawBookmarks, setRawBookmarks] = useState<RawBookmark[]>([]);
   const [allTags, setAllTags] = useState<TagInfo[]>([]);
@@ -63,6 +69,7 @@ export function useBookmarksData(opts: UseBookmarksDataOptions): UseBookmarksDat
         page: page.toString(),
         pageSize: pageSize.toString(),
       });
+      if (folderId) params.set('folder_id', folderId);
       res = await authFetch(`/api/bookmarks/search?${params}`);
     } else {
       const params = new URLSearchParams({
@@ -71,6 +78,7 @@ export function useBookmarksData(opts: UseBookmarksDataOptions): UseBookmarksDat
         sort: 'bookmarked_at',
         order: 'desc',
       });
+      if (folderId) params.set('folder_id', folderId);
       res = await authFetch(`/api/bookmarks?${params}`);
     }
     if (res?.ok) {
@@ -79,7 +87,7 @@ export function useBookmarksData(opts: UseBookmarksDataOptions): UseBookmarksDat
       setTotal(data.count ?? 0);
     }
     setLoading(false);
-  }, [page, pageSize, search]);
+  }, [page, pageSize, search, folderId]);
 
   const refetchTags = useCallback(async () => {
     const res = await authFetch('/api/tags');
