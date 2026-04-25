@@ -196,7 +196,14 @@ function DashboardChrome({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', position: 'relative' }}>
+    <div
+      style={{
+        display: 'flex',
+        minHeight: '100vh',
+        position: 'relative',
+        background: 'var(--hal-bg-0)',
+      }}
+    >
       <BackgroundLayers />
 
       {/* Mobile top bar (hamburger + brand) */}
