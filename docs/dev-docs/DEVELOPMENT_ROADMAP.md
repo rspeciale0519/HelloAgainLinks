@@ -29,7 +29,20 @@
   - [x] `IndexSidebar` + `NavItem` + `SectionHead` (Library section uses placeholder folders, marked `// TODO Phase 3`)
   - [x] `/dashboard/bookmarks/page.tsx` rewritten as 3-pane shell with `data-hal="on"` scoped tokens
   - [x] Every spec 5.7 preserved feature wired (search, pagination, classification, tag popover, delete modal, dates, view-on-X, pull-to-refresh + haptics, extension live updates, ⌘K/⌘J/⌘B/Esc)
-- [ ] **Phase 3 — Folders + X import** — folder CRUD + extension folder-walk import
+- [x] **Phase 3 — Folders + X import** *(complete — pending user manual verification)*
+  - [x] Migration 006: `get_folders_with_counts` RPC + reconciled folders schema (added `x_folder_id`, `updated_at`, unique `(user_id, x_folder_id)`, trigger)
+  - [x] `/api/folders` GET (RPC) + POST (Zod-validated)
+  - [x] `/api/folders/[id]` PATCH rename + DELETE (bookmarks become `folder_id = NULL`)
+  - [x] `/api/bookmarks/[id]/folder` PATCH for single-folder assignment
+  - [x] `/api/folders/import-x` POST (upserts folders + assignments in 500-row chunks)
+  - [x] Live folders in sidebar via `/api/folders`; "All" synthetic folder always present
+  - [x] Folder filter on feed (`folder_id` query param on `/api/bookmarks` and `/api/bookmarks/search`)
+  - [x] Sidebar folder CRUD: hover-revealed rename/delete + "+ New folder" button + "Import X" pill
+  - [x] Extension folder-context capture (URL + GraphQL parser handling both `Bookmarks` and `BookmarkFolderTimeline` operations)
+  - [x] Extension `folder-walk-import.ts` orchestrator with `chrome.storage`-backed walk-state for resume across navigations
+  - [x] Extension version bumped 0.3.3 → 0.4.0
+  - [x] Legacy multi-folder routes archived to `archive/phase3/` per Rule 1
+  - **User verification still needed:** reload unpacked extension in Chrome, confirm v0.4.0; test single-bookmark save + bulk import unchanged; run end-to-end folder-walk against a real X account; validate GraphQL parser TODOs against live X markup
 - [ ] **Phase 4 — Signal rail** — Ask + Threads + Related, real AI with conversation persistence
 - [ ] **Phase 5 — Palette + Spread + Tweaks + AI annotations** — ⌘K palette, detail modal, classification pipeline extension
 - [ ] **Phase 6 — Bulk + polish + cutover** — bulk selection, accessibility pass, remove boot splash + scanlines
