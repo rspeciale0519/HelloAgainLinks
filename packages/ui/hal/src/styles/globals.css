@@ -1,0 +1,56 @@
+/* packages/ui/hal/src/styles/globals.css */
+/* Scoped theme tokens + base resets. Imported by the bookmarks route root. */
+
+:root[data-hal="on"] {
+  --hal-bg-0: #050506;
+  --hal-bg-1: #0a0a0c;
+  --hal-bg-2: #111114;
+  --hal-bg-3: #17171c;
+  --hal-bg-4: #1f1f26;
+  --hal-bg-5: #292930;
+
+  --hal-a: #d4ff3a;
+  --hal-a-rgb: 212, 255, 58;
+  --hal-a-dim: rgba(212, 255, 58, 0.15);
+  --hal-a-glow: rgba(212, 255, 58, 0.35);
+
+  --hal-text-0: #f5f5f7;
+  --hal-text-1: #c9c9d0;
+  --hal-text-2: #7e7e88;
+  --hal-text-3: #50505a;
+  --hal-text-4: #2e2e36;
+
+  --hal-line-0: rgba(255, 255, 255, 0.04);
+  --hal-line-1: rgba(255, 255, 255, 0.07);
+  --hal-line-2: rgba(255, 255, 255, 0.12);
+
+  --hal-sans: 'Geist', ui-sans-serif, system-ui, sans-serif;
+  --hal-mono: 'Geist Mono', ui-monospace, monospace;
+  --hal-serif: 'Instrument Serif', 'Times New Roman', serif;
+
+  --hal-density: 1;
+  --hal-pulse-on: 1;
+}
+
+/* Reduced-motion override */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-hal="on"] {
+    --hal-pulse-on: 0;
+  }
+}
+
+/* Pulse keyframe — reused by StatusDot */
+@keyframes hal-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.5; transform: scale(0.85); }
+}
+
+/* Drift keyframes — BackgroundLayers */
+@keyframes hal-drift-1 {
+  0%, 100% { transform: translate(0, 0); }
+  50%      { transform: translate(80px, 60px); }
+}
+@keyframes hal-drift-2 {
+  0%, 100% { transform: translate(0, 0); }
+  50%      { transform: translate(-60px, -40px); }
+}
