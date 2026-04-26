@@ -167,7 +167,6 @@ function ViewOnXLink({ bookmark }: { bookmark: CitationBookmark }) {
       href={buildPostUrl(bookmark)}
       target="_blank"
       rel="noopener noreferrer"
-      title={`@${bookmark.x_author_handle}`}
       onMouseEnter={handleEnter}
       onMouseLeave={handleLeave}
       style={{
@@ -182,7 +181,9 @@ function ViewOnXLink({ bookmark }: { bookmark: CitationBookmark }) {
         padding: '1px 0',
       }}
     >
-      View this post on X →
+      View post by{' '}
+      <span style={{ textTransform: 'none' }}>@{bookmark.x_author_handle}</span>{' '}
+      on X →
     </a>
   );
 }
