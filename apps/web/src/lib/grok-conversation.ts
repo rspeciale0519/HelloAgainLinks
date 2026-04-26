@@ -39,8 +39,54 @@ interface RankedSearchRow {
 
 const CITATION_MARKER_RE = /\[bm:([0-9a-f-]{6,})\]/gi;
 
-const SEARCH_MATCH_LIMIT = 25;
+const SEARCH_MATCH_LIMIT = 40;
 const RECENT_SLICE_LIMIT = 8;
+
+// Conversational filler + pronouns + question words + HAL/X domain noise.
+// We strip these before building the tsquery so the AI's question turns into
+// a set of meaningful content tokens, not "see & post & provide & ...".
+const QUERY_STOPWORDS = new Set([
+  'a', 'about', 'all', 'an', 'and', 'any', 'anything', 'are', 'as', 'at',
+  'be', 'been', 'by', 'can', 'could', 'did', 'do', 'does', 'for', 'from',
+  'get', 'give', 'got', 'had', 'has', 'have', 'help', 'how', 'i', 'if',
+  'in', 'is', 'it', 'its', 'just', 'know', 'like', 'list', 'look', 'me',
+  'most', 'my', 'need', 'not', 'of', 'on', 'or', 'please', 'see', 'search',
+  'should', 'show', 'so', 'some', 'something', 'tell', 'that', 'the',
+  'their', 'them', 'they', 'this', 'to', 'us', 'want', 'was', 'we', 'were',
+  'what', 'when', 'where', 'which', 'who', 'whom', 'why', 'will', 'with',
+  'would', 'you', 'your',
+  // HAL / X domain noise — almost every conversational query mentions these,
+  // and matching against them is pure recall pollution.
+  'bookmark', 'bookmarks', 'post', 'posts', 'tweet', 'tweets', 'thread',
+  'threads', 'find', 'saved', 'save',
+]);
+
+/**
+ * Turn the user's natural-language question into a tsquery that prioritizes
+ * recall: strip stopwords + filler, then OR-join the remaining tokens.
+ * websearch_to_tsquery understands `OR` as boolean OR, so a sentence like
+ * "do you see any Claude Code tutorials?" becomes "claude OR code OR tutorials"
+ * — any one matching token surfaces the bookmark, and ts_rank_cd handles the
+ * ordering so the most relevant hits land at the top.
+ *
+ * Falls back to the sanitized original if every token is a stopword (e.g.
+ * "what should I do?" — there's nothing to search for).
+ */
+function rewriteQueryForSearch(rawQuery: string): string {
+  const sanitized = sanitizeFtsQuery(rawQuery);
+  if (!sanitized) return '';
+
+  const tokens = sanitized
+    .toLowerCase()
+    .split(/\s+/)
+    .map((t) => t.replace(/^['"@#-]+|['"_-]+$/g, ''))
+    .filter((t) => t.length > 1 && !QUERY_STOPWORDS.has(t));
+
+  if (tokens.length === 0) return sanitized;
+
+  const unique = Array.from(new Set(tokens));
+  return unique.join(' OR ');
+}
 
 function formatBookmarkLine(b: BookmarkRow): string {
   const date = new Date(b.bookmarked_at).toISOString().slice(0, 10);
@@ -69,12 +115,13 @@ export async function buildBookmarkContext(
   recentIds: Set<string>;
 }> {
   const safeQuery = sanitizeFtsQuery(query);
+  const searchQuery = rewriteQueryForSearch(query);
 
   const [searchRes, recentRes, tagsRes, foldersRes, countRes] = await Promise.all([
-    safeQuery
+    searchQuery
       ? client.rpc('search_bookmarks', {
           p_user_id: userId,
-          p_query: safeQuery,
+          p_query: searchQuery,
           p_limit: SEARCH_MATCH_LIMIT,
           p_offset: 0,
           p_author: null,
@@ -170,13 +217,28 @@ export function buildSystemPrompt(contextText: string): string {
     "you help them search, summarize, and find patterns across their saved",
     "X/Twitter bookmarks. Be concise, conversational, and specific.",
     '',
-    'Tools you can use in your output:',
+    'Behavior rules:',
+    "- The bookmark context below was already retrieved by ranked full-text",
+    "  search against the user's entire library. Trust it. The top matches",
+    "  are sorted by relevance; if something is in the list, it's there",
+    "  because it scored highly against their question.",
+    "- Answer directly from the bookmarks shown. Quote, summarize, or cite",
+    '  specific ones — that is the entire job.',
+    "- Do NOT offer to help the user brainstorm search terms, refine their",
+    "  query, suggest alternative wordings, or ask them to be more specific.",
+    "  They asked you a question; answer it from what's in the context.",
+    "- If the top matches genuinely don't cover the question, say so in one",
+    "  sentence and point to the closest related bookmark you do have.",
+    '  Never respond with "I cannot find anything, would you like to..." —',
+    '  that pattern is forbidden.',
+    '',
+    'Citation format:',
     '- When you reference a specific bookmark, emit a citation marker inline:',
     '  [bm:<full-bookmark-uuid>]. Multiple markers per sentence are fine.',
     '  The UI extracts these markers, removes them from the rendered text,',
     '  and renders clickable citation chips beneath the message.',
-    '- Only cite bookmark ids that appear in the "Recent bookmarks" list',
-    '  below; if you have no concrete reference, just answer without citing.',
+    '- Only cite bookmark ids that appear in the bookmark context below; if',
+    '  you have no concrete reference, just answer without citing.',
     '',
     'Bookmark context:',
     contextText,
