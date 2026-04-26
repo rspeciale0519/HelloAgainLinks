@@ -62,14 +62,26 @@ export function BookmarkSidebarProvider({ children }: { children: ReactNode }) {
   const [activeTags, setActiveTags] = useState<string[]>([]);
 
   const refetchFolders = useCallback(async () => {
-    const res = await authFetch('/api/folders');
-    if (!res?.ok) return;
-    const json = (await res.json()) as { folders?: ApiFolder[] };
-    const fetched = json.folders ?? [];
+    // Fetch folders + total bookmark count in parallel. The "All" virtual
+    // folder needs the user's total bookmark count regardless of folder
+    // assignment — summing folder counts misses any unfiled bookmarks
+    // (which is most of them until folders are widely adopted).
+    const [foldersRes, totalRes] = await Promise.all([
+      authFetch('/api/folders'),
+      authFetch('/api/bookmarks?page=1&pageSize=1'),
+    ]);
+    if (!foldersRes?.ok) return;
+    const foldersJson = (await foldersRes.json()) as { folders?: ApiFolder[] };
+    const fetched = foldersJson.folders ?? [];
 
-    const total = fetched.reduce((sum, f) => sum + (f.bookmark_count ?? 0), 0);
+    let totalBookmarks = 0;
+    if (totalRes?.ok) {
+      const totalJson = (await totalRes.json()) as { count?: number; total?: number };
+      totalBookmarks = totalJson.count ?? totalJson.total ?? 0;
+    }
+
     const next: SidebarFolder[] = [
-      { ...ALL_FOLDER, count: total },
+      { ...ALL_FOLDER, count: totalBookmarks },
       ...fetched.map<SidebarFolder>((f) => ({
         id: f.id,
         name: f.name,
