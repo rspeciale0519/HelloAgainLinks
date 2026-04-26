@@ -152,27 +152,14 @@ export function Msg({ m, bookmarkLookup, onPinToFeed, style }: MsgProps) {
         {sources.length > 0 && (
           <div style={{ marginTop: 14 }}>
             <SectionDivider count={sources.length} />
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              {sources.map(({ index, bookmark }) => (
-                <SourceCard
-                  key={bookmark.id}
-                  ref={(node) => {
-                    if (node) sourceRefs.current.set(index, node);
-                    else sourceRefs.current.delete(index);
-                  }}
-                  index={index}
-                  bookmark={bookmark}
-                  pulsing={pulsingIndex === index}
-                />
-              ))}
-            </div>
 
             {onPinToFeed && (
               <div
                 style={{
                   display: 'flex',
                   justifyContent: 'center',
-                  marginTop: 14,
+                  marginTop: 8,
+                  marginBottom: 6,
                 }}
               >
                 <button
@@ -201,6 +188,21 @@ export function Msg({ m, bookmarkLookup, onPinToFeed, style }: MsgProps) {
                 </button>
               </div>
             )}
+
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {sources.map(({ index, bookmark }) => (
+                <SourceCard
+                  key={bookmark.id}
+                  ref={(node) => {
+                    if (node) sourceRefs.current.set(index, node);
+                    else sourceRefs.current.delete(index);
+                  }}
+                  index={index}
+                  bookmark={bookmark}
+                  pulsing={pulsingIndex === index}
+                />
+              ))}
+            </div>
           </div>
         )}
       </div>
