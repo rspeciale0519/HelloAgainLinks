@@ -6,6 +6,7 @@ import { ImpactStyle } from '@capacitor/haptics';
 import {
   ClassificationBanner,
   Feed,
+  Palette,
   SignalRail,
   type CardBookmark,
   type CitationBookmark,
@@ -129,6 +130,11 @@ export default function BookmarksPage() {
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; xPostId: string } | null>(null);
   const [tagAnchor, setTagAnchor] = useState<TagAnchor | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  // ---- Phase 5: command palette ----
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  // One-shot draft routed from the palette's "Ask HAL: '...'" action through
+  // SignalRail/AskTab. Cleared by AskTab's onAskDraftConsumed.
+  const [pendingAskDraft, setPendingAskDraft] = useState<string | null>(null);
 
   // ---- Pull-to-refresh ----
   const [pullDistance, setPullDistance] = useState(0);
@@ -252,12 +258,11 @@ export default function BookmarksPage() {
   const { label: syncLabel } = useSyncTime();
 
   useKeyboardShortcuts({
-    onPalette: () => {
-      /* TODO Phase 5: command palette */
-    },
+    onPalette: () => setPaletteOpen((v) => !v),
     onSignal: () => setSignalOpen((v) => !v),
     onEscape: () => {
-      if (confirmDelete) setConfirmDelete(null);
+      if (paletteOpen) setPaletteOpen(false);
+      else if (confirmDelete) setConfirmDelete(null);
       else if (tagAnchor) setTagAnchor(null);
       else if (selectionMode) {
         setSelectionMode(false);
@@ -382,9 +387,39 @@ export default function BookmarksPage() {
             bookmarkLookup={bookmarkLookup}
             authFetch={authFetch}
             onClose={() => setSignalOpen(false)}
+            pendingAskDraft={pendingAskDraft}
+            onAskDraftConsumed={() => setPendingAskDraft(null)}
           />
         )}
       </div>
+
+      <Palette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        authFetch={authFetch}
+        folders={sidebar.folders
+          .filter((f) => f.id !== ALL_FOLDER_ID)
+          .map((f) => ({ id: f.id, name: f.name }))}
+        onSelectFolder={(folderId) => {
+          setPinnedIds(null);
+          sidebar.setActiveFolder(folderId);
+          setPage(1);
+        }}
+        onOpenBookmark={(bookmarkId) => {
+          // TODO Phase 5.2: open Spread modal for the bookmark. Until then,
+          // open the X post in a new tab as a useful fallback.
+          const bm = rawBookmarks.find((b) => b.id === bookmarkId);
+          if (!bm) return;
+          const url = `https://x.com/${bm.x_author_handle}/status/${bm.x_post_id}`;
+          window.open(url, '_blank', 'noopener,noreferrer');
+        }}
+        onAskHal={(query) => {
+          setSignalOpen(true);
+          setPendingAskDraft(query);
+        }}
+        onToggleSignal={() => setSignalOpen((v) => !v)}
+        onSetDensity={(d) => setTweaks((prev) => ({ ...prev, density: d }))}
+      />
 
       {tagPopoverContent}
 
