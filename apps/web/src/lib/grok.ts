@@ -2,6 +2,7 @@
 // Grok API Client — Server-side (Hello Again Links)
 // ============================================================
 
+import { z } from 'zod';
 import { classifyByRegex } from '@helloagain/shared';
 
 const XAI_API_KEY = process.env.XAI_API_KEY!;
@@ -91,25 +92,145 @@ function sanitizeForLLM(text: string): string {
     .slice(0, 500);
 }
 
+// LLM enrichment — single structured call returning ai_summary + ai_tags
+// (confidence-scored labels). The Spread modal's HAL Analysis tab + the
+// feed Card's HAL annotation strip both feed off this output.
+const EnrichmentSchema = z.object({
+  ai_summary: z.string().min(1).max(500),
+  ai_tags: z
+    .array(
+      z.object({
+        label: z.string().min(1).max(40),
+        confidence: z.number().min(0).max(1),
+      }),
+    )
+    .max(8),
+});
+export type BookmarkEnrichment = z.infer<typeof EnrichmentSchema>;
+
+/** Strip a leading ```json ... ``` fence the model occasionally wraps around its output. */
+function stripJsonFence(s: string): string {
+  const trimmed = s.trim();
+  const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  return fenced ? fenced[1].trim() : trimmed;
+}
+
+export async function enrichBookmarkLLM(
+  content: string,
+  customTags: string[] = [],
+): Promise<BookmarkEnrichment | null> {
+  const safeContent = sanitizeForLLM(content);
+  const allTags = [...new Set([...TAG_TAXONOMY, ...customTags])];
+
+  // Use MODEL_FULL — grok-3-mini is fast but unreliable at structured JSON
+  // output. Enrichment runs in batches, so the latency is hidden.
+  let result: string;
+  try {
+    result = await chat(
+      [
+        {
+          role: 'system',
+          content:
+            'You analyze X/Twitter posts saved by an archivist. Output ONLY valid JSON ' +
+            'matching this schema (no prose, no fences):\n' +
+            '{\n' +
+            '  "ai_summary": "<one short sentence (<= 200 chars) capturing the core claim or content; direct, no fluff>",\n' +
+            '  "ai_tags": [ { "label": "<topic>", "confidence": <0.0-1.0> }, ... ]\n' +
+            '}\n\n' +
+            'Rules for ai_tags:\n' +
+            '- Choose 1-5 labels, sorted by descending confidence.\n' +
+            `- Prefer labels from this taxonomy: ${allTags.join(', ')}.\n` +
+            '- You may add ONE custom label if none of the taxonomy fits well.\n' +
+            '- Confidence is your honest probability the label applies (0.0 to 1.0).',
+        },
+        { role: 'user', content: safeContent },
+      ],
+      MODEL_FULL,
+    );
+  } catch (err) {
+    console.error('[enrichBookmarkLLM] chat() threw:', err instanceof Error ? err.message : err);
+    return null;
+  }
+
+  const cleaned = stripJsonFence(result);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch (err) {
+    console.error(
+      '[enrichBookmarkLLM] JSON.parse failed:',
+      err instanceof Error ? err.message : err,
+      '\n  raw output (first 400 chars):',
+      cleaned.slice(0, 400),
+    );
+    return null;
+  }
+  const validated = EnrichmentSchema.safeParse(parsed);
+  if (!validated.success) {
+    console.error(
+      '[enrichBookmarkLLM] schema validation failed:',
+      validated.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '),
+      '\n  raw payload:',
+      JSON.stringify(parsed).slice(0, 400),
+    );
+    return null;
+  }
+  return validated.data;
+}
+
 /**
- * Two-tier classification: regex fast-path first, then LLM fallback.
- * Returns tags (from LLM) + category/domain (from regex or LLM).
+ * Two-tier classification with full enrichment for the Phase 5 surfaces.
+ * Tier 1 (regex): primary_category + primary_domain. Tier 2 (LLM): one
+ * structured call returns ai_summary + ai_tags (confidence-scored labels).
+ *
+ * `tags` (the user-facing tag chips) is derived from ai_tags where
+ * confidence >= AI_TAG_CHIP_THRESHOLD — the route then upserts a row in the
+ * `tags` table for each and links via bookmark_tags.
  */
+const AI_TAG_CHIP_THRESHOLD = 0.6;
+
+export interface ClassificationResult {
+  category: string | null;
+  domain: string | null;
+  ai_summary: string | null;
+  ai_tags: BookmarkEnrichment['ai_tags'] | null;
+  tags: string[];
+}
+
 export async function classifyBookmark(
   content: string,
   urls: string[] = [],
   customTags: string[] = [],
-): Promise<{ tags: string[]; category: string | null; domain: string | null }> {
-  // Tier 1: Regex (instant, free)
+): Promise<ClassificationResult> {
+  // Tier 1 — regex fast-path.
   const regex = classifyByRegex(content, urls);
 
-  // Tier 2: LLM for tags (always) — could skip if regex has high confidence
-  const tags = await autoTagBookmark(content, customTags);
+  // Tier 2 — LLM enrichment (single structured call).
+  const enrichment = await enrichBookmarkLLM(content, customTags);
+
+  if (!enrichment) {
+    // LLM tier failed (parse error, validation, or upstream). Fall back to
+    // the regex-only signal so the route still records something useful.
+    return {
+      category: regex.category,
+      domain: regex.domain,
+      ai_summary: null,
+      ai_tags: null,
+      tags: [],
+    };
+  }
+
+  const highConfidenceTags = enrichment.ai_tags
+    .filter((t) => t.confidence >= AI_TAG_CHIP_THRESHOLD)
+    .map((t) => t.label)
+    .slice(0, 5);
 
   return {
-    tags,
     category: regex.category,
     domain: regex.domain,
+    ai_summary: enrichment.ai_summary,
+    ai_tags: enrichment.ai_tags,
+    tags: highConfidenceTags,
   };
 }
 
