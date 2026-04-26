@@ -20,12 +20,17 @@ export interface MsgItem {
 
 export interface MsgProps {
   m: MsgItem;
-  onJumpTo: (bookmarkId: string) => void;
   bookmarkLookup: Record<string, CitationBookmark>;
+  /**
+   * When provided, an assistant message with citations renders a "Pin N to feed"
+   * pill below the chips. Clicking pipes the cited ids into the bookmarks feed
+   * so the user can browse them like a search result set.
+   */
+  onPinToFeed?: (bookmarkIds: string[]) => void;
   style?: CSSProperties;
 }
 
-export function Msg({ m, onJumpTo, bookmarkLookup, style }: MsgProps) {
+export function Msg({ m, bookmarkLookup, onPinToFeed, style }: MsgProps) {
   if (m.role === 'user') {
     return (
       <div
@@ -100,9 +105,35 @@ export function Msg({ m, onJumpTo, bookmarkLookup, style }: MsgProps) {
             }}
           >
             {validCites.map((bm) => (
-              <CitationChip key={bm.id} bookmark={bm} onJumpTo={onJumpTo} />
+              <CitationChip key={bm.id} bookmark={bm} />
             ))}
           </div>
+        )}
+        {validCites.length > 0 && onPinToFeed && (
+          <button
+            type="button"
+            onClick={() => onPinToFeed(validCites.map((bm) => bm.id))}
+            style={{
+              marginTop: 6,
+              fontFamily: 'var(--hal-mono)',
+              fontSize: 10,
+              letterSpacing: '0.08em',
+              color: 'var(--hal-a)',
+              background: 'transparent',
+              border: '1px solid var(--hal-a)',
+              borderRadius: 2,
+              padding: '2px 8px',
+              cursor: 'pointer',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'var(--hal-a-dim)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent';
+            }}
+          >
+            VIEW {validCites.length} IN FEED →
+          </button>
         )}
       </div>
     </div>

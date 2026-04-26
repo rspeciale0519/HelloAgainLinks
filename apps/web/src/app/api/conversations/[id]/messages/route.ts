@@ -163,6 +163,25 @@ export async function POST(req: NextRequest, { params }: Params) {
         return;
       }
 
+      // Hydrate the cited bookmarks so the client can render chips even when
+      // those bookmarks aren't on the user's current feed page. We send
+      // (id, x_post_id, x_author_handle, content_text) — enough for the chip
+      // to build an X URL and show the author handle.
+      let citedBookmarks: Array<{
+        id: string;
+        x_post_id: string;
+        x_author_handle: string;
+        content_text: string;
+      }> = [];
+      if (citedIds.length > 0) {
+        const { data: cited } = await ctx.serviceClient
+          .from('bookmarks')
+          .select('id, x_post_id, x_author_handle, content_text')
+          .eq('user_id', ctx.userId)
+          .in('id', citedIds);
+        citedBookmarks = (cited ?? []) as typeof citedBookmarks;
+      }
+
       // Auto-title from the first user prompt if the conversation is still
       // using the default title. Bumps updated_at as well.
       const tentativeTitle = userContent.slice(0, 80);
@@ -188,6 +207,7 @@ export async function POST(req: NextRequest, { params }: Params) {
           type: 'done',
           message_id: assistantRow.id,
           cited_bookmark_ids: citedIds,
+          cited_bookmarks: citedBookmarks,
           content: cleanedText,
         }),
       );

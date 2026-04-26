@@ -55,9 +55,32 @@ export async function GET(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: msgErr.message }, { status: 500 });
   }
 
+  // Hydrate the unique set of cited bookmarks across every message so the
+  // client can render citation chips for posts the user hasn't paginated to
+  // in the feed yet. This is the same shape AskTab gets in the SSE 'done'
+  // event — keeping them aligned avoids two render paths.
+  const citedIdSet = new Set<string>();
+  for (const m of (messages ?? []) as MessageRow[]) {
+    for (const cid of m.cited_bookmark_ids ?? []) citedIdSet.add(cid);
+  }
+  let citedBookmarks: Array<{
+    id: string;
+    x_post_id: string;
+    x_author_handle: string;
+    content_text: string;
+  }> = [];
+  if (citedIdSet.size > 0) {
+    const { data: cited } = await ctx.userClient
+      .from('bookmarks')
+      .select('id, x_post_id, x_author_handle, content_text')
+      .in('id', Array.from(citedIdSet));
+    citedBookmarks = (cited ?? []) as typeof citedBookmarks;
+  }
+
   return NextResponse.json({
     conversation: conversation as ConversationRow,
     messages: (messages ?? []) as MessageRow[],
+    cited_bookmarks: citedBookmarks,
   });
 }
 

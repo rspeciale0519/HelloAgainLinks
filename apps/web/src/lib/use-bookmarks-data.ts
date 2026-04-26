@@ -29,6 +29,12 @@ export interface UseBookmarksDataOptions {
    * undefined so the API returns every bookmark for the user.
    */
   folderId?: string;
+  /**
+   * Optional explicit id list. When non-null, the hook fetches exactly those
+   * bookmarks (preserving order) and ignores page/pageSize/search/folder.
+   * Used by the chat surface to pin cited bookmarks into the feed.
+   */
+  idsFilter?: string[] | null;
 }
 
 export interface UseBookmarksDataState {
@@ -51,7 +57,10 @@ export interface UseBookmarksDataState {
  * within the 450 LOC budget.
  */
 export function useBookmarksData(opts: UseBookmarksDataOptions): UseBookmarksDataState {
-  const { page, pageSize, search, folderId } = opts;
+  const { page, pageSize, search, folderId, idsFilter } = opts;
+  // Stable key for idsFilter so the refetch callback doesn't recreate when an
+  // array with identical contents is passed in.
+  const idsKey = idsFilter ? idsFilter.join(',') : '';
 
   const [rawBookmarks, setRawBookmarks] = useState<RawBookmark[]>([]);
   const [allTags, setAllTags] = useState<TagInfo[]>([]);
@@ -63,7 +72,11 @@ export function useBookmarksData(opts: UseBookmarksDataOptions): UseBookmarksDat
   const refetch = useCallback(async () => {
     setLoading(true);
     let res: Response | null;
-    if (search) {
+    if (idsKey) {
+      // Pin-to-feed mode: fetch exactly the cited bookmarks, preserving order.
+      const params = new URLSearchParams({ ids: idsKey });
+      res = await authFetch(`/api/bookmarks?${params}`);
+    } else if (search) {
       const params = new URLSearchParams({
         q: search,
         page: page.toString(),
@@ -87,7 +100,7 @@ export function useBookmarksData(opts: UseBookmarksDataOptions): UseBookmarksDat
       setTotal(data.count ?? 0);
     }
     setLoading(false);
-  }, [page, pageSize, search, folderId]);
+  }, [page, pageSize, search, folderId, idsKey]);
 
   const refetchTags = useCallback(async () => {
     const res = await authFetch('/api/tags');
