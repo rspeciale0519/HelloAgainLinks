@@ -47,12 +47,21 @@ export function AskTab({
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  // Tracks ids that were minted locally via `send()`. We must NOT re-hydrate
+  // from /api/conversations/[id] for those ids — the in-memory state already
+  // contains the optimistic user message + the in-flight streaming assistant
+  // bubble, and refetching would wipe both for a fraction of a second.
+  const localIds = useRef<Set<string>>(new Set());
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Hydrate from /api/conversations/[id] when the id changes (or resets).
   useEffect(() => {
     if (!conversationId) {
       setMessages([GREETING]);
+      return;
+    }
+    if (localIds.current.has(conversationId)) {
+      // Locally created — skip the hydration round-trip.
       return;
     }
     let cancelled = false;
@@ -129,6 +138,7 @@ export function AskTab({
       }
       const created = (await createRes.json()) as { conversation: { id: string } };
       activeId = created.conversation.id;
+      localIds.current.add(activeId);
       onConversationCreated(activeId);
     }
 
