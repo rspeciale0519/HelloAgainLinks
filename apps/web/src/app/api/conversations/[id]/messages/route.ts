@@ -102,10 +102,15 @@ export async function POST(req: NextRequest, { params }: Params) {
     .limit(HISTORY_LIMIT);
   const orderedHistory = ((history ?? []) as MessageHistoryRow[]).slice().reverse();
 
-  // Build the system prompt with bookmark context + citation contract.
+  // Build the system prompt with bookmark context + citation contract. The
+  // context is query-aware: it ranks the top matches for the user's latest
+  // message across ALL bookmarks via the search_vector tsvector RPC, then
+  // appends a small slice of the most recent bookmarks for "what did I save
+  // lately?" prompts.
   const { contextText, recentIds } = await buildBookmarkContext(
     ctx.serviceClient,
     ctx.userId,
+    userContent,
   );
   const systemPrompt = buildSystemPrompt(contextText);
 

@@ -1,10 +1,14 @@
 // apps/web/src/lib/grok-conversation.ts
 //
 // Phase 4: shared helpers for the conversation surface. Builds the Grok
-// system prompt with a citation contract ("[bm:<id>]" markers) and the
-// recent-bookmark context block reused from /api/ai/assistant.
+// system prompt with a citation contract ("[bm:<id>]" markers) and a
+// query-aware bookmark context block. The model is given the top-ranked
+// matches across the user's entire library (via the search_bookmarks RPC
+// over the search_vector tsvector column) plus a small slice of recent
+// bookmarks for "what did I save lately?" style questions.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { sanitizeFtsQuery } from '@/lib/postgrest-search';
 
 const XAI_API_KEY = process.env.XAI_API_KEY ?? '';
 const XAI_BASE_URL = 'https://api.x.ai/v1';
@@ -15,7 +19,7 @@ export interface GrokMessage {
   content: string;
 }
 
-interface RecentBookmark {
+interface BookmarkRow {
   id: string;
   content_text: string;
   x_author_handle: string;
@@ -27,27 +31,63 @@ interface NamedRow {
   name: string;
 }
 
+interface RankedSearchRow {
+  id: string;
+  rank: number;
+  total_count: number;
+}
+
 const CITATION_MARKER_RE = /\[bm:([0-9a-f-]{6,})\]/gi;
 
+const SEARCH_MATCH_LIMIT = 25;
+const RECENT_SLICE_LIMIT = 8;
+
+function formatBookmarkLine(b: BookmarkRow): string {
+  const date = new Date(b.bookmarked_at).toISOString().slice(0, 10);
+  const text = b.content_text.replace(/\s+/g, ' ').slice(0, 240);
+  const handle = b.x_author_handle ? `@${b.x_author_handle}` : 'unknown';
+  return `- [bm:${b.id}] ${handle} (${date}): ${text}`;
+}
+
 /**
- * Build a compact bookmark context block to inject into the HAL system prompt.
- * Includes the user's tag list, folder list, total bookmarks, and the 30 most
- * recent bookmarks with their UUIDs (so the model can cite via [bm:<id>]).
+ * Build a query-aware bookmark context block to inject into the HAL system
+ * prompt. Includes the user's tag list, folder list, total bookmark count,
+ * the top ranked matches for the current query (across ALL bookmarks via
+ * the search_bookmarks tsvector RPC), and a small slice of recent bookmarks
+ * for "what did I save lately?" style prompts. Citable ids are returned so
+ * the caller can validate citation markers against the allow-list.
+ *
+ * `client` should be a service-role client because search_bookmarks is
+ * SECURITY DEFINER and filters by p_user_id.
  */
 export async function buildBookmarkContext(
   client: SupabaseClient,
   userId: string,
+  query: string,
 ): Promise<{
   contextText: string;
   recentIds: Set<string>;
 }> {
-  const [bookmarksRes, tagsRes, foldersRes, countRes] = await Promise.all([
+  const safeQuery = sanitizeFtsQuery(query);
+
+  const [searchRes, recentRes, tagsRes, foldersRes, countRes] = await Promise.all([
+    safeQuery
+      ? client.rpc('search_bookmarks', {
+          p_user_id: userId,
+          p_query: safeQuery,
+          p_limit: SEARCH_MATCH_LIMIT,
+          p_offset: 0,
+          p_author: null,
+          p_date_from: null,
+          p_date_to: null,
+        })
+      : Promise.resolve({ data: [], error: null }),
     client
       .from('bookmarks')
       .select('id, content_text, x_author_handle, x_author_name, bookmarked_at')
       .eq('user_id', userId)
       .order('bookmarked_at', { ascending: false })
-      .limit(30),
+      .limit(RECENT_SLICE_LIMIT),
     client.from('tags').select('name').eq('user_id', userId),
     client.from('folders').select('name').eq('user_id', userId),
     client
@@ -56,27 +96,67 @@ export async function buildBookmarkContext(
       .eq('user_id', userId),
   ]);
 
-  const recent = (bookmarksRes.data ?? []) as RecentBookmark[];
+  const ranked = (searchRes.data ?? []) as RankedSearchRow[];
+  const recent = (recentRes.data ?? []) as BookmarkRow[];
   const tags = (tagsRes.data ?? []) as NamedRow[];
   const folders = (foldersRes.data ?? []) as NamedRow[];
   const total = countRes.count ?? recent.length;
 
-  const lines = [
+  // Hydrate the ranked search hits in a single round-trip, then re-sort by
+  // rank (the .in() select doesn't preserve RPC ordering).
+  let matches: BookmarkRow[] = [];
+  if (ranked.length > 0) {
+    const rankMap = new Map(ranked.map((r) => [r.id, r.rank]));
+    const { data: hydrated } = await client
+      .from('bookmarks')
+      .select('id, content_text, x_author_handle, x_author_name, bookmarked_at')
+      .eq('user_id', userId)
+      .in(
+        'id',
+        ranked.map((r) => r.id),
+      );
+    matches = ((hydrated ?? []) as BookmarkRow[])
+      .slice()
+      .sort((a, b) => (rankMap.get(b.id) ?? 0) - (rankMap.get(a.id) ?? 0));
+  }
+
+  // Recent slice — exclude anything already in the ranked matches to avoid
+  // burning context on duplicates.
+  const matchIds = new Set(matches.map((m) => m.id));
+  const recentExtras = recent.filter((b) => !matchIds.has(b.id));
+
+  const allowedIds = new Set<string>([...matchIds, ...recentExtras.map((b) => b.id)]);
+
+  const lines: string[] = [
     `Total bookmarks: ${total}`,
     `Tags: ${tags.map((t) => t.name).join(', ') || 'None'}`,
     `Folders: ${folders.map((f) => f.name).join(', ') || 'None'}`,
     '',
-    'Recent bookmarks (cite by id with [bm:<id>] markers):',
-    ...recent.map((b) => {
-      const date = new Date(b.bookmarked_at).toISOString().slice(0, 10);
-      const text = b.content_text.replace(/\s+/g, ' ').slice(0, 200);
-      return `- [bm:${b.id}] @${b.x_author_handle} (${date}): ${text}`;
-    }),
   ];
+
+  if (matches.length > 0) {
+    lines.push(
+      `Top matches for the user's question (ranked by relevance across all ${total} bookmarks; cite by id with [bm:<id>] markers):`,
+      ...matches.map(formatBookmarkLine),
+      '',
+    );
+  } else if (safeQuery) {
+    lines.push(
+      `No bookmarks matched the user's question via full-text search (across all ${total} bookmarks). Tell the user nothing matched if they asked about specific content.`,
+      '',
+    );
+  }
+
+  if (recentExtras.length > 0) {
+    lines.push(
+      'Recent bookmarks (most recently saved; cite by id with [bm:<id>] markers):',
+      ...recentExtras.map(formatBookmarkLine),
+    );
+  }
 
   return {
     contextText: lines.join('\n'),
-    recentIds: new Set(recent.map((b) => b.id)),
+    recentIds: allowedIds,
   };
 }
 
