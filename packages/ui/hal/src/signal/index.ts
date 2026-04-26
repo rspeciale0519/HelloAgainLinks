@@ -4,10 +4,4 @@ export { AskTab, type AskTabProps, type AuthFetch } from './AskTab';
 export { ThreadsTab, type ThreadsTabProps, type ThreadRow } from './ThreadsTab';
 export { RelatedTab, type RelatedTabProps, type RelatedBookmark } from './RelatedTab';
 export { Msg, type MsgProps, type MsgItem, type MsgRole } from './Msg';
-export {
-  CitationBadge,
-  type CitationBadgeProps,
-  SourceCard,
-  type SourceCardProps,
-  type CitationBookmark,
-} from './Citations';
+export { type CitationBookmark } from './Citations';
