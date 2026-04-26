@@ -58,6 +58,12 @@ export default function BookmarksPage() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
+  // "Pin to feed" mode — populated by AskTab's "VIEW N IN FEED" pill. When
+  // non-null, the feed shows exactly these bookmarks (cited by the AI in a
+  // chat message) until the user clears it. Any of: typing in search,
+  // picking a folder, or toggling a tag also clears pinning so the user's
+  // intent always wins.
+  const [pinnedIds, setPinnedIds] = useState<string[] | null>(null);
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300);
     return () => clearTimeout(t);
@@ -71,6 +77,7 @@ export default function BookmarksPage() {
     pageSize: PAGE_SIZE,
     search: debouncedSearch,
     folderId: folderFilter,
+    idsFilter: pinnedIds,
   });
   const {
     rawBookmarks,
@@ -95,6 +102,17 @@ export default function BookmarksPage() {
   useEffect(() => {
     setSidebarTags(allTags.map((t) => ({ id: t.id, name: t.name })));
   }, [allTags, setSidebarTags]);
+
+  // While pinning is active, picking a folder or tag in the sidebar should
+  // exit pinning and apply the filter normally. handlePinCitations resets
+  // folder to ALL and tags to [] before setting pinnedIds, so this effect
+  // only fires when the user explicitly changes the filter.
+  useEffect(() => {
+    if (!pinnedIds) return;
+    if (sidebar.activeFolder !== ALL_FOLDER_ID || sidebar.activeTags.length > 0) {
+      setPinnedIds(null);
+    }
+  }, [pinnedIds, sidebar.activeFolder, sidebar.activeTags]);
 
   const mutations = useBookmarkMutations({
     allTags,
@@ -143,6 +161,7 @@ export default function BookmarksPage() {
     (tagName: string) => {
       const tag = allTags.find((t) => t.name === tagName);
       if (!tag) return;
+      setPinnedIds(null);
       sidebar.setActiveTags((prev) => (prev.includes(tag.id) ? prev : [...prev, tag.id]));
     },
     [allTags, sidebar],
@@ -163,8 +182,33 @@ export default function BookmarksPage() {
   const handleClearFilters = useCallback(() => {
     sidebar.setActiveFolder(ALL_FOLDER_ID);
     sidebar.setActiveTags([]);
+    setPinnedIds(null);
     setPage(1);
   }, [sidebar]);
+
+  const handleClearPinned = useCallback(() => {
+    setPinnedIds(null);
+    setPage(1);
+  }, []);
+
+  // Pin a set of bookmark ids into the feed. Called when the AI chat surface's
+  // "VIEW N IN FEED" pill is clicked. We also reset folder/tag filters and
+  // search so the pinned set isn't accidentally re-filtered to nothing.
+  const handlePinCitations = useCallback(
+    (ids: string[]) => {
+      if (ids.length === 0) return;
+      sidebar.setActiveFolder(ALL_FOLDER_ID);
+      sidebar.setActiveTags([]);
+      setSearch('');
+      setDebouncedSearch('');
+      setPage(1);
+      setPinnedIds(ids);
+      // On mobile the feed lives below the rail; on desktop the sidebar may
+      // be in the user's peripheral vision but the feed is the focus.
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    },
+    [sidebar],
+  );
 
   // ---- Filtering (client-side tag filter for Phase 2) ----
   const filtered = useMemo(() => {
@@ -188,18 +232,21 @@ export default function BookmarksPage() {
     for (const bm of rawBookmarks) {
       out[bm.id] = {
         id: bm.id,
+        x_post_id: bm.x_post_id,
         x_author_handle: bm.x_author_handle,
         content_text: bm.content_text,
       };
     }
     return out;
   }, [rawBookmarks]);
-  const folderName = useMemo(
-    () => sidebar.folders.find((f) => f.id === sidebar.activeFolder)?.name ?? 'Archive',
-    [sidebar.folders, sidebar.activeFolder],
-  );
-  const filterCount =
-    sidebar.activeTags.length + (sidebar.activeFolder !== ALL_FOLDER_ID ? 1 : 0);
+  const folderName = useMemo(() => {
+    if (pinnedIds) return 'Cited bookmarks';
+    return sidebar.folders.find((f) => f.id === sidebar.activeFolder)?.name ?? 'Archive';
+  }, [pinnedIds, sidebar.folders, sidebar.activeFolder]);
+  const filterCount = pinnedIds
+    ? 0
+    : sidebar.activeTags.length + (sidebar.activeFolder !== ALL_FOLDER_ID ? 1 : 0);
+  const pinnedCount = pinnedIds?.length ?? 0;
 
   const { label: syncLabel } = useSyncTime();
 
@@ -268,6 +315,7 @@ export default function BookmarksPage() {
         onChange={(v) => {
           setSearch(v);
           setPage(1);
+          if (v) setPinnedIds(null);
         }}
       />
 
@@ -285,6 +333,8 @@ export default function BookmarksPage() {
           folderName={folderName}
           filterCount={filterCount}
           onClearFilters={handleClearFilters}
+          pinnedCount={pinnedCount}
+          onClearPinned={handleClearPinned}
           density={tweaks.density}
           onDensityChange={(d) => setTweaks((prev) => ({ ...prev, density: d }))}
           selectionMode={selectionMode}
@@ -327,6 +377,7 @@ export default function BookmarksPage() {
                 console.info('[SignalRail] onJumpTo (Phase 5 stub):', id);
               }
             }}
+            onPinCitations={handlePinCitations}
             bookmarkLookup={bookmarkLookup}
             authFetch={authFetch}
             onClose={() => setSignalOpen(false)}

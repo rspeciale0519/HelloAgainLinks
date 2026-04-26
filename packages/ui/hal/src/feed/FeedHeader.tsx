@@ -13,6 +13,13 @@ export interface FeedHeaderProps {
   totalCount: number;
   filterCount: number;
   onClearFilters: () => void;
+  /**
+   * When non-zero, the feed is in "pinned" mode (e.g. cited bookmarks from
+   * chat). Renders a distinct pill that calls onClearPinned when dismissed.
+   * Pinning suppresses normal pagination/folder/tag UI.
+   */
+  pinnedCount?: number;
+  onClearPinned?: () => void;
   density: Density_;
   onDensityChange: (d: Density_) => void;
   selectionMode: boolean;
@@ -36,6 +43,8 @@ export function FeedHeader({
   totalCount,
   filterCount,
   onClearFilters,
+  pinnedCount = 0,
+  onClearPinned,
   density,
   onDensityChange,
   selectionMode,
@@ -103,6 +112,26 @@ export function FeedHeader({
             }}
           >
             {filterCount} FILTER · CLEAR ✕
+          </button>
+        )}
+        {pinnedCount > 0 && onClearPinned && (
+          <button
+            type="button"
+            onClick={onClearPinned}
+            title="Return to your normal feed"
+            style={{
+              fontFamily: 'var(--hal-mono)',
+              fontSize: 10,
+              color: 'var(--hal-bg-0)',
+              padding: '2px 6px',
+              background: 'var(--hal-a)',
+              border: '1px solid var(--hal-a)',
+              borderRadius: 2,
+              letterSpacing: '0.05em',
+              cursor: 'pointer',
+            }}
+          >
+            PINNED {pinnedCount} · CLEAR ✕
           </button>
         )}
       </div>

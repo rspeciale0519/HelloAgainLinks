@@ -5,6 +5,8 @@
 // helper across the bundle boundary). Reads `data: { ... }` events and
 // stops on `data: [DONE]`.
 
+import type { CitationBookmark } from './CitationChip';
+
 export interface SseChunkEvent {
   type: 'chunk';
   text: string;
@@ -13,6 +15,10 @@ export interface SseDoneEvent {
   type: 'done';
   message_id: string;
   cited_bookmark_ids: string[];
+  /** Hydrated bookmark rows for the cited ids — populated server-side so the
+   *  chat surface can render chips even when those bookmarks aren't on the
+   *  user's current feed page. */
+  cited_bookmarks?: CitationBookmark[];
   content: string;
 }
 export interface SseErrorEvent {

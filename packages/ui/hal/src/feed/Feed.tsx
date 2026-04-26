@@ -16,6 +16,8 @@ export interface FeedProps {
   folderName: string;
   filterCount: number;
   onClearFilters: () => void;
+  pinnedCount?: number;
+  onClearPinned?: () => void;
   density: Density_;
   onDensityChange: (d: Density_) => void;
   selectionMode: boolean;
@@ -47,6 +49,8 @@ export function Feed(props: FeedProps) {
     folderName,
     filterCount,
     onClearFilters,
+    pinnedCount,
+    onClearPinned,
     density,
     onDensityChange,
     selectionMode,
@@ -87,6 +91,8 @@ export function Feed(props: FeedProps) {
         totalCount={total}
         filterCount={filterCount}
         onClearFilters={onClearFilters}
+        pinnedCount={pinnedCount}
+        onClearPinned={onClearPinned}
         density={density}
         onDensityChange={onDensityChange}
         selectionMode={selectionMode}

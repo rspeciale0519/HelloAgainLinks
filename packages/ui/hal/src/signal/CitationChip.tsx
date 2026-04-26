@@ -5,26 +5,35 @@ import type { CSSProperties } from 'react';
 
 export interface CitationBookmark {
   id: string;
+  x_post_id: string;
   x_author_handle: string;
   content_text?: string;
 }
 
 export interface CitationChipProps {
   bookmark: CitationBookmark;
-  onJumpTo: (bookmarkId: string) => void;
   style?: CSSProperties;
+}
+
+function buildPostUrl(b: CitationBookmark): string {
+  const handle = b.x_author_handle || 'i';
+  return `https://x.com/${handle}/status/${b.x_post_id}`;
 }
 
 /**
  * Pill-shaped citation chip rendered after assistant messages.
- * Format: "#<id-prefix> @<author>". Click jumps to the bookmark in Spread.
+ * Format: "#<id-prefix> @<author>". Click opens the original X post in a
+ * new tab. Phase 5 may wrap this with a click handler that opens a Spread
+ * modal instead — for now the anchor is the whole interaction.
  */
-export function CitationChip({ bookmark, onJumpTo, style }: CitationChipProps) {
+export function CitationChip({ bookmark, style }: CitationChipProps) {
   const idPrefix = `#${bookmark.id.slice(0, 6)}`;
   return (
-    <button
-      type="button"
-      onClick={() => onJumpTo(bookmark.id)}
+    <a
+      href={buildPostUrl(bookmark)}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={bookmark.content_text ?? `Open post by @${bookmark.x_author_handle} on X`}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -37,6 +46,7 @@ export function CitationChip({ bookmark, onJumpTo, style }: CitationChipProps) {
         border: '1px solid var(--hal-line-1)',
         borderRadius: 3,
         cursor: 'pointer',
+        textDecoration: 'none',
         transition: 'all 0.1s',
         ...style,
       }}
@@ -60,6 +70,6 @@ export function CitationChip({ bookmark, onJumpTo, style }: CitationChipProps) {
       >
         @{bookmark.x_author_handle}
       </span>
-    </button>
+    </a>
   );
 }

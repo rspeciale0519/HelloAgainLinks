@@ -3,6 +3,7 @@
 
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -23,10 +24,12 @@ export type AuthFetch = (path: string, init?: RequestInit) => Promise<Response |
 export interface AskTabProps {
   conversationId: string | null;
   onConversationCreated: (id: string) => void;
-  onJumpTo: (bookmarkId: string) => void;
   isProUser: boolean;
   authFetch: AuthFetch;
+  /** Lookup populated by the host page from its current feed pagination. */
   bookmarkLookup: Record<string, CitationBookmark>;
+  /** Pipe cited ids into the host's feed view. When omitted, no pin pill renders. */
+  onPinToFeed?: (bookmarkIds: string[]) => void;
 }
 
 const GREETING: MsgItem = {
@@ -38,12 +41,16 @@ const GREETING: MsgItem = {
 export function AskTab({
   conversationId,
   onConversationCreated,
-  onJumpTo,
   isProUser,
   authFetch,
   bookmarkLookup,
+  onPinToFeed,
 }: AskTabProps) {
   const [messages, setMessages] = useState<MsgItem[]>([GREETING]);
+  // Citations hydrated from the SSE 'done' event + conversation history.
+  // This covers bookmarks the user hasn't paginated to in the feed yet, so
+  // chips render reliably regardless of which page the feed is on.
+  const [citationLookup, setCitationLookup] = useState<Record<string, CitationBookmark>>({});
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -58,6 +65,7 @@ export function AskTab({
   useEffect(() => {
     if (!conversationId) {
       setMessages([GREETING]);
+      setCitationLookup({});
       return;
     }
     if (localIds.current.has(conversationId)) {
@@ -80,6 +88,7 @@ export function AskTab({
           content: string;
           cited_bookmark_ids: string[] | null;
         }>;
+        cited_bookmarks?: CitationBookmark[];
       };
       if (cancelled) return;
       setMessages(
@@ -92,6 +101,9 @@ export function AskTab({
               citedIds: m.cited_bookmark_ids ?? [],
             })),
       );
+      const next: Record<string, CitationBookmark> = {};
+      for (const bm of data.cited_bookmarks ?? []) next[bm.id] = bm;
+      setCitationLookup(next);
       setLoadingHistory(false);
     })();
     return () => {
@@ -103,6 +115,13 @@ export function AskTab({
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messages]);
+
+  // Merge feed-page lookup with citation-hydrated lookup. Citation-hydrated
+  // wins when both have an entry — the server-side citation hydration fetches
+  // x_post_id which the chip needs, while the feed-page lookup may not.
+  const mergedLookup = useMemo(() => {
+    return { ...bookmarkLookup, ...citationLookup };
+  }, [bookmarkLookup, citationLookup]);
 
   const finalizeWithError = (key: string, errMsg: string) => {
     setMessages((prev) =>
@@ -186,6 +205,14 @@ export function AskTab({
               : m,
           ),
         );
+        const incoming = event.cited_bookmarks ?? [];
+        if (incoming.length > 0) {
+          setCitationLookup((prev) => {
+            const next = { ...prev };
+            for (const bm of incoming) next[bm.id] = bm;
+            return next;
+          });
+        }
       } else if (event.type === 'error') {
         finalizeWithError(assistantKey, event.error);
       }
@@ -225,8 +252,8 @@ export function AskTab({
               <Msg
                 key={m.key}
                 m={m}
-                onJumpTo={onJumpTo}
-                bookmarkLookup={bookmarkLookup}
+                bookmarkLookup={mergedLookup}
+                onPinToFeed={onPinToFeed}
               />
             ))}
             {messages.length <= 1 && !sending && <AskSuggestions onPick={send} />}

@@ -14,7 +14,13 @@ export interface SignalRailProps {
   isProUser: boolean;
   totalBookmarks: number;
   activeBookmarkId: string | null;
+  /** Open a single bookmark — used by Related tab. Phase 5 will swap to a Spread modal. */
   onJumpTo: (bookmarkId: string) => void;
+  /**
+   * Pin a set of cited bookmarks into the host's feed view. Used by Ask tab's
+   * "VIEW N IN FEED" pill. When omitted, the pill is hidden.
+   */
+  onPinCitations?: (bookmarkIds: string[]) => void;
   bookmarkLookup: Record<string, CitationBookmark>;
   authFetch: AuthFetch;
   onClose?: () => void;
@@ -35,6 +41,7 @@ export function SignalRail({
   totalBookmarks,
   activeBookmarkId,
   onJumpTo,
+  onPinCitations,
   bookmarkLookup,
   authFetch,
   onClose,
@@ -146,10 +153,10 @@ export function SignalRail({
         <AskTab
           conversationId={conversationId}
           onConversationCreated={handleConversationCreated}
-          onJumpTo={onJumpTo}
           isProUser={isProUser}
           authFetch={authFetch}
           bookmarkLookup={bookmarkLookup}
+          onPinToFeed={onPinCitations}
         />
       )}
 
