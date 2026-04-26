@@ -43,7 +43,17 @@
   - [x] Extension version bumped 0.3.3 → 0.4.0
   - [x] Legacy multi-folder routes archived to `archive/phase3/` per Rule 1
   - **User verification still needed:** reload unpacked extension in Chrome, confirm v0.4.0; test single-bookmark save + bulk import unchanged; run end-to-end folder-walk against a real X account; validate GraphQL parser TODOs against live X markup
-- [ ] **Phase 4 — Signal rail** — Ask + Threads + Related, real AI with conversation persistence
+- [x] **Phase 4 — Signal rail** *(complete)*
+  - [x] Conversations + messages CRUD (`/api/conversations`, `/api/conversations/[id]`, `/api/conversations/[id]/messages`)
+  - [x] Migration 007: `get_related_bookmarks` clustering RPC (Jaccard tags + primary_category)
+  - [x] SSE-streamed Grok responses with `[bm:<id>]` citation extraction → `cited_bookmark_ids`
+  - [x] AskTab (real streaming + locked state for free plan), ThreadsTab, RelatedTab
+  - [x] SignalRail shell with HAL header + tab routing + `initialConversationId` deep-linking
+  - [x] Bookmarks page integrates SignalRail (replaces SignalPlaceholder, archived to `archive/phase2-signal-placeholder/`)
+  - [x] `/dashboard/assistant` refactored to use the same conversations + messages tables; supports `?conversation=<id>` deep links
+  - [x] AskTab split: extracted `sse-consumer.ts` + `AskSuggestions.tsx` to stay under 450 LOC
+  - [x] Browser smoke verified: streaming chat with 10 citation chips, threads tab populates, locked state shows for free plan
+  - **Tech debt:** legacy `/api/ai/assistant` route kept for extension/mobile compatibility (migrate in later phase)
 - [ ] **Phase 5 — Palette + Spread + Tweaks + AI annotations** — ⌘K palette, detail modal, classification pipeline extension
 - [ ] **Phase 6 — Bulk + polish + cutover** — bulk selection, accessibility pass, remove boot splash + scanlines
 
