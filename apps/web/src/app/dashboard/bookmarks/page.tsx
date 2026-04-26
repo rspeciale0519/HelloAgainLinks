@@ -9,6 +9,8 @@ import {
   Palette,
   SignalRail,
   Spread,
+  TweaksPanel,
+  TweaksTrigger,
   type CardBookmark,
   type CitationBookmark,
   type SpreadBookmark,
@@ -132,8 +134,9 @@ export default function BookmarksPage() {
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; xPostId: string } | null>(null);
   const [tagAnchor, setTagAnchor] = useState<TagAnchor | null>(null);
   const [isMobile, setIsMobile] = useState(false);
-  // ---- Phase 5: command palette ----
+  // ---- Phase 5: command palette + tweaks panel ----
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [tweaksOpen, setTweaksOpen] = useState(false);
   // One-shot draft routed from the palette's "Ask HAL: '...'" action through
   // SignalRail/AskTab. Cleared by AskTab's onAskDraftConsumed.
   const [pendingAskDraft, setPendingAskDraft] = useState<string | null>(null);
@@ -326,6 +329,7 @@ export default function BookmarksPage() {
     onEscape: () => {
       if (paletteOpen) setPaletteOpen(false);
       else if (spreadBookmark) setSpreadBookmark(null);
+      else if (tweaksOpen) setTweaksOpen(false);
       else if (confirmDelete) setConfirmDelete(null);
       else if (tagAnchor) setTagAnchor(null);
       else if (selectionMode) {
@@ -482,6 +486,14 @@ export default function BookmarksPage() {
         }}
         onAskAbout={handleAskAboutBookmark}
         onNotesSaved={handleNotesSaved}
+      />
+
+      <TweaksTrigger open={tweaksOpen} onToggle={() => setTweaksOpen((v) => !v)} />
+      <TweaksPanel
+        open={tweaksOpen}
+        onClose={() => setTweaksOpen(false)}
+        value={tweaks}
+        onChange={(next) => setTweaks(next)}
       />
 
       {tagPopoverContent}
