@@ -90,6 +90,12 @@ export function Palette({
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [bmResults, setBmResults] = useState<PaletteBookmark[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  // Timestamp of the last keyboard navigation. Mouse-move events ignore
+  // hover-to-select for a short window after this so the cursor sitting
+  // anywhere over the panel doesn't yank selection from under the user
+  // while they're stepping with arrow keys.
+  const keyboardNavAtRef = useRef(0);
 
   // Reset state on open and focus the input.
   useEffect(() => {
@@ -234,9 +240,11 @@ export function Palette({
         onClose();
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
+        keyboardNavAtRef.current = Date.now();
         setSelectedIdx((i) => Math.min(flat.length - 1, i + 1));
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
+        keyboardNavAtRef.current = Date.now();
         setSelectedIdx((i) => Math.max(0, i - 1));
       } else if (e.key === 'Enter') {
         e.preventDefault();
@@ -246,6 +254,17 @@ export function Palette({
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [open, flat, selectedIdx, onClose]);
+
+  // Scroll the active row into view as the user steps through with arrow keys
+  // or as the result set shifts. `block: 'nearest'` avoids ping-ponging the
+  // scroll position when an entire short list already fits.
+  useEffect(() => {
+    if (!open) return;
+    const list = listRef.current;
+    if (!list) return;
+    const active = list.querySelector<HTMLElement>(`[data-palette-idx="${selectedIdx}"]`);
+    if (active) active.scrollIntoView({ block: 'nearest' });
+  }, [open, selectedIdx, flat.length]);
 
   if (!open) return null;
 
@@ -259,7 +278,14 @@ export function Palette({
       <button
         key={`${row.type}-${idx}`}
         type="button"
-        onMouseEnter={() => setSelectedIdx(idx)}
+        data-palette-idx={idx}
+        onMouseMove={() => {
+          // Suppress hover-to-select for ~120ms after a keyboard nav so the
+          // user's stationary cursor doesn't yank selection while they step
+          // with arrow keys.
+          if (Date.now() - keyboardNavAtRef.current < 120) return;
+          if (idx !== selectedIdx) setSelectedIdx(idx);
+        }}
         onClick={() => runRow(row)}
         style={{
           width: '100%',
@@ -289,28 +315,34 @@ export function Palette({
   const askRow = flat.find((r) => r.type === 'ask');
 
   return (
-    <>
-      <div
-        onClick={onClose}
-        style={{
-          position: 'fixed',
-          inset: 0,
-          zIndex: 60,
-          background: 'rgba(0, 0, 0, 0.5)',
-          backdropFilter: 'blur(4px)',
-          animation: 'hal-fade-in 0.15s',
-        }}
-        aria-hidden
-      />
+    <div
+      // Backdrop + flex-centered wrapper. Doubling up keeps the modal off any
+      // transform-based centering — the slide-up keyframe overrides the
+      // transform property, which used to leave the modal sitting half-width
+      // to the right of center for the entire 0.2s animation. Flex centering
+      // owns layout; the keyframe owns motion. Click-outside-to-close fires
+      // only when the click target IS the wrapper (not a descendant).
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 60,
+        background: 'rgba(0, 0, 0, 0.5)',
+        backdropFilter: 'blur(4px)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'flex-start',
+        paddingTop: '15vh',
+        animation: 'hal-fade-in 0.15s',
+      }}
+    >
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Command palette"
         style={{
-          position: 'fixed',
-          top: '15vh',
-          left: '50%',
-          transform: 'translateX(-50%)',
           width: 620,
           maxWidth: '92vw',
           maxHeight: '70vh',
@@ -319,7 +351,6 @@ export function Palette({
           borderRadius: 8,
           boxShadow:
             '0 40px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(var(--hal-a-rgb), 0.08)',
-          zIndex: 61,
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
@@ -355,7 +386,7 @@ export function Palette({
           <span style={kbdStyle}>ESC</span>
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
+        <div ref={listRef} style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
           {askRow && (
             <>
               <Section>Ask HAL</Section>
@@ -480,7 +511,7 @@ export function Palette({
           <span style={{ color: 'var(--hal-a)' }}>● online</span>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
