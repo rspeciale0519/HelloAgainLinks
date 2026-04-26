@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import type { AuthFetch } from './AskTab';
-import type { CitationBookmark } from './CitationChip';
+import type { CitationBookmark } from './Citations';
 
 export interface RelatedBookmark extends CitationBookmark {
   primary_category?: string | null;

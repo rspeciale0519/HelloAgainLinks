@@ -5,7 +5,7 @@
 // helper across the bundle boundary). Reads `data: { ... }` events and
 // stops on `data: [DONE]`.
 
-import type { CitationBookmark } from './CitationChip';
+import type { CitationBookmark } from './Citations';
 
 export interface SseChunkEvent {
   type: 'chunk';

@@ -68,11 +68,12 @@ export async function GET(req: NextRequest, { params }: Params) {
     x_post_id: string;
     x_author_handle: string;
     content_text: string;
+    bookmarked_at: string;
   }> = [];
   if (citedIdSet.size > 0) {
     const { data: cited } = await ctx.userClient
       .from('bookmarks')
-      .select('id, x_post_id, x_author_handle, content_text')
+      .select('id, x_post_id, x_author_handle, content_text, bookmarked_at')
       .in('id', Array.from(citedIdSet));
     citedBookmarks = (cited ?? []) as typeof citedBookmarks;
   }

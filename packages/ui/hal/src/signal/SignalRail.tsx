@@ -6,7 +6,7 @@ import { Icon } from '../primitives/Icon';
 import { AskTab, type AuthFetch } from './AskTab';
 import { ThreadsTab } from './ThreadsTab';
 import { RelatedTab } from './RelatedTab';
-import type { CitationBookmark } from './CitationChip';
+import type { CitationBookmark } from './Citations';
 
 export type SignalTab = 'ask' | 'related' | 'threads';
 
