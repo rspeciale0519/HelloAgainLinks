@@ -4,3 +4,4 @@ export * from './feed';
 export * from './sidebar';
 export * from './signal';
 export * from './palette';
+export * from './spread';

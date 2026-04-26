@@ -17,6 +17,7 @@ export interface RawBookmark {
   ai_summary?: string | null;
   ai_tags?: Array<{ label: string; confidence: number }> | null;
   folder_id?: string | null;
+  user_notes?: string | null;
 }
 
 export interface UseBookmarksDataOptions {

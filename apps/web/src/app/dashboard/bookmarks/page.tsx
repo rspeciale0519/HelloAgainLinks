@@ -8,8 +8,10 @@ import {
   Feed,
   Palette,
   SignalRail,
+  Spread,
   type CardBookmark,
   type CitationBookmark,
+  type SpreadBookmark,
 } from '@helloagain/ui-hal';
 
 import { isNativeApp, triggerHaptic } from '@/lib/mobile';
@@ -135,6 +137,12 @@ export default function BookmarksPage() {
   // One-shot draft routed from the palette's "Ask HAL: '...'" action through
   // SignalRail/AskTab. Cleared by AskTab's onAskDraftConsumed.
   const [pendingAskDraft, setPendingAskDraft] = useState<string | null>(null);
+  // ---- Phase 5: Spread bookmark detail modal ----
+  // The active bookmark is held as a SpreadBookmark snapshot rather than
+  // just an id so opening Related rows that aren't on the current feed page
+  // still works without round-trip-blocking the modal. When the user picks
+  // an id we don't yet have, we fetch and populate.
+  const [spreadBookmark, setSpreadBookmark] = useState<SpreadBookmark | null>(null);
 
   // ---- Pull-to-refresh ----
   const [pullDistance, setPullDistance] = useState(0);
@@ -180,6 +188,61 @@ export default function BookmarksPage() {
       rect: { top: r.top, left: r.left, right: r.right, bottom: r.bottom },
     });
   }, []);
+
+  // ---- Spread modal (Phase 5.2) ----
+  const buildSpreadBookmark = useCallback((b: RawBookmark): SpreadBookmark => ({
+    id: b.id,
+    x_post_id: b.x_post_id,
+    x_author_handle: b.x_author_handle,
+    x_author_name: b.x_author_name,
+    content_text: b.content_text,
+    media_urls: b.media_urls ?? [],
+    bookmarked_at: b.bookmarked_at,
+    post_created_at: b.post_created_at ?? null,
+    ai_summary: b.ai_summary ?? null,
+    ai_tags: b.ai_tags ?? null,
+    user_notes: b.user_notes ?? null,
+  }), []);
+
+  const handleOpenBookmark = useCallback(
+    async (bookmarkId: string) => {
+      const local = rawBookmarks.find((b) => b.id === bookmarkId);
+      if (local) {
+        setSpreadBookmark(buildSpreadBookmark(local));
+        return;
+      }
+      // Cross-page jump (e.g. clicking a Related item that isn't on the
+      // current feed page). Fetch the row directly.
+      const res = await authFetch(`/api/bookmarks/${bookmarkId}`);
+      if (!res?.ok) return;
+      const data = (await res.json()) as RawBookmark;
+      setSpreadBookmark(buildSpreadBookmark(data));
+    },
+    [rawBookmarks, buildSpreadBookmark],
+  );
+
+  const handleNotesSaved = useCallback(
+    (bookmarkId: string, notes: string) => {
+      setRawBookmarks((prev) =>
+        prev.map((b) => (b.id === bookmarkId ? { ...b, user_notes: notes } : b)),
+      );
+      setSpreadBookmark((prev) =>
+        prev && prev.id === bookmarkId ? { ...prev, user_notes: notes } : prev,
+      );
+    },
+    [setRawBookmarks],
+  );
+
+  const handleAskAboutBookmark = useCallback(
+    (bm: SpreadBookmark) => {
+      setSpreadBookmark(null);
+      setSignalOpen(true);
+      setPendingAskDraft(
+        `Tell me more about this bookmark by @${bm.x_author_handle}: ${bm.content_text.slice(0, 240)}`,
+      );
+    },
+    [],
+  );
 
   const handleSelect = useCallback((id: string) => {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -262,6 +325,7 @@ export default function BookmarksPage() {
     onSignal: () => setSignalOpen((v) => !v),
     onEscape: () => {
       if (paletteOpen) setPaletteOpen(false);
+      else if (spreadBookmark) setSpreadBookmark(null);
       else if (confirmDelete) setConfirmDelete(null);
       else if (tagAnchor) setTagAnchor(null);
       else if (selectionMode) {
@@ -353,9 +417,7 @@ export default function BookmarksPage() {
           onToggleSignal={() => setSignalOpen((v) => !v)}
           syncLabel={syncLabel}
           onSelect={handleSelect}
-          onOpen={() => {
-            /* TODO Phase 5: Spread modal */
-          }}
+          onOpen={handleOpenBookmark}
           onTagClick={handleTagClickFromCard}
           onDelete={(id, xPostId) => setConfirmDelete({ id, xPostId })}
           onOpenTagEditor={handleOpenTagEditor}
@@ -376,13 +438,8 @@ export default function BookmarksPage() {
           <SignalRail
             isProUser={userPlan !== 'free'}
             totalBookmarks={total}
-            activeBookmarkId={null /* TODO Phase 5: wire from Spread modal selection */}
-            onJumpTo={(id) => {
-              // TODO Phase 5: open Spread modal for this bookmark.
-              if (process.env.NODE_ENV !== 'production') {
-                console.info('[SignalRail] onJumpTo (Phase 5 stub):', id);
-              }
-            }}
+            activeBookmarkId={spreadBookmark?.id ?? null}
+            onJumpTo={handleOpenBookmark}
             onPinCitations={handlePinCitations}
             bookmarkLookup={bookmarkLookup}
             authFetch={authFetch}
@@ -406,12 +463,7 @@ export default function BookmarksPage() {
           setPage(1);
         }}
         onOpenBookmark={(bookmarkId) => {
-          // TODO Phase 5.2: open Spread modal for the bookmark. Until then,
-          // open the X post in a new tab as a useful fallback.
-          const bm = rawBookmarks.find((b) => b.id === bookmarkId);
-          if (!bm) return;
-          const url = `https://x.com/${bm.x_author_handle}/status/${bm.x_post_id}`;
-          window.open(url, '_blank', 'noopener,noreferrer');
+          void handleOpenBookmark(bookmarkId);
         }}
         onAskHal={(query) => {
           setSignalOpen(true);
@@ -419,6 +471,17 @@ export default function BookmarksPage() {
         }}
         onToggleSignal={() => setSignalOpen((v) => !v)}
         onSetDensity={(d) => setTweaks((prev) => ({ ...prev, density: d }))}
+      />
+
+      <Spread
+        bookmark={spreadBookmark}
+        onClose={() => setSpreadBookmark(null)}
+        authFetch={authFetch}
+        onJumpTo={(id) => {
+          void handleOpenBookmark(id);
+        }}
+        onAskAbout={handleAskAboutBookmark}
+        onNotesSaved={handleNotesSaved}
       />
 
       {tagPopoverContent}
