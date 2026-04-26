@@ -6,7 +6,9 @@ import { ImpactStyle } from '@capacitor/haptics';
 import {
   ClassificationBanner,
   Feed,
+  SignalRail,
   type CardBookmark,
+  type CitationBookmark,
 } from '@helloagain/ui-hal';
 
 import { isNativeApp, triggerHaptic } from '@/lib/mobile';
@@ -15,10 +17,10 @@ import { useTweaks } from '@/lib/use-tweaks';
 import { useKeyboardShortcuts } from '@/lib/use-keyboard-shortcuts';
 import { useBookmarksData, type RawBookmark } from '@/lib/use-bookmarks-data';
 import { useBookmarkMutations } from '@/lib/use-bookmark-mutations';
+import { authFetch } from '@/lib/auth-fetch';
 
 import { DeleteConfirmModal } from '@/components/hal/DeleteConfirmModal';
 import { TagPopoverAnchored, type TagAnchorRect } from '@/components/hal/TagPopoverAnchored';
-import { SignalPlaceholder } from '@/components/hal/SignalPlaceholder';
 import { HalSearchBar, PullIndicator } from '@/components/hal/HalSearchBar';
 
 import { useBookmarkSidebar, ALL_FOLDER_ID } from '../bookmark-context';
@@ -178,6 +180,20 @@ export default function BookmarksPage() {
   }, [rawBookmarks, sidebar.activeTags, allTags]);
 
   const cardBookmarks = useMemo(() => filtered.map(toCardBookmark), [filtered]);
+  // Lookup map for citation chips and Related-tab rows. Citation chips only
+  // render for ids the page actually knows about, so missing entries are
+  // silently dropped rather than shown as a broken link.
+  const bookmarkLookup = useMemo<Record<string, CitationBookmark>>(() => {
+    const out: Record<string, CitationBookmark> = {};
+    for (const bm of rawBookmarks) {
+      out[bm.id] = {
+        id: bm.id,
+        x_author_handle: bm.x_author_handle,
+        content_text: bm.content_text,
+      };
+    }
+    return out;
+  }, [rawBookmarks]);
   const folderName = useMemo(
     () => sidebar.folders.find((f) => f.id === sidebar.activeFolder)?.name ?? 'Archive',
     [sidebar.folders, sidebar.activeFolder],
@@ -300,7 +316,22 @@ export default function BookmarksPage() {
           }
         />
 
-        {showSignalRail && <SignalPlaceholder />}
+        {showSignalRail && (
+          <SignalRail
+            isProUser={userPlan !== 'free'}
+            totalBookmarks={total}
+            activeBookmarkId={null /* TODO Phase 5: wire from Spread modal selection */}
+            onJumpTo={(id) => {
+              // TODO Phase 5: open Spread modal for this bookmark.
+              if (process.env.NODE_ENV !== 'production') {
+                console.info('[SignalRail] onJumpTo (Phase 5 stub):', id);
+              }
+            }}
+            bookmarkLookup={bookmarkLookup}
+            authFetch={authFetch}
+            onClose={() => setSignalOpen(false)}
+          />
+        )}
       </div>
 
       {tagPopoverContent}
