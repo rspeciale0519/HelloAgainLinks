@@ -54,7 +54,14 @@
   - [x] AskTab split: extracted `sse-consumer.ts` + `AskSuggestions.tsx` to stay under 450 LOC
   - [x] Browser smoke verified: streaming chat with 10 citation chips, threads tab populates, locked state shows for free plan
   - **Tech debt:** legacy `/api/ai/assistant` route kept for extension/mobile compatibility (migrate in later phase)
-- [ ] **Phase 5 — Palette + Spread + Tweaks + AI annotations** — ⌘K palette, detail modal, classification pipeline extension
+- [x] **Phase 5 — Palette + Spread + Tweaks + AI annotations** *(complete)*
+  - [x] `Palette` (⌘K) — bookmark search via `/api/bookmarks/search` (debounced 150ms), folder rows, Ask HAL fallback that prefills the rail; flex-centered modal + scroll-into-view + keyboard/hover precedence guard
+  - [x] `Spread` modal — flex-centered, two-column grid (main / 300px related); 4 tabs (Content, HAL analysis, Notes, Thread) + RelatedSidebar; Esc + click-backdrop close
+  - [x] `NotesTab` autosave (1s debounce) → new `/api/bookmarks/[id]/notes` PATCH; status pill cycles EDITING → SAVING → AUTOSAVED · Xs AGO and persists after settling
+  - [x] LLM enrichment (`enrichBookmarkLLM`) — single MODEL_FULL call returning Zod-validated `{ ai_summary, ai_tags: [{label, confidence}] }`; classify route writes all four enrichment columns at once and continues to upsert tag rows from high-confidence (≥0.6) ai_tags
+  - [x] Card `ai_summary` annotation strip verified end-to-end (already conditionally rendered in Phase 2; now produces data via Phase 5.4)
+  - [x] `TweaksPanel` (slide-in from right via new `hal-slide-in-x` keyframe) + floating gear `TweaksTrigger` — three rows (density / layout / pulse) wired to existing `useTweaks()`
+  - [x] Citation surface refined (out-of-plan polish): chip-row replaced with inline numbered badges then with per-bullet "View post by @handle on X →" links; Grok system prompt enforces one bullet per cited bookmark
 - [ ] **Phase 6 — Bulk + polish + cutover** — bulk selection, accessibility pass, remove boot splash + scanlines
 
 ---
