@@ -11,7 +11,7 @@ import {
 } from 'react';
 import { Icon } from '../primitives/Icon';
 import { Msg, type MsgItem } from './Msg';
-import type { CitationBookmark } from './CitationChip';
+import type { CitationBookmark } from './Citations';
 import { AskSuggestions, AskLocked } from './AskSuggestions';
 import { consumeSseStream } from './sse-consumer';
 

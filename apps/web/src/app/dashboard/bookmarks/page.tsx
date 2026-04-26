@@ -235,6 +235,7 @@ export default function BookmarksPage() {
         x_post_id: bm.x_post_id,
         x_author_handle: bm.x_author_handle,
         content_text: bm.content_text,
+        bookmarked_at: bm.bookmarked_at,
       };
     }
     return out;

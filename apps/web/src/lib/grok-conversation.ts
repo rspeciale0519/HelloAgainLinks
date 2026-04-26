@@ -246,29 +246,35 @@ export function buildSystemPrompt(contextText: string): string {
 }
 
 /**
- * Extract [bm:<id>] markers from a string, returning the cleaned text and a
- * de-duplicated, validated array of bookmark ids. Validation filters ids
- * against the provided allow-list (typically the recentIds the model was
- * given) so we never persist hallucinated uuids.
+ * Walk [bm:<uuid>] markers in order. Mint a 1-based ordinal per unique
+ * allowed UUID and rewrite the marker as [N] in-place; subsequent occurrences
+ * of the same UUID reuse the same ordinal. Disallowed/hallucinated UUIDs are
+ * stripped (their markers vanish from the rendered text). citedIds is
+ * returned in ordinal order so the UI can index it as citedIds[N-1].
  */
 export function extractCitations(
   rawText: string,
   allowList: Set<string>,
 ): { cleanedText: string; citedIds: string[] } {
-  const seen = new Set<string>();
+  const ordinalById = new Map<string, number>();
   const cited: string[] = [];
 
-  for (const match of rawText.matchAll(CITATION_MARKER_RE)) {
-    const id = match[1].toLowerCase();
-    if (allowList.has(id) && !seen.has(id)) {
-      seen.add(id);
+  const replaced = rawText.replace(CITATION_MARKER_RE, (_full, rawId: string) => {
+    const id = rawId.toLowerCase();
+    if (!allowList.has(id)) return '';
+    let ordinal = ordinalById.get(id);
+    if (!ordinal) {
+      ordinal = cited.length + 1;
+      ordinalById.set(id, ordinal);
       cited.push(id);
     }
-  }
+    return `[${ordinal}]`;
+  });
 
-  const cleanedText = rawText
-    .replace(CITATION_MARKER_RE, '')
-    // Tidy up double spaces / orphan punctuation introduced by stripping markers.
+  const cleanedText = replaced
+    // Tidy up double spaces / orphan punctuation introduced by stripping
+    // disallowed markers. Keep whitespace AROUND retained [N] markers so
+    // they stand alone as visible badges in the rendered prose.
     .replace(/[ \t]{2,}/g, ' ')
     .replace(/\s+([.,;:!?])/g, '$1')
     .trim();

@@ -165,18 +165,20 @@ export async function POST(req: NextRequest, { params }: Params) {
 
       // Hydrate the cited bookmarks so the client can render chips even when
       // those bookmarks aren't on the user's current feed page. We send
-      // (id, x_post_id, x_author_handle, content_text) — enough for the chip
-      // to build an X URL and show the author handle.
+      // (id, x_post_id, x_author_handle, content_text, bookmarked_at) —
+      // enough for the chip to build an X URL, show the author handle, and
+      // print a date in the SourceCard footer row.
       let citedBookmarks: Array<{
         id: string;
         x_post_id: string;
         x_author_handle: string;
         content_text: string;
+        bookmarked_at: string;
       }> = [];
       if (citedIds.length > 0) {
         const { data: cited } = await ctx.serviceClient
           .from('bookmarks')
-          .select('id, x_post_id, x_author_handle, content_text')
+          .select('id, x_post_id, x_author_handle, content_text, bookmarked_at')
           .eq('user_id', ctx.userId)
           .in('id', citedIds);
         citedBookmarks = (cited ?? []) as typeof citedBookmarks;

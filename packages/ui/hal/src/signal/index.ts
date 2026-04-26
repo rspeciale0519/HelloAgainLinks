@@ -5,7 +5,9 @@ export { ThreadsTab, type ThreadsTabProps, type ThreadRow } from './ThreadsTab';
 export { RelatedTab, type RelatedTabProps, type RelatedBookmark } from './RelatedTab';
 export { Msg, type MsgProps, type MsgItem, type MsgRole } from './Msg';
 export {
-  CitationChip,
-  type CitationChipProps,
+  CitationBadge,
+  type CitationBadgeProps,
+  SourceCard,
+  type SourceCardProps,
   type CitationBookmark,
-} from './CitationChip';
+} from './Citations';
