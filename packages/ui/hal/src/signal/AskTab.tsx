@@ -11,6 +11,8 @@ import {
 import { Icon } from '../primitives/Icon';
 import { Msg, type MsgItem } from './Msg';
 import type { CitationBookmark } from './CitationChip';
+import { AskSuggestions, AskLocked } from './AskSuggestions';
+import { consumeSseStream } from './sse-consumer';
 
 /**
  * Auth-aware fetch injected by the host app. Returns null when there is no
@@ -27,37 +29,11 @@ export interface AskTabProps {
   bookmarkLookup: Record<string, CitationBookmark>;
 }
 
-const SUGGESTED_PROMPTS = [
-  'What are my saves about?',
-  'Find contradictions in my archive',
-  "Summarize this week's saves",
-  'What should I re-read?',
-];
-
 const GREETING: MsgItem = {
   key: 'greeting',
   role: 'assistant',
   text: 'Archive online. Ask me anything about your bookmarks — I can search, summarize, find patterns, and cite specific saves.',
 };
-
-interface SseDoneEvent {
-  type: 'done';
-  message_id: string;
-  cited_bookmark_ids: string[];
-  content: string;
-}
-
-interface SseChunkEvent {
-  type: 'chunk';
-  text: string;
-}
-
-interface SseErrorEvent {
-  type: 'error';
-  error: string;
-}
-
-type SseEvent = SseChunkEvent | SseDoneEvent | SseErrorEvent;
 
 export function AskTab({
   conversationId,
@@ -71,7 +47,6 @@ export function AskTab({
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Hydrate from /api/conversations/[id] when the id changes (or resets).
@@ -120,6 +95,12 @@ export function AskTab({
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messages]);
 
+  const finalizeWithError = (key: string, errMsg: string) => {
+    setMessages((prev) =>
+      prev.map((m) => (m.key === key ? { ...m, streaming: false, error: errMsg } : m)),
+    );
+  };
+
   const send = async (raw: string) => {
     const text = raw.trim();
     if (!text || sending || !isProUser) return;
@@ -146,9 +127,7 @@ export function AskTab({
         setSending(false);
         return;
       }
-      const created = (await createRes.json()) as {
-        conversation: { id: string };
-      };
+      const created = (await createRes.json()) as { conversation: { id: string } };
       activeId = created.conversation.id;
       onConversationCreated(activeId);
     }
@@ -205,14 +184,6 @@ export function AskTab({
     setSending(false);
   };
 
-  const finalizeWithError = (key: string, errMsg: string) => {
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.key === key ? { ...m, streaming: false, error: errMsg } : m,
-      ),
-    );
-  };
-
   const onInputKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -221,12 +192,12 @@ export function AskTab({
   };
 
   if (!isProUser) {
-    return <LockedState />;
+    return <AskLocked />;
   }
 
   return (
     <>
-      <div ref={scrollRef} style={contentStyle}>
+      <div style={contentStyle}>
         {loadingHistory ? (
           <div
             style={{
@@ -248,9 +219,7 @@ export function AskTab({
                 bookmarkLookup={bookmarkLookup}
               />
             ))}
-            {messages.length <= 1 && !sending && (
-              <SuggestedPrompts onPick={send} />
-            )}
+            {messages.length <= 1 && !sending && <AskSuggestions onPick={send} />}
             <div ref={bottomRef} />
           </div>
         )}
@@ -279,132 +248,6 @@ export function AskTab({
       </div>
     </>
   );
-}
-
-function SuggestedPrompts({ onPick }: { onPick: (p: string) => void }) {
-  return (
-    <div style={{ marginTop: 16 }}>
-      <div
-        style={{
-          fontFamily: 'var(--hal-mono)',
-          fontSize: 10,
-          color: 'var(--hal-text-3)',
-          letterSpacing: '0.12em',
-          textTransform: 'uppercase',
-          marginBottom: 8,
-        }}
-      >
-        Try
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-        {SUGGESTED_PROMPTS.map((p) => (
-          <button
-            key={p}
-            type="button"
-            onClick={() => onPick(p)}
-            style={suggestedStyle}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = 'var(--hal-a)';
-              e.currentTarget.style.color = 'var(--hal-a)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = 'var(--hal-line-1)';
-              e.currentTarget.style.color = 'var(--hal-text-1)';
-            }}
-          >
-            <span
-              style={{
-                color: 'var(--hal-text-3)',
-                marginRight: 8,
-                fontFamily: 'var(--hal-mono)',
-                fontSize: 10,
-              }}
-            >
-              {'›'}
-            </span>
-            {p}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function LockedState() {
-  return (
-    <div
-      style={{
-        ...contentStyle,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'flex-start',
-        gap: 12,
-      }}
-    >
-      <div
-        style={{
-          fontFamily: 'var(--hal-mono)',
-          fontSize: 10,
-          color: 'var(--hal-text-3)',
-          letterSpacing: '0.12em',
-          textTransform: 'uppercase',
-        }}
-      >
-        Locked
-      </div>
-      <div style={{ fontSize: 13, color: 'var(--hal-text-1)', lineHeight: 1.55 }}>
-        The HAL assistant is a Pro feature. Upgrade to chat with your archive,
-        get summaries, and find patterns across saved posts.
-      </div>
-      <a
-        href="/dashboard/settings"
-        style={{
-          padding: '6px 12px',
-          fontSize: 12,
-          color: 'var(--hal-bg-0)',
-          background: 'var(--hal-a)',
-          border: '1px solid var(--hal-a)',
-          borderRadius: 3,
-          textDecoration: 'none',
-          fontWeight: 500,
-        }}
-      >
-        Upgrade to Pro
-      </a>
-    </div>
-  );
-}
-
-async function consumeSseStream(
-  body: ReadableStream<Uint8Array>,
-  onEvent: (e: SseEvent) => void,
-): Promise<void> {
-  const reader = body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    let sepIdx;
-    while ((sepIdx = buffer.indexOf('\n\n')) !== -1) {
-      const rawEvent = buffer.slice(0, sepIdx);
-      buffer = buffer.slice(sepIdx + 2);
-      const dataLines = rawEvent
-        .split('\n')
-        .map((l) => l.trim())
-        .filter((l) => l.startsWith('data:'))
-        .map((l) => l.slice(5).trim());
-      for (const data of dataLines) {
-        if (!data || data === '[DONE]') continue;
-        try {
-          onEvent(JSON.parse(data) as SseEvent);
-        } catch {
-          // Ignore malformed events.
-        }
-      }
-    }
-  }
 }
 
 const contentStyle: CSSProperties = {
@@ -441,17 +284,4 @@ const kbdStyle: CSSProperties = {
   border: '1px solid var(--hal-line-1)',
   padding: '1px 5px',
   borderRadius: 2,
-};
-
-const suggestedStyle: CSSProperties = {
-  padding: '8px 10px',
-  fontSize: 12,
-  color: 'var(--hal-text-1)',
-  background: 'var(--hal-bg-2)',
-  border: '1px solid var(--hal-line-1)',
-  borderRadius: 4,
-  textAlign: 'left',
-  transition: 'all 0.12s',
-  fontFamily: 'var(--hal-sans)',
-  cursor: 'pointer',
 };
