@@ -28,6 +28,9 @@ export interface SignalRailProps {
   initialConversationId?: string | null;
   /** Optional: preselect a tab. Defaults to 'ask'. */
   initialTab?: SignalTab;
+  /** One-shot draft to auto-send (typically from the ⌘K palette's "Ask HAL"). */
+  pendingAskDraft?: string | null;
+  onAskDraftConsumed?: () => void;
 }
 
 const TABS: { id: SignalTab; label: string }[] = [
@@ -47,6 +50,8 @@ export function SignalRail({
   onClose,
   initialConversationId = null,
   initialTab = 'ask',
+  pendingAskDraft = null,
+  onAskDraftConsumed,
 }: SignalRailProps) {
   const [tab, setTab] = useState<SignalTab>(initialTab);
   const [conversationId, setConversationId] = useState<string | null>(
@@ -157,6 +162,8 @@ export function SignalRail({
           authFetch={authFetch}
           bookmarkLookup={bookmarkLookup}
           onPinToFeed={onPinCitations}
+          pendingAskDraft={pendingAskDraft}
+          onAskDraftConsumed={onAskDraftConsumed}
         />
       )}
 

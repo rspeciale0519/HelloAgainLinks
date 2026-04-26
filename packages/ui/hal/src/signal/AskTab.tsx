@@ -30,6 +30,13 @@ export interface AskTabProps {
   bookmarkLookup: Record<string, CitationBookmark>;
   /** Pipe cited ids into the host's feed view. When omitted, no pin pill renders. */
   onPinToFeed?: (bookmarkIds: string[]) => void;
+  /**
+   * One-shot question to auto-send into a fresh conversation. Set by the
+   * command palette's "Ask HAL: '...'" action. The host page should clear it
+   * via `onAskDraftConsumed` once we've handled it so it doesn't refire.
+   */
+  pendingAskDraft?: string | null;
+  onAskDraftConsumed?: () => void;
 }
 
 const GREETING: MsgItem = {
@@ -45,6 +52,8 @@ export function AskTab({
   authFetch,
   bookmarkLookup,
   onPinToFeed,
+  pendingAskDraft,
+  onAskDraftConsumed,
 }: AskTabProps) {
   const [messages, setMessages] = useState<MsgItem[]>([GREETING]);
   // Citations hydrated from the SSE 'done' event + conversation history.
@@ -220,6 +229,16 @@ export function AskTab({
 
     setSending(false);
   };
+
+  // Auto-send a one-shot draft from the command palette's "Ask HAL" action.
+  // Fires once per non-null draft; the host clears it via onAskDraftConsumed
+  // so a subsequent palette ask refires correctly.
+  useEffect(() => {
+    if (!pendingAskDraft || !isProUser || sending) return;
+    onAskDraftConsumed?.();
+    void send(pendingAskDraft);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingAskDraft, isProUser]);
 
   const onInputKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
