@@ -333,8 +333,7 @@ export function Palette({
         backdropFilter: 'blur(4px)',
         display: 'flex',
         justifyContent: 'center',
-        alignItems: 'flex-start',
-        paddingTop: '15vh',
+        alignItems: 'center',
         animation: 'hal-fade-in 0.15s',
       }}
     >
