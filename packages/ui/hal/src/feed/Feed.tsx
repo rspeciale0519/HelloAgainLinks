@@ -4,6 +4,7 @@
 import type { ReactNode } from 'react';
 import { Card, type CardBookmark } from './Card';
 import { FeedHeader, type Density_ } from './FeedHeader';
+import { formatShortcut } from '../primitives/platform-shortcut';
 
 export interface FeedProps {
   bookmarks: CardBookmark[];
@@ -289,9 +290,9 @@ export function Feed(props: FeedProps) {
           HAL <span style={{ color: 'var(--hal-a)' }}>READY</span>
         </span>
         <div style={{ flex: 1 }} />
-        <span>⌘K COMMAND</span>
-        <span>⌘J SIGNAL</span>
-        <span>⌘B NAV</span>
+        <span>{formatShortcut('K')} COMMAND</span>
+        <span>{formatShortcut('J')} SIGNAL</span>
+        <span>{formatShortcut('B')} NAV</span>
       </div>
     </div>
   );

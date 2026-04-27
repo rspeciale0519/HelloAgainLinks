@@ -3,6 +3,7 @@
 
 import type { ReactNode } from 'react';
 import { Icon, type IconName } from '../primitives/Icon';
+import { formatShortcut } from '../primitives/platform-shortcut';
 import { SectionHead } from './SectionHead';
 import { NavItem } from './NavItem';
 import { BookmarkSections } from './BookmarkSections';
@@ -119,7 +120,7 @@ export function Index(props: IndexProps) {
           type="button"
           onClick={onToggleCollapsed}
           style={iconBtnStyle('var(--hal-text-2)')}
-          title="Expand (⌘B)"
+          title={`Expand (${formatShortcut('B')})`}
         >
           <Icon name="menu" size={16} />
         </button>
@@ -171,7 +172,7 @@ export function Index(props: IndexProps) {
         <button
           type="button"
           onClick={onOpenCmd}
-          title="Command (⌘K)"
+          title={`Command (${formatShortcut('K')})`}
           style={{
             ...iconBtnStyle('var(--hal-a)'),
             border: '1px solid var(--hal-a-dim)',
@@ -265,7 +266,7 @@ export function Index(props: IndexProps) {
         <button
           type="button"
           onClick={onToggleCollapsed}
-          title="Collapse (⌘B)"
+          title={`Collapse (${formatShortcut('B')})`}
           style={{
             color: 'var(--hal-text-3)',
             padding: 4,
@@ -312,7 +313,7 @@ export function Index(props: IndexProps) {
               borderRadius: 3,
             }}
           >
-            ⌘K
+            {formatShortcut('K')}
           </span>
         </button>
       </div>

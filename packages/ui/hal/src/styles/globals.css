@@ -79,6 +79,36 @@
   50%      { opacity: 0; }
 }
 
+/* Custom-scrollbar cursor — by default the browser shows the I-beam (text)
+   cursor over scrollbars when the underlying content is text. Give scroll
+   containers an explicit default cursor + style the WebKit scrollbar so it
+   doesn't inherit from the underlying content's cursor. */
+*::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+  cursor: default;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+  cursor: default;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  cursor: default;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.16);
+  background-clip: padding-box;
+  border: 3px solid transparent;
+  cursor: default;
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 /* SignalRail pulse-dot animation. Uses the calc divide-by-pulse-on trick
    so the Tweaks panel's user-controlled --hal-pulse-on=0 pauses the
    animation by making its duration invalid (calc(2s / 0) → animation

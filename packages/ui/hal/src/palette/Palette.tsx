@@ -23,6 +23,7 @@ import {
   type ReactNode,
 } from 'react';
 import { Icon, type IconName } from '../primitives/Icon';
+import { formatShortcut } from '../primitives/platform-shortcut';
 import type { AuthFetch } from '../signal/AskTab';
 
 export type PaletteDensity = 'comfortable' | 'compact' | 'grid';
@@ -149,7 +150,7 @@ export function Palette({
         id: 'sig',
         label: 'Toggle Signal rail',
         icon: 'signal',
-        shortcut: '⌘J',
+        shortcut: formatShortcut('J'),
         onRun: () => {
           onToggleSignal();
           onClose();

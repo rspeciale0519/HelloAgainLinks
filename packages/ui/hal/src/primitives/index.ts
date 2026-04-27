@@ -4,3 +4,9 @@ export { HalButton, type HalButtonProps } from './Button';
 export { StatusDot, type StatusDotProps } from './StatusDot';
 export { BackgroundLayers } from './BackgroundLayers';
 export { SegButton, type SegButtonProps, type SegOption } from './SegButton';
+export {
+  formatShortcut,
+  formatShiftShortcut,
+  isMacPlatform,
+  macModifier,
+} from './platform-shortcut';
