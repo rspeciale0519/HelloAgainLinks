@@ -486,6 +486,9 @@ export default function BookmarksPage() {
             setPage(1);
             if (v) setPinnedIds(null);
           }}
+          rightSlot={
+            <TweaksTrigger open={tweaksOpen} onToggle={() => setTweaksOpen((v) => !v)} />
+          }
         />
 
         <Feed
@@ -582,7 +585,6 @@ export default function BookmarksPage() {
         onNotesSaved={handleNotesSaved}
       />
 
-      <TweaksTrigger open={tweaksOpen} onToggle={() => setTweaksOpen((v) => !v)} />
       <TweaksPanel
         open={tweaksOpen}
         onClose={() => setTweaksOpen(false)}

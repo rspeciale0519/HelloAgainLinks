@@ -256,18 +256,34 @@ function Seg<V extends string>({ value, onChange, options }: SegProps<V>) {
 }
 
 // =====================================================================
-// Floating gear trigger — convenience component the host page can drop
-// in next to the panel. The plan's "floating gear button bottom-right"
-// affordance, with a subtle hover lift.
+// Tweaks trigger button. Renders inline by default — host puts it wherever
+// it makes sense. Pass `floating` to get the original bottom-right fixed
+// position (kept for hosts that don't have a header to anchor it to).
 // =====================================================================
 
 export interface TweaksTriggerProps {
   open: boolean;
   onToggle: () => void;
+  /** When true, position: fixed at bottom-right of the viewport. Default inline. */
+  floating?: boolean;
   style?: CSSProperties;
 }
 
-export function TweaksTrigger({ open, onToggle, style }: TweaksTriggerProps) {
+export function TweaksTrigger({ open, onToggle, floating = false, style }: TweaksTriggerProps) {
+  const positionStyles: CSSProperties = floating
+    ? {
+        position: 'fixed',
+        bottom: 22,
+        right: 22,
+        zIndex: 54,
+        boxShadow: open
+          ? '0 0 0 1px var(--hal-a), 0 8px 24px rgba(0,0,0,0.35)'
+          : '0 4px 14px rgba(0,0,0,0.4)',
+      }
+    : {
+        position: 'relative',
+      };
+
   return (
     <button
       type="button"
@@ -275,11 +291,9 @@ export function TweaksTrigger({ open, onToggle, style }: TweaksTriggerProps) {
       aria-label={open ? 'Close tweaks' : 'Open tweaks'}
       title="Tweaks"
       style={{
-        position: 'fixed',
-        bottom: 22,
-        right: 22,
-        width: 38,
-        height: 38,
+        ...positionStyles,
+        width: 36,
+        height: 36,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -288,10 +302,7 @@ export function TweaksTrigger({ open, onToggle, style }: TweaksTriggerProps) {
         borderRadius: 4,
         color: open ? 'var(--hal-bg-0)' : 'var(--hal-text-1)',
         cursor: 'pointer',
-        zIndex: 54,
-        boxShadow: open
-          ? '0 0 0 1px var(--hal-a), 0 8px 24px rgba(0,0,0,0.35)'
-          : '0 4px 14px rgba(0,0,0,0.4)',
+        flexShrink: 0,
         transition: 'all 0.12s',
         ...style,
       }}

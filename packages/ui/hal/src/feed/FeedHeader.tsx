@@ -4,6 +4,7 @@
 import type { CSSProperties } from 'react';
 import { Icon, type IconName } from '../primitives/Icon';
 import { StatusDot } from '../primitives/StatusDot';
+import { formatShortcut } from '../primitives/platform-shortcut';
 
 export type Density_ = 'comfortable' | 'compact' | 'grid';
 
@@ -196,7 +197,7 @@ export function FeedHeader({
         <button
           type="button"
           onClick={onToggleSignal}
-          title="Toggle Signal (⌘J)"
+          title={`Toggle Signal (${formatShortcut('J')})`}
           style={{
             display: 'inline-flex',
             alignItems: 'center',
