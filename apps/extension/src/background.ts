@@ -515,13 +515,14 @@ function broadcastToXTabs(message: TabMessage) {
   });
 }
 
-async function handleSaveBookmark(data: { postId: string; author: string; authorName?: string; content: string; mediaUrls?: string; timestamp?: string }) {
+async function handleSaveBookmark(data: { postId: string; author: string; authorName?: string; avatarUrl?: string; content: string; mediaUrls?: string; timestamp?: string }) {
   const result = await apiCall('/api/bookmarks', {
     method: 'POST',
     body: JSON.stringify({
       x_post_id: data.postId,
       x_author_handle: data.author,
       x_author_name: data.authorName || '',
+      x_author_avatar_url: data.avatarUrl || null,
       content_text: data.content,
       media_urls: data.mediaUrls ? JSON.parse(data.mediaUrls) : [],
       post_created_at: data.timestamp || new Date().toISOString(),

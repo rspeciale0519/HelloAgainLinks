@@ -14,6 +14,7 @@ export interface SpreadBookmark {
   x_post_id: string;
   x_author_handle: string;
   x_author_name: string;
+  x_author_avatar_url?: string | null;
   content_text: string;
   media_urls: string[] | null;
   bookmarked_at: string;

@@ -12,7 +12,7 @@ export const createBookmarkSchema = z.object({
   media_urls: z.array(z.string()).optional().default([]),
   post_created_at: z.string().optional(),
   bookmarked_at: z.string().optional(),
-  x_author_avatar_url: z.string().optional(),
+  x_author_avatar_url: z.string().nullable().optional(),
   engagement: z.object({
     like_count: z.number().optional(),
     retweet_count: z.number().optional(),

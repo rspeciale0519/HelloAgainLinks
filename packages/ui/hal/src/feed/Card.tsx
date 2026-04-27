@@ -3,7 +3,8 @@
 
 import { useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from 'react';
 import { Icon } from '../primitives/Icon';
-import { formatDate, formatRelative, hashHue } from './format-date';
+import { Avatar } from '../primitives/Avatar';
+import { formatDate, formatRelative } from './format-date';
 import { CardGridRow } from './Card.grid';
 
 type Density_ = 'comfortable' | 'compact' | 'grid';
@@ -23,6 +24,7 @@ export interface CardBookmark {
   x_post_id: string;
   x_author_handle: string;
   x_author_name: string;
+  x_author_avatar_url?: string | null;
   content_text: string;
   media_urls: string[];
   bookmarked_at: string;
@@ -98,11 +100,9 @@ export function Card({
   const handle = bookmark.x_author_handle;
   const author = bookmark.x_author_name || handle;
   const xUrl = `https://x.com/${handle}/status/${bookmark.x_post_id}`;
-  const initial = (author?.[0] ?? handle?.[0] ?? '?').toUpperCase();
   const compact = density === 'compact';
   const pad = compact ? 14 : 18;
   const gap = compact ? 10 : 14;
-  const avatarHue = hashHue(handle || bookmark.id);
 
   const handleCardClick = () => {
     if (selectionMode) onSelect(bookmark.id);
@@ -151,25 +151,12 @@ export function Card({
             {selected && <Icon name="check" size={11} stroke={2.5} style={{ color: 'var(--hal-bg-0)' }} />}
           </button>
         ) : (
-          <div
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: '50%',
-              background: `hsl(${avatarHue}, 55%, 55%)`,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontFamily: 'var(--hal-mono)',
-              fontSize: 12,
-              fontWeight: 600,
-              color: 'var(--hal-bg-0)',
-              letterSpacing: '-0.02em',
-            }}
-            aria-hidden
-          >
-            {initial}
-          </div>
+          <Avatar
+            avatarUrl={bookmark.x_author_avatar_url}
+            name={author}
+            handle={handle}
+            size={32}
+          />
         )}
       </div>
 

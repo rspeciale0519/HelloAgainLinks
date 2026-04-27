@@ -77,7 +77,7 @@ export interface FolderImportPayload {
 
 // Messages sent TO the background script (from popup, sidepanel, content)
 export type ExtensionMessage =
-  | { type: 'SAVE_BOOKMARK'; data: { postId: string; author: string; authorName?: string; content: string; mediaUrls?: string; timestamp?: string } }
+  | { type: 'SAVE_BOOKMARK'; data: { postId: string; author: string; authorName?: string; avatarUrl?: string; content: string; mediaUrls?: string; timestamp?: string } }
   | { type: 'DELETE_BOOKMARK'; data: { postId: string } }
   | { type: 'GET_AUTH_STATUS' }
   | { type: 'LOGIN' }
