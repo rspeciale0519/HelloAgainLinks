@@ -180,7 +180,13 @@ function DashboardChrome({ children }: { children: React.ReactNode }) {
         )
       }
       onOpenCmd={() => {
-        /* TODO Phase 5: command palette */
+        // Re-dispatch a ⌘K keydown so the page-level command palette
+        // (mounted in apps/web/src/app/dashboard/bookmarks/page.tsx) toggles.
+        // Sidebar lives in this layout so it can't directly read that page's
+        // state.
+        window.dispatchEvent(
+          new KeyboardEvent('keydown', { key: 'k', metaKey: true, ctrlKey: true, bubbles: true }),
+        );
       }}
       collapsed={collapsed && !isMobile}
       onToggleCollapsed={() => setCollapsed((v) => !v)}
