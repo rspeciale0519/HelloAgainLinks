@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { ImpactStyle } from '@capacitor/haptics';
 
 import {
+  BulkActionBar,
   ClassificationBanner,
   Feed,
   Palette,
@@ -26,6 +27,7 @@ import { authFetch } from '@/lib/auth-fetch';
 
 import { DeleteConfirmModal } from '@/components/hal/DeleteConfirmModal';
 import { TagPopoverAnchored, type TagAnchorRect } from '@/components/hal/TagPopoverAnchored';
+import { FolderPickerAnchored } from '@/components/hal/FolderPickerAnchored';
 import { HalSearchBar, PullIndicator } from '@/components/hal/HalSearchBar';
 
 import { useBookmarkSidebar, ALL_FOLDER_ID } from '../bookmark-context';
@@ -134,6 +136,12 @@ export default function BookmarksPage() {
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; xPostId: string } | null>(null);
   const [tagAnchor, setTagAnchor] = useState<TagAnchor | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  // ---- Phase 6: bulk selection ----
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+  const [bulkTagAnchor, setBulkTagAnchor] = useState<TagAnchorRect | null>(null);
+  const [bulkFolderAnchor, setBulkFolderAnchor] = useState<TagAnchorRect | null>(null);
+  const bulkTagBtnRef = useRef<HTMLButtonElement | null>(null);
+  const bulkMoveBtnRef = useRef<HTMLButtonElement | null>(null);
   // ---- Phase 5: command palette + tweaks panel ----
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [tweaksOpen, setTweaksOpen] = useState(false);
@@ -247,6 +255,83 @@ export default function BookmarksPage() {
     [],
   );
 
+  // ---- Bulk action handlers (Phase 6) ----
+  const exitSelectionMode = useCallback(() => {
+    setSelectionMode(false);
+    setSelectedIds([]);
+    setBulkTagAnchor(null);
+    setBulkFolderAnchor(null);
+    setBulkConfirmOpen(false);
+  }, []);
+
+  const handleBulkDelete = useCallback(async () => {
+    if (selectedIds.length === 0) return;
+    const ids = [...selectedIds];
+    setBulkConfirmOpen(false);
+    const res = await authFetch('/api/bookmarks/bulk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, action: 'delete' }),
+    });
+    if (!res?.ok) return;
+    setRawBookmarks((prev) => prev.filter((b) => !ids.includes(b.id)));
+    setTotal((prev) => Math.max(0, prev - ids.length));
+    exitSelectionMode();
+    void fetchBookmarks();
+  }, [selectedIds, setRawBookmarks, setTotal, fetchBookmarks, exitSelectionMode]);
+
+  const handleBulkTagToggle = useCallback(
+    async (tagId: string, add: boolean) => {
+      if (!add) return; // bulk endpoint only supports adding tags for now
+      if (selectedIds.length === 0) return;
+      await authFetch('/api/bookmarks/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ids: selectedIds,
+          action: 'tag',
+          payload: { tag_id: tagId },
+        }),
+      });
+      void fetchBookmarks();
+      setBulkTagAnchor(null);
+    },
+    [selectedIds, fetchBookmarks],
+  );
+
+  const handleBulkMove = useCallback(
+    async (folderId: string | null) => {
+      if (selectedIds.length === 0) return;
+      const ids = [...selectedIds];
+      setBulkFolderAnchor(null);
+      await authFetch('/api/bookmarks/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ids,
+          action: 'move-folder',
+          payload: { folder_id: folderId },
+        }),
+      });
+      void fetchBookmarks();
+      void sidebar.refetchFolders();
+      exitSelectionMode();
+    },
+    [selectedIds, fetchBookmarks, sidebar, exitSelectionMode],
+  );
+
+  const openBulkTagAnchor = useCallback(() => {
+    const r = bulkTagBtnRef.current?.getBoundingClientRect();
+    if (!r) return;
+    setBulkTagAnchor({ top: r.top, left: r.left, right: r.right, bottom: r.bottom });
+  }, []);
+
+  const openBulkFolderAnchor = useCallback(() => {
+    const r = bulkMoveBtnRef.current?.getBoundingClientRect();
+    if (!r) return;
+    setBulkFolderAnchor({ top: r.top, left: r.left, right: r.right, bottom: r.bottom });
+  }, []);
+
   const handleSelect = useCallback((id: string) => {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }, []);
@@ -330,12 +415,12 @@ export default function BookmarksPage() {
       if (paletteOpen) setPaletteOpen(false);
       else if (spreadBookmark) setSpreadBookmark(null);
       else if (tweaksOpen) setTweaksOpen(false);
+      else if (bulkTagAnchor) setBulkTagAnchor(null);
+      else if (bulkFolderAnchor) setBulkFolderAnchor(null);
+      else if (bulkConfirmOpen) setBulkConfirmOpen(false);
       else if (confirmDelete) setConfirmDelete(null);
       else if (tagAnchor) setTagAnchor(null);
-      else if (selectionMode) {
-        setSelectionMode(false);
-        setSelectedIds([]);
-      }
+      else if (selectionMode) exitSelectionMode();
     },
   });
 
@@ -494,6 +579,52 @@ export default function BookmarksPage() {
         onClose={() => setTweaksOpen(false)}
         value={tweaks}
         onChange={(next) => setTweaks(next)}
+      />
+
+      <BulkActionBar
+        count={selectionMode ? selectedIds.length : 0}
+        tagButtonRef={bulkTagBtnRef}
+        moveButtonRef={bulkMoveBtnRef}
+        onTag={openBulkTagAnchor}
+        onMoveFolder={openBulkFolderAnchor}
+        onDelete={() => setBulkConfirmOpen(true)}
+        onClear={exitSelectionMode}
+      />
+
+      {bulkTagAnchor && (
+        <TagPopoverAnchored
+          rect={bulkTagAnchor}
+          allTags={allTags}
+          activeTagIds={new Set<string>()}
+          onToggle={(tagId, add) => {
+            void handleBulkTagToggle(tagId, add);
+          }}
+          onClose={() => setBulkTagAnchor(null)}
+        />
+      )}
+
+      {bulkFolderAnchor && (
+        <FolderPickerAnchored
+          rect={bulkFolderAnchor}
+          folders={sidebar.folders
+            .filter((f) => f.id !== ALL_FOLDER_ID)
+            .map((f) => ({ id: f.id, name: f.name }))}
+          onPick={(folderId) => {
+            void handleBulkMove(folderId);
+          }}
+          onClose={() => setBulkFolderAnchor(null)}
+        />
+      )}
+
+      <DeleteConfirmModal
+        open={bulkConfirmOpen}
+        onCancel={() => setBulkConfirmOpen(false)}
+        onConfirm={() => {
+          void handleBulkDelete();
+        }}
+        title={`Delete ${selectedIds.length} bookmark${selectedIds.length === 1 ? '' : 's'}?`}
+        description={`This will permanently remove ${selectedIds.length === 1 ? 'this bookmark' : `these ${selectedIds.length} bookmarks`} from HAL. This action cannot be undone.`}
+        confirmLabel={`Delete ${selectedIds.length}`}
       />
 
       {tagPopoverContent}
