@@ -2,4 +2,5 @@ export { ClassificationBanner, type ClassificationBannerProps } from './Classifi
 export { Card, type CardProps, type CardBookmark, type AiTag, type BookmarkTagRef } from './Card';
 export { FeedHeader, type FeedHeaderProps } from './FeedHeader';
 export { Feed, type FeedProps } from './Feed';
+export { BulkActionBar, type BulkActionBarProps } from './BulkActionBar';
 export { formatDate, formatRelative, hashHue } from './format-date';

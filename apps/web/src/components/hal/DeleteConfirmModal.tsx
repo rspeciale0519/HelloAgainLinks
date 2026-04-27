@@ -6,13 +6,24 @@ export interface DeleteConfirmModalProps {
   open: boolean;
   onCancel: () => void;
   onConfirm: () => void;
+  /** Override copy for bulk delete (defaults to single-bookmark copy). */
+  title?: string;
+  description?: string;
+  confirmLabel?: string;
 }
 
 /**
  * Lime-on-obsidian styled bookmark removal confirmation. Caller manages
  * open/close state.
  */
-export function DeleteConfirmModal({ open, onCancel, onConfirm }: DeleteConfirmModalProps) {
+export function DeleteConfirmModal({
+  open,
+  onCancel,
+  onConfirm,
+  title = 'Remove bookmark?',
+  description = 'This will permanently remove this bookmark from HAL. This action cannot be undone.',
+  confirmLabel = 'Remove',
+}: DeleteConfirmModalProps) {
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
@@ -59,7 +70,7 @@ export function DeleteConfirmModal({ open, onCancel, onConfirm }: DeleteConfirmM
             letterSpacing: '-0.02em',
           }}
         >
-          Remove bookmark?
+          {title}
         </h3>
         <p
           style={{
@@ -69,7 +80,7 @@ export function DeleteConfirmModal({ open, onCancel, onConfirm }: DeleteConfirmM
             marginBottom: 24,
           }}
         >
-          This will permanently remove this bookmark from HAL. This action cannot be undone.
+          {description}
         </p>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <button
@@ -103,7 +114,7 @@ export function DeleteConfirmModal({ open, onCancel, onConfirm }: DeleteConfirmM
               fontFamily: 'var(--hal-sans)',
             }}
           >
-            Remove
+            {confirmLabel}
           </button>
         </div>
       </div>
