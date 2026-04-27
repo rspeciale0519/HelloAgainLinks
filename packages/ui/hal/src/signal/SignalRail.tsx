@@ -85,8 +85,14 @@ export function SignalRail({
         flexDirection: 'column',
         overflow: 'hidden',
         fontFamily: 'var(--hal-sans)',
-        height: '100%',
-        minHeight: 'calc(100vh - 56px)',
+        // Same sticky-fill pattern as IndexSidebar: percent heights resolve
+        // against an `auto` parent and fall back to content height. Sticky
+        // + viewport-relative height keeps the rail full-height while the
+        // feed scrolls underneath.
+        position: 'sticky',
+        top: 0,
+        height: '100vh',
+        alignSelf: 'flex-start',
       }}
     >
       <header style={headerStyle}>
