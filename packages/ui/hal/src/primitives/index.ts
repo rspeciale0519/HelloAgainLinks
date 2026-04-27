@@ -4,6 +4,7 @@ export { HalButton, type HalButtonProps } from './Button';
 export { StatusDot, type StatusDotProps } from './StatusDot';
 export { BackgroundLayers } from './BackgroundLayers';
 export { SegButton, type SegButtonProps, type SegOption } from './SegButton';
+export { Avatar, type AvatarProps } from './Avatar';
 export {
   formatShortcut,
   formatShiftShortcut,

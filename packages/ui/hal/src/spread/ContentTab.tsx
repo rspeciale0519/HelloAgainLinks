@@ -1,7 +1,8 @@
 // packages/ui/hal/src/spread/ContentTab.tsx
 'use client';
 
-import { hashHue, formatDate } from '../feed/format-date';
+import { Avatar } from '../primitives/Avatar';
+import { formatDate } from '../feed/format-date';
 import type { SpreadBookmark } from './types';
 
 export interface ContentTabProps {
@@ -9,8 +10,6 @@ export interface ContentTabProps {
 }
 
 export function ContentTab({ bookmark }: ContentTabProps) {
-  const hue = hashHue(bookmark.x_author_handle || bookmark.id);
-  const initial = (bookmark.x_author_name || bookmark.x_author_handle || '?').charAt(0).toUpperCase();
   const media = bookmark.media_urls ?? [];
   const postedAt = bookmark.post_created_at ? formatDate(bookmark.post_created_at) : null;
   const savedAt = formatDate(bookmark.bookmarked_at);
@@ -18,24 +17,12 @@ export function ContentTab({ bookmark }: ContentTabProps) {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-        <div
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: '50%',
-            background: `hsl(${hue}, 55%, 55%)`,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontFamily: 'var(--hal-mono)',
-            fontSize: 13,
-            fontWeight: 600,
-            color: 'var(--hal-bg-0)',
-            flexShrink: 0,
-          }}
-        >
-          {initial}
-        </div>
+        <Avatar
+          avatarUrl={bookmark.x_author_avatar_url}
+          name={bookmark.x_author_name || bookmark.x_author_handle}
+          handle={bookmark.x_author_handle}
+          size={44}
+        />
         <div style={{ lineHeight: 1.2, minWidth: 0 }}>
           <div
             style={{
