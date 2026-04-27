@@ -1,9 +1,9 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { useState, useRef, useEffect, useCallback, Suspense } from 'react';
+import { useState, useRef, useEffect, useCallback, Suspense, type CSSProperties } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { authFetch } from '@/lib/auth-fetch';
+import { HalGhostButton, HalPrimaryButton } from '@/components/hal/PageShell';
 
 interface AssistantMessage {
   /** Stable client-side key — db id when persisted, otherwise a temp local id. */
@@ -21,7 +21,7 @@ const GREETING: AssistantMessage = {
   key: 'greeting',
   role: 'assistant',
   content:
-    "Hey! I'm your bookmark assistant powered by Grok. Ask me anything about your saved bookmarks — search, summarize, find patterns, or get recommendations.",
+    "I have your archive indexed. Ask me to search, summarize, find patterns, or surface forgotten posts. The Signal rail on the bookmarks page hosts the same conversation with citations linked into the feed.",
 };
 
 interface SseDoneEvent {
@@ -51,8 +51,8 @@ function AssistantPageInner() {
   const [sending, setSending] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const taRef = useRef<HTMLTextAreaElement>(null);
 
-  // Hydrate when ?conversation=<id> changes (incl. on first load).
   useEffect(() => {
     setConversationId(conversationParam);
   }, [conversationParam]);
@@ -109,6 +109,15 @@ function AssistantPageInner() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Auto-grow the textarea up to ~10 visual lines, then scroll internally.
+  useEffect(() => {
+    const ta = taRef.current;
+    if (!ta) return;
+    ta.style.height = 'auto';
+    const max = 10 * 22 + 24; // ~10 lines @ 22px line-height + padding
+    ta.style.height = `${Math.min(ta.scrollHeight, max)}px`;
+  }, [input]);
+
   const finalizeWithError = useCallback((key: string, errMsg: string) => {
     setMessages((prev) =>
       prev.map((m) => (m.key === key ? { ...m, streaming: false, error: errMsg } : m)),
@@ -149,7 +158,6 @@ function AssistantPageInner() {
       const created = (await createRes.json()) as { conversation: { id: string } };
       activeId = created.conversation.id;
       setConversationId(activeId);
-      // Reflect in URL so refreshes resume the same thread.
       router.replace(`/dashboard/assistant?conversation=${activeId}`);
     }
 
@@ -167,7 +175,7 @@ function AssistantPageInner() {
       const err = await streamRes.json().catch(() => ({}));
       const errBody = err as { error?: string; code?: string };
       const friendly = errBody.code === 'plan_required'
-        ? 'The AI assistant is a Pro feature. Upgrade to unlock it!'
+        ? 'The AI assistant is a Pro feature. Upgrade to unlock it.'
         : errBody.error ?? `HTTP ${streamRes.status}`;
       finalizeWithError(assistantKey, friendly);
       setSending(false);
@@ -216,33 +224,71 @@ function AssistantPageInner() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)' }}>
-      <div style={{ marginBottom: 20, display: 'flex', alignItems: 'flex-end', gap: 16 }}>
-        <div style={{ flex: 1 }}>
-          <h1 style={{ fontSize: 28, fontWeight: 600, color: '#f0f0f5', marginBottom: 4 }}>
-            AI Assistant
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
+        maxWidth: 880,
+        margin: '0 auto',
+        padding: '32px 28px 16px',
+        position: 'relative',
+        zIndex: 1,
+      }}
+    >
+      <header
+        style={{
+          display: 'flex',
+          alignItems: 'flex-end',
+          justifyContent: 'space-between',
+          gap: 16,
+          paddingBottom: 18,
+          marginBottom: 18,
+          borderBottom: '1px solid var(--hal-line-1)',
+          flexShrink: 0,
+        }}
+      >
+        <div style={{ minWidth: 0 }}>
+          <div
+            style={{
+              fontFamily: 'var(--hal-mono)',
+              fontSize: 10,
+              letterSpacing: '0.18em',
+              color: 'var(--hal-text-3)',
+              marginBottom: 6,
+            }}
+          >
+            DASHBOARD · ASSISTANT
+          </div>
+          <h1
+            style={{
+              fontSize: 26,
+              fontWeight: 500,
+              color: 'var(--hal-text-0)',
+              fontFamily: 'var(--hal-sans)',
+              letterSpacing: '-0.02em',
+              lineHeight: 1.1,
+              margin: 0,
+            }}
+          >
+            HAL
+            <span
+              style={{
+                fontFamily: 'var(--hal-mono)',
+                fontSize: 13,
+                color: 'var(--hal-a)',
+                marginLeft: 10,
+                letterSpacing: '0.08em',
+              }}
+            >
+              · GROK
+            </span>
           </h1>
-          <p style={{ color: '#8a8a9a', fontSize: 14 }}>
-            Ask questions about your bookmarks. Powered by Grok.
-          </p>
         </div>
-        <button
-          type="button"
-          onClick={openInSignalRail}
-          style={{
-            padding: '8px 14px',
-            borderRadius: 10,
-            border: '1px solid rgba(0,212,255,0.25)',
-            background: 'rgba(0,212,255,0.08)',
-            color: '#00d4ff',
-            fontSize: 12,
-            fontFamily: "'Inter', sans-serif",
-            cursor: 'pointer',
-          }}
-        >
-          Open in Signal rail ↗
-        </button>
-      </div>
+        <HalGhostButton onClick={openInSignalRail}>
+          OPEN IN SIGNAL RAIL ↗
+        </HalGhostButton>
+      </header>
 
       <div
         style={{
@@ -250,48 +296,25 @@ function AssistantPageInner() {
           overflowY: 'auto',
           display: 'flex',
           flexDirection: 'column',
-          gap: 12,
+          gap: 10,
           paddingBottom: 16,
         }}
       >
         {loadingHistory && (
-          <div style={{ color: '#8a8a9a', fontSize: 13 }}>Loading conversation…</div>
-        )}
-        {messages.map((msg) => (
-          <motion.div
-            key={msg.key}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
+          <div
             style={{
-              display: 'flex',
-              justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
+              fontFamily: 'var(--hal-mono)',
+              fontSize: 10,
+              letterSpacing: '0.16em',
+              color: 'var(--hal-text-3)',
+              padding: '12px 0',
             }}
           >
-            <div
-              style={{
-                maxWidth: '80%',
-                padding: '12px 16px',
-                borderRadius:
-                  msg.role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
-                background:
-                  msg.role === 'user'
-                    ? 'linear-gradient(135deg, rgba(0,212,255,0.15), rgba(14,165,233,0.1))'
-                    : 'rgba(30,31,45,0.8)',
-                border: `1px solid ${msg.role === 'user' ? 'rgba(0,212,255,0.2)' : 'rgba(255,255,255,0.05)'}`,
-                color: msg.error ? '#ef4444' : '#e0e0f0',
-                fontSize: 14,
-                lineHeight: 1.6,
-                whiteSpace: 'pre-wrap',
-              }}
-            >
-              {msg.role === 'assistant' && (
-                <div style={{ fontSize: 11, color: '#00d4ff', fontWeight: 600, marginBottom: 4 }}>
-                  ✨ HAL
-                </div>
-              )}
-              {msg.error ? `Error: ${msg.error}` : msg.content || (msg.streaming ? '…' : '')}
-            </div>
-          </motion.div>
+            HYDRATING…
+          </div>
+        )}
+        {messages.map((msg) => (
+          <MessageRow key={msg.key} msg={msg} />
         ))}
         <div ref={bottomRef} />
       </div>
@@ -300,56 +323,130 @@ function AssistantPageInner() {
         style={{
           display: 'flex',
           gap: 10,
-          padding: '16px 0 0',
-          borderTop: '1px solid rgba(0,212,255,0.08)',
+          alignItems: 'flex-end',
+          padding: '14px 0 0',
+          borderTop: '1px solid var(--hal-line-1)',
+          flexShrink: 0,
         }}
       >
-        <input
-          type="text"
+        <textarea
+          ref={taRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-          placeholder="Ask about your bookmarks..."
-          disabled={sending}
-          style={{
-            flex: 1,
-            padding: '12px 16px',
-            borderRadius: 12,
-            border: '1px solid rgba(0,212,255,0.15)',
-            background: 'rgba(15,16,25,0.8)',
-            color: '#f0f0f5',
-            fontSize: 14,
-            fontFamily: "'Inter', sans-serif",
-            outline: 'none',
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              handleSend();
+            }
           }}
+          placeholder="Ask HAL about your bookmarks…"
+          disabled={sending}
+          rows={1}
+          style={inputStyle}
         />
-        <motion.button
-          whileTap={{ scale: 0.95 }}
+        <HalPrimaryButton
           onClick={handleSend}
           disabled={sending || !input.trim()}
-          style={{
-            padding: '12px 20px',
-            borderRadius: 12,
-            border: 'none',
-            background: 'linear-gradient(135deg, #00d4ff, #0ea5e9)',
-            color: '#0a0a0f',
-            fontWeight: 600,
-            fontSize: 14,
-            cursor: 'pointer',
-            fontFamily: "'Inter', sans-serif",
-            opacity: sending || !input.trim() ? 0.5 : 1,
-          }}
+          style={{ alignSelf: 'flex-end', height: 38 }}
         >
-          Send
-        </motion.button>
+          {sending ? 'SENDING…' : 'SEND'}
+        </HalPrimaryButton>
       </div>
     </div>
   );
 }
 
+function MessageRow({ msg }: { msg: AssistantMessage }) {
+  const isUser = msg.role === 'user';
+  return (
+    <div
+      style={{
+        display: 'flex',
+        justifyContent: isUser ? 'flex-end' : 'flex-start',
+      }}
+    >
+      <div
+        style={{
+          maxWidth: '78%',
+          minWidth: 0,
+          padding: '12px 14px',
+          background: isUser ? 'var(--hal-a-dim)' : 'var(--hal-bg-1)',
+          border: `1px solid ${isUser ? 'rgba(var(--hal-a-rgb), 0.25)' : 'var(--hal-line-1)'}`,
+          borderLeft: !isUser ? '2px solid var(--hal-a)' : undefined,
+          borderRadius: 4,
+          color: msg.error ? '#ef4444' : 'var(--hal-text-0)',
+          fontSize: 14,
+          lineHeight: 1.55,
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+        }}
+      >
+        {!isUser && (
+          <div
+            style={{
+              fontFamily: 'var(--hal-mono)',
+              fontSize: 9,
+              letterSpacing: '0.18em',
+              color: 'var(--hal-a)',
+              marginBottom: 6,
+            }}
+          >
+            HAL
+          </div>
+        )}
+        {msg.error ? `ERROR · ${msg.error}` : msg.content || (msg.streaming ? '…' : '')}
+        {msg.streaming && !msg.error && (
+          <span
+            style={{
+              display: 'inline-block',
+              width: 7,
+              height: 14,
+              marginLeft: 4,
+              background: 'var(--hal-a)',
+              animation: 'hal-blink 1s step-end infinite',
+              verticalAlign: 'text-bottom',
+            }}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+const inputStyle: CSSProperties = {
+  flex: 1,
+  minWidth: 0,
+  padding: '10px 12px',
+  background: 'var(--hal-bg-2)',
+  color: 'var(--hal-text-0)',
+  border: '1px solid var(--hal-line-1)',
+  borderRadius: 3,
+  fontSize: 14,
+  fontFamily: 'var(--hal-sans)',
+  lineHeight: 1.45,
+  outline: 'none',
+  resize: 'none',
+  maxHeight: 244,
+  overflowY: 'auto',
+};
+
 export default function AssistantPage() {
   return (
-    <Suspense fallback={<div style={{ color: '#8a8a9a', fontSize: 13 }}>Loading…</div>}>
+    <Suspense
+      fallback={
+        <div
+          style={{
+            padding: '32px 28px',
+            fontFamily: 'var(--hal-mono)',
+            fontSize: 10,
+            letterSpacing: '0.16em',
+            color: 'var(--hal-text-3)',
+          }}
+        >
+          LOADING…
+        </div>
+      }
+    >
       <AssistantPageInner />
     </Suspense>
   );
