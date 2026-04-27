@@ -62,7 +62,14 @@
   - [x] Card `ai_summary` annotation strip verified end-to-end (already conditionally rendered in Phase 2; now produces data via Phase 5.4)
   - [x] `TweaksPanel` (slide-in from right via new `hal-slide-in-x` keyframe) + floating gear `TweaksTrigger` — three rows (density / layout / pulse) wired to existing `useTweaks()`
   - [x] Citation surface refined (out-of-plan polish): chip-row replaced with inline numbered badges then with per-bullet "View post by @handle on X →" links; Grok system prompt enforces one bullet per cited bookmark
-- [ ] **Phase 6 — Bulk + polish + cutover** — bulk selection, accessibility pass, remove boot splash + scanlines
+- [x] **Phase 6 — Bulk + polish + cutover** *(complete)*
+  - [x] `BulkActionBar` — fixed bottom-center bar with Tag · Move · Delete + clear-selection close. Appears when `selectedIds.length > 0`. forwardRef on Tag/Move buttons so popovers anchor cleanly.
+  - [x] `/api/bookmarks/bulk` POST endpoint — discriminated-union Zod schema for `{ ids, action, payload? }` with RLS + explicit user_id guard. Tag action verifies tag ownership before upsert. Returns `{ updated, failed }`.
+  - [x] `FolderPickerAnchored` for the Move flow (user folders + "Unfile" option, click-outside + Esc close)
+  - [x] `DeleteConfirmModal` generalized with title/description/confirmLabel props so single-delete and bulk-delete share one component
+  - [x] Selection mode end-to-end: Esc cascade extended (palette → spread → tweaks → bulk anchors → bulk confirm → single confirm → tag popover → exit selection)
+  - [x] A11y pass — Spread modal traps Tab/Shift+Tab + auto-focuses on open; zero icon-only buttons missing aria-label/title across the package; reduced-motion CSS rules verified loaded and functional
+  - [x] Final polish: sidebar "Search & ask…" pill now opens the ⌘K palette via dispatched keydown (was a TODO stub since Phase 2). No scanlines/boot-splash artifacts; source clean of `console.log`
 
 ---
 
