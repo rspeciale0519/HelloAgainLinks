@@ -97,7 +97,14 @@ export function Index(props: IndexProps) {
           gap: 4,
           alignItems: 'center',
           background: 'var(--hal-bg-1)',
-          height: '100%',
+          // Sticky + 100vh so the sidebar fills the viewport regardless of how
+          // long the main content (and thus the parent flex row) gets. Plain
+          // `height: 100%` resolves against an `auto` parent and falls back to
+          // content height, leaving the sidebar short of the viewport bottom.
+          position: 'sticky',
+          top: 0,
+          height: '100vh',
+          alignSelf: 'flex-start',
         }}
       >
         <button
@@ -179,7 +186,14 @@ export function Index(props: IndexProps) {
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
-        height: '100%',
+        // Sticky + 100vh so the sidebar fills the viewport regardless of how
+        // long the main content (and thus the parent flex row) gets. Plain
+        // `height: 100%` resolves against an `auto` parent and falls back to
+        // content height, leaving the sidebar short of the viewport bottom.
+        position: 'sticky',
+        top: 0,
+        height: '100vh',
+        alignSelf: 'flex-start',
       }}
     >
       {/* Brand header */}
