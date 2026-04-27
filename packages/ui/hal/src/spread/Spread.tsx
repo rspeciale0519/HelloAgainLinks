@@ -70,19 +70,53 @@ export function Spread({
     }
   }, [bookmark]);
 
-  // Esc closes the modal. Bound globally so it works whether or not the
-  // modal has focus inside it.
+  // Esc closes the modal. Tab / Shift+Tab cycles focus among focusable
+  // descendants so keyboard users can't accidentally tab out of the modal.
+  // Bound globally so it works whether or not the modal has focus inside it.
   useEffect(() => {
     if (!bookmark) return;
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
         onClose();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const root = modalRef.current;
+      if (!root) return;
+      const focusables = Array.from(
+        root.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((el) => el.offsetParent !== null);
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (e.shiftKey && (active === first || !root.contains(active))) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [bookmark, onClose]);
+
+  // Move focus into the modal on open so keyboard users land inside the
+  // trap right away. Targets the first focusable descendant (typically
+  // the first tab in the strip).
+  useEffect(() => {
+    if (!bookmark) return;
+    const root = modalRef.current;
+    if (!root) return;
+    const first = root.querySelector<HTMLElement>(
+      'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])',
+    );
+    first?.focus();
+  }, [bookmark?.id]);
 
   if (!bookmark) return null;
 
