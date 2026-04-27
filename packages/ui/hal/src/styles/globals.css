@@ -79,9 +79,12 @@
   50%      { opacity: 0; }
 }
 
-/* SignalRail pulse-dot animation */
+/* SignalRail pulse-dot animation. Uses the calc divide-by-pulse-on trick
+   so the Tweaks panel's user-controlled --hal-pulse-on=0 pauses the
+   animation by making its duration invalid (calc(2s / 0) → animation
+   doesn't run). Reduced-motion media query keeps the explicit override. */
 .hal-pulse-dot {
-  animation: hal-pulse 2s ease-in-out infinite;
+  animation: hal-pulse calc(2s / var(--hal-pulse-on, 1)) ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
