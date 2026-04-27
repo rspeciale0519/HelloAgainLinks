@@ -467,18 +467,27 @@ export default function BookmarksPage() {
   })();
 
   return (
-    <div onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+    <div
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      style={{ display: 'flex', alignItems: 'flex-start' }}
+    >
       <PullIndicator visible={isNativeApp() && isPulling} pullDistance={pullDistance} />
-      <HalSearchBar
-        value={search}
-        onChange={(v) => {
-          setSearch(v);
-          setPage(1);
-          if (v) setPinnedIds(null);
-        }}
-      />
 
-      <div style={{ display: 'flex', minHeight: 'calc(100vh - 56px)' }}>
+      {/* Main column — search bar + feed. The SignalRail is a sibling
+          column rendered after this one so it can extend to the very top
+          of the viewport without the search bar above it. */}
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        <HalSearchBar
+          value={search}
+          onChange={(v) => {
+            setSearch(v);
+            setPage(1);
+            if (v) setPinnedIds(null);
+          }}
+        />
+
         <Feed
           bookmarks={cardBookmarks}
           total={total}
@@ -522,22 +531,22 @@ export default function BookmarksPage() {
             ) : null
           }
         />
-
-        {showSignalRail && (
-          <SignalRail
-            isProUser={userPlan !== 'free'}
-            totalBookmarks={total}
-            activeBookmarkId={spreadBookmark?.id ?? null}
-            onJumpTo={handleOpenBookmark}
-            onPinCitations={handlePinCitations}
-            bookmarkLookup={bookmarkLookup}
-            authFetch={authFetch}
-            onClose={() => setSignalOpen(false)}
-            pendingAskDraft={pendingAskDraft}
-            onAskDraftConsumed={() => setPendingAskDraft(null)}
-          />
-        )}
       </div>
+
+      {showSignalRail && (
+        <SignalRail
+          isProUser={userPlan !== 'free'}
+          totalBookmarks={total}
+          activeBookmarkId={spreadBookmark?.id ?? null}
+          onJumpTo={handleOpenBookmark}
+          onPinCitations={handlePinCitations}
+          bookmarkLookup={bookmarkLookup}
+          authFetch={authFetch}
+          onClose={() => setSignalOpen(false)}
+          pendingAskDraft={pendingAskDraft}
+          onAskDraftConsumed={() => setPendingAskDraft(null)}
+        />
+      )}
 
       <Palette
         open={paletteOpen}

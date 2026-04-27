@@ -15,6 +15,13 @@ interface UserMenuProps {
   plan?: Plan;
   /** Called on mobile to close the sidebar drawer. */
   onNavigate?: () => void;
+  /**
+   * When provided, UserMenu is fully controlled — the parent owns the open
+   * state (e.g. so a sibling button in the collapsed sidebar can imperatively
+   * open the menu). Omit both to let the component manage its own state.
+   */
+  open?: boolean;
+  onOpenChange?: (next: boolean) => void;
 }
 
 interface MenuItem {
@@ -35,8 +42,23 @@ export default function UserMenu({
   displayName,
   plan = 'free',
   onNavigate,
+  open: controlledOpen,
+  onOpenChange,
 }: UserMenuProps) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = useCallback(
+    (next: boolean | ((prev: boolean) => boolean)) => {
+      const resolved = typeof next === 'function' ? next(open) : next;
+      if (isControlled) {
+        onOpenChange?.(resolved);
+      } else {
+        setInternalOpen(resolved);
+      }
+    },
+    [isControlled, onOpenChange, open],
+  );
   const menuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
@@ -50,7 +72,7 @@ export default function UserMenu({
     };
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
-  }, [open]);
+  }, [open, setOpen]);
 
   // Close on Escape.
   useEffect(() => {
@@ -60,14 +82,14 @@ export default function UserMenu({
     };
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
-  }, [open]);
+  }, [open, setOpen]);
 
   const handleLogout = useCallback(async () => {
     setOpen(false);
     const supabase = getSupabaseBrowserClient();
     await supabase.auth.signOut();
     router.push('/');
-  }, [router]);
+  }, [router, setOpen]);
 
   const handleBilling = useCallback(async () => {
     setOpen(false);
@@ -77,7 +99,7 @@ export default function UserMenu({
       const data = await res.json();
       if (data.url) window.location.href = data.url;
     }
-  }, [onNavigate]);
+  }, [onNavigate, setOpen]);
 
   const handleItemClick = useCallback(
     (item: MenuItem) => {
@@ -89,7 +111,7 @@ export default function UserMenu({
         router.push(item.href);
       }
     },
-    [router, onNavigate, handleBilling],
+    [router, onNavigate, handleBilling, setOpen],
   );
 
   const planLabel = plan === 'pro' ? 'PRO' : plan === 'lifetime' ? 'LIFETIME' : 'FREE';

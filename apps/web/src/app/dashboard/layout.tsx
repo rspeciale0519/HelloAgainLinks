@@ -51,6 +51,9 @@ function DashboardChrome({ children }: { children: React.ReactNode }) {
   const [isMobile, setIsMobile] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  // Lifted UserMenu open state so the collapsed-sidebar avatar button can
+  // expand the sidebar and pop the menu in one click.
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   const sidebar = useBookmarkSidebar();
   const isBookmarksRoute = pathname === '/dashboard/bookmarks';
@@ -196,7 +199,52 @@ function DashboardChrome({ children }: { children: React.ReactNode }) {
           displayName={displayName}
           plan={plan}
           onNavigate={isMobile ? closeDrawer : undefined}
+          open={userMenuOpen}
+          onOpenChange={setUserMenuOpen}
         />
+      }
+      collapsedAvatar={
+        <button
+          type="button"
+          aria-label="User menu"
+          title={`@${displayName}`}
+          onClick={() => {
+            // Expand the sidebar and pop the user menu in one click.
+            setCollapsed(false);
+            setUserMenuOpen(true);
+          }}
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: '50%',
+            padding: 0,
+            background: avatarUrl ? 'transparent' : 'var(--hal-a-dim)',
+            border: '1px solid var(--hal-line-2)',
+            cursor: 'pointer',
+            overflow: 'hidden',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'border-color 0.1s',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = 'var(--hal-a)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = 'var(--hal-line-2)';
+          }}
+        >
+          {avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={avatarUrl}
+              alt=""
+              width={32}
+              height={32}
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          ) : null}
+        </button>
       }
     />
   );

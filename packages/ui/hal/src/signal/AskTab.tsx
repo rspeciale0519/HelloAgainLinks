@@ -69,6 +69,7 @@ export function AskTab({
   // bubble, and refetching would wipe both for a fraction of a second.
   const localIds = useRef<Set<string>>(new Set());
   const bottomRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Hydrate from /api/conversations/[id] when the id changes (or resets).
   useEffect(() => {
@@ -240,12 +241,24 @@ export function AskTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingAskDraft, isProUser]);
 
-  const onInputKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>) => {
+  const onInputKeyDown = (e: ReactKeyboardEvent<HTMLTextAreaElement>) => {
+    // Enter sends; Shift+Enter inserts a newline (standard chat textarea
+    // convention).
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      send(input);
+      void send(input);
     }
   };
+
+  // Auto-grow the textarea up to MAX_TEXTAREA_HEIGHT, then let it scroll.
+  // Triggers on every `input` change so the height tracks both manual edits
+  // and programmatic clears (after send).
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    ta.style.height = 'auto';
+    ta.style.height = `${Math.min(ta.scrollHeight, MAX_TEXTAREA_HEIGHT)}px`;
+  }, [input]);
 
   if (!isProUser) {
     return <AskLocked />;
@@ -289,17 +302,23 @@ export function AskTab({
         }}
       >
         <div style={inputWrapStyle}>
-          <Icon name="send" size={13} style={{ color: 'var(--hal-a)', flexShrink: 0 }} />
-          <input
+          <Icon
+            name="send"
+            size={13}
+            style={{ color: 'var(--hal-a)', flexShrink: 0, marginTop: 4 }}
+          />
+          <textarea
+            ref={textareaRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={onInputKeyDown}
             placeholder="Ask the archive…"
             disabled={sending}
+            rows={1}
             style={inputStyle}
             aria-label="Ask HAL"
           />
-          <span style={kbdStyle}>↵</span>
+          <span style={{ ...kbdStyle, marginTop: 4 }}>↵</span>
         </div>
       </div>
     </>
@@ -312,9 +331,13 @@ const contentStyle: CSSProperties = {
   padding: '14px 16px',
 };
 
+// Maximum height for the auto-growing textarea — caps at 10 lines of body
+// text (font-size 13, line-height 1.45) plus the wrapper's vertical padding.
+const MAX_TEXTAREA_HEIGHT = 200;
+
 const inputWrapStyle: CSSProperties = {
   display: 'flex',
-  alignItems: 'center',
+  alignItems: 'flex-start',
   gap: 8,
   padding: '10px 12px',
   background: 'var(--hal-bg-2)',
@@ -326,11 +349,19 @@ const inputWrapStyle: CSSProperties = {
 const inputStyle: CSSProperties = {
   flex: 1,
   fontSize: 13,
+  lineHeight: 1.45,
   background: 'transparent',
   border: 'none',
   outline: 'none',
   color: 'var(--hal-text-0)',
   fontFamily: 'var(--hal-sans)',
+  resize: 'none',
+  overflowY: 'auto',
+  padding: 0,
+  // Initial single-line height — the auto-grow effect overrides this on
+  // every change, so the value here is purely the SSR / first-paint baseline.
+  minHeight: 19,
+  maxHeight: MAX_TEXTAREA_HEIGHT,
 };
 
 const kbdStyle: CSSProperties = {

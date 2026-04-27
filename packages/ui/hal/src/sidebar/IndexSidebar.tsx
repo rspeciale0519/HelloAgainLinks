@@ -56,6 +56,13 @@ export interface IndexProps {
   collapsed: boolean;
   onToggleCollapsed: () => void;
   userFooter?: ReactNode;
+  /**
+   * Compact footer slot rendered at the bottom of the COLLAPSED sidebar
+   * (typically a small avatar button). Click handler on the host should
+   * call onToggleCollapsed and then open whatever menu the avatar usually
+   * triggers.
+   */
+  collapsedAvatar?: ReactNode;
   brandLabel?: string;
   brandSubline?: string;
 }
@@ -80,6 +87,7 @@ export function Index(props: IndexProps) {
     collapsed,
     onToggleCollapsed,
     userFooter,
+    collapsedAvatar,
     brandLabel = 'H.A.L.',
     brandSubline = 'Hello Again Links',
   } = props;
@@ -172,6 +180,11 @@ export function Index(props: IndexProps) {
         >
           <Icon name="command" size={14} />
         </button>
+        {collapsedAvatar && (
+          <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--hal-line-1)', width: 36, display: 'flex', justifyContent: 'center' }}>
+            {collapsedAvatar}
+          </div>
+        )}
       </div>
     );
   }
