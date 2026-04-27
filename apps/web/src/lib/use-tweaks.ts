@@ -38,6 +38,17 @@ export function useTweaks() {
     }
   }, []);
 
+  // Sync the --hal-pulse-on CSS variable so the Tweaks panel's Pulse toggle
+  // actually disables the StatusDot/pulse-dot animations. The base stylesheet
+  // sets it to 1 by default and to 0 inside the prefers-reduced-motion media
+  // query; this inline override on :root wins over both.
+  useEffect(() => {
+    document.documentElement.style.setProperty(
+      '--hal-pulse-on',
+      tweaks.pulse === 'on' ? '1' : '0',
+    );
+  }, [tweaks.pulse]);
+
   const setTweaks = (next: Tweaks | ((prev: Tweaks) => Tweaks)) => {
     setTweaksState((prev) => {
       const value = typeof next === 'function' ? next(prev) : next;
