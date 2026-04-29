@@ -229,9 +229,7 @@ function AssistantPageInner() {
         display: 'flex',
         flexDirection: 'column',
         height: '100vh',
-        maxWidth: 880,
-        margin: '0 auto',
-        padding: '32px 28px 16px',
+        padding: '32px 36px 16px',
         position: 'relative',
         zIndex: 1,
       }}

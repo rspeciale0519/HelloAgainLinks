@@ -28,9 +28,7 @@ export function PageShell({ eyebrow, title, subtitle, action, children }: PageSh
   return (
     <div
       style={{
-        maxWidth: 980,
-        margin: '0 auto',
-        padding: '32px 28px 48px',
+        padding: '32px 36px 48px',
         position: 'relative',
         zIndex: 1,
       }}
