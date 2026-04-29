@@ -312,7 +312,7 @@ export function AskTab({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={onInputKeyDown}
-            placeholder="Ask the archive…"
+            placeholder="Ask HAL anything…"
             disabled={sending}
             rows={1}
             style={inputStyle}
