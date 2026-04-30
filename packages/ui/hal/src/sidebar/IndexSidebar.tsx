@@ -301,9 +301,21 @@ export function Index(props: IndexProps) {
           }}
         >
           <Icon name="search" size={13} />
-          <span style={{ flex: 1, textAlign: 'left' }}>Search & ask…</span>
           <span
             style={{
+              flex: 1,
+              minWidth: 0,
+              textAlign: 'left',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            Search or ask HAL…
+          </span>
+          <span
+            style={{
+              flexShrink: 0,
               fontFamily: 'var(--hal-mono)',
               fontSize: 10,
               color: 'var(--hal-text-3)',
@@ -313,7 +325,7 @@ export function Index(props: IndexProps) {
               borderRadius: 3,
             }}
           >
-            {formatShortcut('K')}
+            {formatShortcut('K', { platformOnly: true })}
           </span>
         </button>
       </div>
