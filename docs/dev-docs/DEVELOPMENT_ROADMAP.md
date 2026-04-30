@@ -7,6 +7,72 @@
 
 ---
 
+## Active Initiative: HAL Dashboard Redesign
+
+> **Spec:** `docs/superpowers/specs/2026-04-22-hal-redesign-design.md`  
+> **Plan:** `.claude/plans/feature-hal-redesign.md`  
+> **Branch:** `feature/hal-redesign`  
+> **Goal:** Replace `/dashboard/bookmarks` with the new obsidian+lime 3-pane design while preserving every existing feature; add user-editable folders with X-import, fully-wired Signal AI rail, ⌘K palette, Spread modal, Tweaks panel, bulk selection.
+
+- [x] **Phase 1 — Foundation** *(complete)*
+  - [x] Migration 005 (folders, conversations, messages, bookmarks AI annotation columns)
+  - [x] `@helloagain/ui-hal` package scaffold + workspace registration
+  - [x] Theme tokens + scoped CSS (`globals.css` under `[data-hal="on"]`)
+  - [x] Six primitives: `Icon`, `Chip`, `HalButton`, `StatusDot`, `BackgroundLayers`, `SegButton`
+- [x] **Phase 2 — Shell + feed** *(complete)*
+  - [x] Hooks: `relative-time`, `use-sync-time`, `use-keyboard-shortcuts`, `use-tweaks`, `use-bookmarks-data`, `use-bookmark-mutations`
+  - [x] `/api/profile/sync-state` endpoint
+  - [x] `ClassificationBanner` ported (non-free plan-gated)
+  - [x] `Card` (3 density modes — comfortable / compact / grid; grid extracted to `Card.grid.tsx`)
+  - [x] `FeedHeader` with density toggles + Live pill + Signal toggle
+  - [x] `Feed` container with stagger animation + pagination + status bar
+  - [x] `IndexSidebar` + `NavItem` + `SectionHead` (Library section uses placeholder folders, marked `// TODO Phase 3`)
+  - [x] `/dashboard/bookmarks/page.tsx` rewritten as 3-pane shell with `data-hal="on"` scoped tokens
+  - [x] Every spec 5.7 preserved feature wired (search, pagination, classification, tag popover, delete modal, dates, view-on-X, pull-to-refresh + haptics, extension live updates, ⌘K/⌘J/⌘B/Esc)
+- [x] **Phase 3 — Folders + X import** *(complete — pending user manual verification)*
+  - [x] Migration 006: `get_folders_with_counts` RPC + reconciled folders schema (added `x_folder_id`, `updated_at`, unique `(user_id, x_folder_id)`, trigger)
+  - [x] `/api/folders` GET (RPC) + POST (Zod-validated)
+  - [x] `/api/folders/[id]` PATCH rename + DELETE (bookmarks become `folder_id = NULL`)
+  - [x] `/api/bookmarks/[id]/folder` PATCH for single-folder assignment
+  - [x] `/api/folders/import-x` POST (upserts folders + assignments in 500-row chunks)
+  - [x] Live folders in sidebar via `/api/folders`; "All" synthetic folder always present
+  - [x] Folder filter on feed (`folder_id` query param on `/api/bookmarks` and `/api/bookmarks/search`)
+  - [x] Sidebar folder CRUD: hover-revealed rename/delete + "+ New folder" button + "Import X" pill
+  - [x] Extension folder-context capture (URL + GraphQL parser handling both `Bookmarks` and `BookmarkFolderTimeline` operations)
+  - [x] Extension `folder-walk-import.ts` orchestrator with `chrome.storage`-backed walk-state for resume across navigations
+  - [x] Extension version bumped 0.3.3 → 0.4.0
+  - [x] Legacy multi-folder routes archived to `archive/phase3/` per Rule 1
+  - **User verification still needed:** reload unpacked extension in Chrome, confirm v0.4.0; test single-bookmark save + bulk import unchanged; run end-to-end folder-walk against a real X account; validate GraphQL parser TODOs against live X markup
+- [x] **Phase 4 — Signal rail** *(complete)*
+  - [x] Conversations + messages CRUD (`/api/conversations`, `/api/conversations/[id]`, `/api/conversations/[id]/messages`)
+  - [x] Migration 007: `get_related_bookmarks` clustering RPC (Jaccard tags + primary_category)
+  - [x] SSE-streamed Grok responses with `[bm:<id>]` citation extraction → `cited_bookmark_ids`
+  - [x] AskTab (real streaming + locked state for free plan), ThreadsTab, RelatedTab
+  - [x] SignalRail shell with HAL header + tab routing + `initialConversationId` deep-linking
+  - [x] Bookmarks page integrates SignalRail (replaces SignalPlaceholder, archived to `archive/phase2-signal-placeholder/`)
+  - [x] `/dashboard/assistant` refactored to use the same conversations + messages tables; supports `?conversation=<id>` deep links
+  - [x] AskTab split: extracted `sse-consumer.ts` + `AskSuggestions.tsx` to stay under 450 LOC
+  - [x] Browser smoke verified: streaming chat with 10 citation chips, threads tab populates, locked state shows for free plan
+  - **Tech debt:** legacy `/api/ai/assistant` route kept for extension/mobile compatibility (migrate in later phase)
+- [x] **Phase 5 — Palette + Spread + Tweaks + AI annotations** *(complete)*
+  - [x] `Palette` (⌘K) — bookmark search via `/api/bookmarks/search` (debounced 150ms), folder rows, Ask HAL fallback that prefills the rail; flex-centered modal + scroll-into-view + keyboard/hover precedence guard
+  - [x] `Spread` modal — flex-centered, two-column grid (main / 300px related); 4 tabs (Content, HAL analysis, Notes, Thread) + RelatedSidebar; Esc + click-backdrop close
+  - [x] `NotesTab` autosave (1s debounce) → new `/api/bookmarks/[id]/notes` PATCH; status pill cycles EDITING → SAVING → AUTOSAVED · Xs AGO and persists after settling
+  - [x] LLM enrichment (`enrichBookmarkLLM`) — single MODEL_FULL call returning Zod-validated `{ ai_summary, ai_tags: [{label, confidence}] }`; classify route writes all four enrichment columns at once and continues to upsert tag rows from high-confidence (≥0.6) ai_tags
+  - [x] Card `ai_summary` annotation strip verified end-to-end (already conditionally rendered in Phase 2; now produces data via Phase 5.4)
+  - [x] `TweaksPanel` (slide-in from right via new `hal-slide-in-x` keyframe) + floating gear `TweaksTrigger` — three rows (density / layout / pulse) wired to existing `useTweaks()`
+  - [x] Citation surface refined (out-of-plan polish): chip-row replaced with inline numbered badges then with per-bullet "View post by @handle on X →" links; Grok system prompt enforces one bullet per cited bookmark
+- [x] **Phase 6 — Bulk + polish + cutover** *(complete)*
+  - [x] `BulkActionBar` — fixed bottom-center bar with Tag · Move · Delete + clear-selection close. Appears when `selectedIds.length > 0`. forwardRef on Tag/Move buttons so popovers anchor cleanly.
+  - [x] `/api/bookmarks/bulk` POST endpoint — discriminated-union Zod schema for `{ ids, action, payload? }` with RLS + explicit user_id guard. Tag action verifies tag ownership before upsert. Returns `{ updated, failed }`.
+  - [x] `FolderPickerAnchored` for the Move flow (user folders + "Unfile" option, click-outside + Esc close)
+  - [x] `DeleteConfirmModal` generalized with title/description/confirmLabel props so single-delete and bulk-delete share one component
+  - [x] Selection mode end-to-end: Esc cascade extended (palette → spread → tweaks → bulk anchors → bulk confirm → single confirm → tag popover → exit selection)
+  - [x] A11y pass — Spread modal traps Tab/Shift+Tab + auto-focuses on open; zero icon-only buttons missing aria-label/title across the package; reduced-motion CSS rules verified loaded and functional
+  - [x] Final polish: sidebar "Search & ask…" pill now opens the ⌘K palette via dispatched keydown (was a TODO stub since Phase 2). No scanlines/boot-splash artifacts; source clean of `console.log`
+
+---
+
 ## Tech Stack
 
 | Layer | Technology | Version |

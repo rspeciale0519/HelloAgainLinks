@@ -1,8 +1,14 @@
 'use client';
 
-import { motion } from 'framer-motion';
 import { useEffect, useState, useCallback } from 'react';
 import { authFetch } from '@/lib/auth-fetch';
+import {
+  PageShell,
+  SectionLabel,
+  HalInput,
+  HalPanel,
+  HalPrimaryButton,
+} from '@/components/hal/PageShell';
 
 interface Blend {
   id: string;
@@ -34,7 +40,9 @@ export default function BlendPage() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchBlends(); }, [fetchBlends]);
+  useEffect(() => {
+    fetchBlends();
+  }, [fetchBlends]);
 
   const createInvite = async () => {
     setCreating(true);
@@ -52,149 +60,223 @@ export default function BlendPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const tierColors: Record<string, string> = {
-    'Intellectual Twins': '#22c55e',
-    'Bookmark Buddies': '#00d4ff',
-    'Interesting Crossovers': '#f59e0b',
-    "Expanding Each Other's Horizons": '#8b5cf6',
-  };
-
   return (
-    <div>
-      <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ fontSize: '28px', fontWeight: 600, color: '#f0f0f5', marginBottom: '4px' }}>Bookmark Blend</h1>
-        <p style={{ color: '#8a8a9a', fontSize: '14px' }}>
-          Compare your bookmark taste with friends. See what you have in common.
-        </p>
-      </div>
-
-      {/* Create invite */}
-      <div className="glass glow-border" style={{ padding: '24px', borderRadius: '14px', marginBottom: '32px' }}>
-        {inviteUrl ? (
-          <div>
-            <div style={{ fontSize: '14px', color: '#8a8a9a', marginBottom: '12px' }}>
-              Share this link with a friend to start a Blend:
+    <PageShell
+      eyebrow="DASHBOARD · BLEND"
+      title="Bookmark Blend"
+      subtitle="Compare your archive to a friend's. HAL highlights overlap and divergence — taste-graph signal in one number."
+    >
+      <SectionLabel>NEW INVITE</SectionLabel>
+      {inviteUrl ? (
+        <HalPanel accent>
+          <div
+            style={{
+              fontFamily: 'var(--hal-mono)',
+              fontSize: 10,
+              letterSpacing: '0.16em',
+              color: 'var(--hal-text-3)',
+              marginBottom: 10,
+            }}
+          >
+            INVITE READY · SHARE THIS URL
+          </div>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <HalInput
+              value={inviteUrl}
+              readOnly
+              style={{
+                flex: 1,
+                color: 'var(--hal-a)',
+                fontFamily: 'var(--hal-mono)',
+                fontSize: 12,
+              }}
+            />
+            <HalPrimaryButton onClick={copyInvite}>
+              {copied ? '✓ COPIED' : 'COPY'}
+            </HalPrimaryButton>
+          </div>
+        </HalPanel>
+      ) : (
+        <HalPanel>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ fontSize: 13, color: 'var(--hal-text-1)', lineHeight: 1.55 }}>
+              Generate an invite link and send it to a friend. When they accept,
+              HAL analyzes both archives and produces a tier + score summarizing
+              the overlap.
             </div>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <input
-                readOnly
-                value={inviteUrl}
-                style={{
-                  flex: 1, padding: '10px 14px', borderRadius: '10px',
-                  border: '1px solid rgba(0,212,255,0.15)', background: 'rgba(15,16,25,0.8)',
-                  color: '#00d4ff', fontSize: '13px', fontFamily: 'monospace', outline: 'none',
-                }}
-              />
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={copyInvite}
-                style={{
-                  padding: '10px 18px', borderRadius: '10px', border: 'none',
-                  background: copied ? 'rgba(34,197,94,0.2)' : 'linear-gradient(135deg, #00d4ff, #0ea5e9)',
-                  color: copied ? '#22c55e' : '#0a0a0f', fontWeight: 600, fontSize: '14px',
-                  cursor: 'pointer', fontFamily: "'Inter', sans-serif", whiteSpace: 'nowrap',
-                }}
-              >
-                {copied ? '✓ Copied!' : 'Copy'}
-              </motion.button>
+            <div>
+              <HalPrimaryButton onClick={createInvite} disabled={creating}>
+                {creating ? 'CREATING…' : 'CREATE BLEND INVITE'}
+              </HalPrimaryButton>
             </div>
           </div>
-        ) : (
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '40px', marginBottom: '12px' }}>🔗</div>
-            <div style={{ fontSize: '16px', color: '#f0f0f5', fontWeight: 600, marginBottom: '8px' }}>
-              Start a Blend
-            </div>
-            <div style={{ fontSize: '14px', color: '#8a8a9a', marginBottom: '16px' }}>
-              Generate an invite link and share it with a friend. When they accept, AI will analyze your bookmark compatibility.
-            </div>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={createInvite}
-              disabled={creating}
-              style={{
-                padding: '12px 28px', borderRadius: '10px', border: 'none',
-                background: 'linear-gradient(135deg, #00d4ff, #0ea5e9)', color: '#0a0a0f',
-                fontWeight: 600, fontSize: '15px', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
-                opacity: creating ? 0.5 : 1,
-              }}
-            >
-              {creating ? 'Creating...' : 'Create Blend Invite'}
-            </motion.button>
+        </HalPanel>
+      )}
+
+      <SectionLabel count={loading ? '…' : blends.length}>YOUR BLENDS</SectionLabel>
+
+      {loading ? (
+        <div
+          style={{
+            padding: '36px 0',
+            textAlign: 'center',
+            fontFamily: 'var(--hal-mono)',
+            fontSize: 10,
+            letterSpacing: '0.16em',
+            color: 'var(--hal-text-3)',
+          }}
+        >
+          QUERYING…
+        </div>
+      ) : blends.length === 0 ? (
+        <EmptyState />
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {blends.map((blend) => (
+            <BlendRow key={blend.id} blend={blend} />
+          ))}
+        </div>
+      )}
+    </PageShell>
+  );
+}
+
+function BlendRow({ blend }: { blend: Blend }) {
+  const analysis = blend.analysis_json;
+  const tier = analysis?.tier ?? 'PENDING';
+  const isPending = blend.status === 'pending';
+
+  return (
+    <div
+      style={{
+        background: 'var(--hal-bg-1)',
+        border: '1px solid var(--hal-line-1)',
+        borderLeft: isPending ? '2px solid var(--hal-text-3)' : '2px solid var(--hal-a)',
+        borderRadius: 4,
+        padding: '18px 22px',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'baseline',
+          justifyContent: 'space-between',
+          gap: 16,
+          marginBottom: 10,
+        }}
+      >
+        <div>
+          <div
+            style={{
+              fontFamily: 'var(--hal-mono)',
+              fontSize: 9,
+              letterSpacing: '0.16em',
+              color: 'var(--hal-text-3)',
+              marginBottom: 3,
+            }}
+          >
+            TIER
+          </div>
+          <div
+            style={{
+              fontSize: 16,
+              fontWeight: 500,
+              color: isPending ? 'var(--hal-text-2)' : 'var(--hal-text-0)',
+              fontFamily: 'var(--hal-sans)',
+              letterSpacing: '-0.01em',
+            }}
+          >
+            {tier}
+          </div>
+        </div>
+        {blend.blend_score !== null && (
+          <div
+            style={{
+              fontSize: 32,
+              fontWeight: 500,
+              color: 'var(--hal-a)',
+              fontFamily: 'var(--hal-mono)',
+              letterSpacing: '-0.02em',
+              lineHeight: 1,
+            }}
+          >
+            {blend.blend_score}
+            <span style={{ fontSize: 16, color: 'var(--hal-text-3)' }}>%</span>
           </div>
         )}
       </div>
 
-      {/* Existing blends */}
-      <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#f0f0f5', marginBottom: '16px' }}>Your Blends</h2>
-
-      {loading ? (
-        <div style={{ color: '#4a4a5a', textAlign: 'center', padding: '40px' }}>Loading...</div>
-      ) : blends.length === 0 ? (
-        <div style={{ color: '#4a4a5a', textAlign: 'center', padding: '40px', fontSize: '14px' }}>
-          No blends yet. Create an invite and share it!
+      {analysis?.summary && (
+        <div
+          style={{
+            fontSize: 13,
+            color: 'var(--hal-text-1)',
+            lineHeight: 1.55,
+            marginBottom: 12,
+          }}
+        >
+          {analysis.summary}
         </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {blends.map((blend, i) => {
-            const analysis = blend.analysis_json;
-            const tier = analysis?.tier || 'Pending';
-            const color = tierColors[tier] || '#8a8a9a';
+      )}
 
-            return (
-              <motion.div
-                key={blend.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.06 }}
-                className="glass glow-border"
-                style={{ padding: '20px 24px', borderRadius: '14px' }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                  <span style={{ fontSize: '16px', fontWeight: 600, color }}>
-                    {tier}
-                  </span>
-                  {blend.blend_score !== null && (
-                    <span style={{
-                      fontSize: '24px', fontWeight: 700, color,
-                      textShadow: `0 0 20px ${color}40`,
-                    }}>
-                      {blend.blend_score}%
-                    </span>
-                  )}
-                </div>
+      {analysis?.commonGround && analysis.commonGround.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {analysis.commonGround.map((topic) => (
+            <span
+              key={topic}
+              style={{
+                padding: '3px 8px',
+                fontFamily: 'var(--hal-mono)',
+                fontSize: 10,
+                color: 'var(--hal-a)',
+                background: 'var(--hal-a-dim)',
+                border: '1px solid rgba(var(--hal-a-rgb), 0.25)',
+                borderRadius: 2,
+                letterSpacing: '0.02em',
+              }}
+            >
+              {topic}
+            </span>
+          ))}
+        </div>
+      )}
 
-                {analysis?.summary && (
-                  <div style={{ fontSize: '14px', color: '#8a8a9a', lineHeight: 1.5, marginBottom: '12px' }}>
-                    {analysis.summary}
-                  </div>
-                )}
-
-                {analysis?.commonGround && analysis.commonGround.length > 0 && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                    {analysis.commonGround.map((topic) => (
-                      <span key={topic} style={{
-                        padding: '4px 10px', borderRadius: '100px', fontSize: '12px',
-                        background: 'rgba(0,212,255,0.06)', color: '#00d4ff',
-                        border: '1px solid rgba(0,212,255,0.15)',
-                      }}>
-                        {topic}
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {blend.status === 'pending' && (
-                  <div style={{ fontSize: '13px', color: '#f59e0b', fontStyle: 'italic' }}>
-                    ⏳ Waiting for your friend to accept...
-                  </div>
-                )}
-              </motion.div>
-            );
-          })}
+      {isPending && (
+        <div
+          style={{
+            marginTop: 10,
+            fontFamily: 'var(--hal-mono)',
+            fontSize: 10,
+            letterSpacing: '0.12em',
+            color: 'var(--hal-text-3)',
+          }}
+        >
+          AWAITING PARTNER · INVITE OPEN
         </div>
       )}
     </div>
   );
 }
+
+function EmptyState() {
+  return (
+    <HalPanel>
+      <div
+        style={{
+          fontFamily: 'var(--hal-mono)',
+          fontSize: 10,
+          letterSpacing: '0.16em',
+          color: 'var(--hal-text-3)',
+          marginBottom: 8,
+        }}
+      >
+        NO BLENDS YET
+      </div>
+      <div style={{ fontSize: 13, color: 'var(--hal-text-1)', lineHeight: 1.55 }}>
+        Create a Blend invite above and share the link. As soon as a friend
+        accepts, HAL fingerprints both archives and writes the analysis here.
+      </div>
+    </HalPanel>
+  );
+}
+

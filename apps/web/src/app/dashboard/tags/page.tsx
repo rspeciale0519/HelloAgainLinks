@@ -1,8 +1,14 @@
 'use client';
 
-import { motion } from 'framer-motion';
 import { useEffect, useState, useCallback } from 'react';
+import Link from 'next/link';
 import { authFetch, authPost } from '@/lib/auth-fetch';
+import {
+  PageShell,
+  SectionLabel,
+  HalInput,
+  HalPrimaryButton,
+} from '@/components/hal/PageShell';
 
 interface Tag {
   id: string;
@@ -15,6 +21,7 @@ export default function TagsPage() {
   const [loading, setLoading] = useState(true);
   const [newTag, setNewTag] = useState('');
   const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchTags = useCallback(async () => {
     const res = await authFetch('/api/tags');
@@ -25,101 +32,195 @@ export default function TagsPage() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchTags(); }, [fetchTags]);
+  useEffect(() => {
+    fetchTags();
+  }, [fetchTags]);
 
   const handleCreate = async () => {
-    if (!newTag.trim()) return;
+    const trimmed = newTag.trim();
+    if (!trimmed) return;
     setCreating(true);
-    const res = await authPost('/api/tags', { name: newTag.trim() });
+    setError(null);
+    const res = await authPost('/api/tags', { name: trimmed });
     if (res?.ok) {
       setNewTag('');
-      fetchTags();
+      await fetchTags();
+    } else if (res) {
+      const body = await res.json().catch(() => ({}));
+      setError(body.error || 'Failed to create tag.');
     }
     setCreating(false);
   };
 
   const handleDelete = async (tagId: string) => {
     await authFetch(`/api/tags/${tagId}`, { method: 'DELETE' });
-    setTags(tags.filter(t => t.id !== tagId));
+    setTags((prev) => prev.filter((t) => t.id !== tagId));
   };
 
   return (
-    <div>
-      <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ fontSize: '28px', fontWeight: 600, color: '#f0f0f5', marginBottom: '4px' }}>Tags</h1>
-        <p style={{ color: '#8a8a9a', fontSize: '14px' }}>
-          Organize your bookmarks with tags. Pro users get AI auto-tagging.
-        </p>
-      </div>
-
-      {/* Create tag */}
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '32px', maxWidth: '400px' }}>
-        <input
-          type="text"
-          placeholder="New tag name..."
+    <PageShell
+      eyebrow="DASHBOARD · TAGS"
+      title="Tags"
+      subtitle="Organize bookmarks with manual tags. Pro plans also receive AI auto-tags on every save."
+    >
+      <SectionLabel>NEW TAG</SectionLabel>
+      <div
+        style={{
+          display: 'flex',
+          gap: 10,
+          alignItems: 'center',
+          maxWidth: 460,
+        }}
+      >
+        <HalInput
           value={newTag}
-          onChange={(e) => setNewTag(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-          style={{
-            flex: 1, padding: '10px 14px', borderRadius: '10px',
-            border: '1px solid rgba(0,212,255,0.15)', background: 'rgba(15,16,25,0.8)',
-            color: '#f0f0f5', fontSize: '14px', fontFamily: "'Inter', sans-serif", outline: 'none',
+          onChange={setNewTag}
+          placeholder="e.g. ai-tools"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleCreate();
           }}
+          style={{ flex: 1 }}
         />
-        <motion.button
-          whileTap={{ scale: 0.95 }}
+        <HalPrimaryButton
           onClick={handleCreate}
           disabled={creating || !newTag.trim()}
+        >
+          {creating ? 'CREATING…' : 'ADD'}
+        </HalPrimaryButton>
+      </div>
+      {error && (
+        <div
           style={{
-            padding: '10px 18px', borderRadius: '10px', border: 'none',
-            background: 'linear-gradient(135deg, #00d4ff, #0ea5e9)', color: '#0a0a0f',
-            fontWeight: 600, fontSize: '14px', cursor: 'pointer',
-            opacity: creating || !newTag.trim() ? 0.5 : 1, fontFamily: "'Inter', sans-serif",
+            marginTop: 10,
+            fontFamily: 'var(--hal-mono)',
+            fontSize: 11,
+            color: '#ef4444',
+            letterSpacing: '0.04em',
           }}
         >
-          Add
-        </motion.button>
-      </div>
+          ERROR · {error}
+        </div>
+      )}
 
-      {/* Tags grid */}
+      <SectionLabel count={loading ? '…' : tags.length}>ALL TAGS</SectionLabel>
+
       {loading ? (
-        <div style={{ color: '#4a4a5a', textAlign: 'center', padding: '40px' }}>Loading...</div>
+        <div
+          style={{
+            padding: '36px 0',
+            textAlign: 'center',
+            fontFamily: 'var(--hal-mono)',
+            fontSize: 10,
+            letterSpacing: '0.16em',
+            color: 'var(--hal-text-3)',
+          }}
+        >
+          QUERYING…
+        </div>
       ) : tags.length === 0 ? (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass glow-border"
-          style={{ padding: '48px', borderRadius: '14px', textAlign: 'center' }}>
-          <div style={{ fontSize: '48px', marginBottom: '16px' }}>🏷️</div>
-          <div style={{ fontSize: '18px', color: '#f0f0f5', fontWeight: 600, marginBottom: '8px' }}>No tags yet</div>
-          <div style={{ fontSize: '14px', color: '#8a8a9a' }}>Create tags to organize your bookmarks, or upgrade to Pro for AI auto-tagging.</div>
-        </motion.div>
+        <EmptyState />
       ) : (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-          {tags.map((tag, i) => (
-            <motion.div
-              key={tag.id}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: i * 0.03 }}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '8px',
-                padding: '8px 16px', borderRadius: '100px',
-                background: 'rgba(0,212,255,0.06)', border: '1px solid rgba(0,212,255,0.15)',
-              }}
-            >
-              <span style={{ fontSize: '14px', color: '#00d4ff', fontWeight: 500 }}>{tag.name}</span>
-              <button
-                onClick={() => handleDelete(tag.id)}
-                style={{
-                  background: 'none', border: 'none', color: '#4a4a5a', cursor: 'pointer',
-                  fontSize: '14px', padding: '0 2px', lineHeight: 1,
-                }}
-                title="Remove tag"
-              >
-                ×
-              </button>
-            </motion.div>
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 6,
+          }}
+        >
+          {tags.map((tag) => (
+            <TagPill key={tag.id} tag={tag} onDelete={handleDelete} />
           ))}
         </div>
       )}
+    </PageShell>
+  );
+}
+
+function TagPill({ tag, onDelete }: { tag: Tag; onDelete: (id: string) => void }) {
+  return (
+    <div
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        padding: '5px 4px 5px 10px',
+        fontFamily: 'var(--hal-mono)',
+        fontSize: 11,
+        background: 'var(--hal-a-dim)',
+        border: '1px solid rgba(var(--hal-a-rgb), 0.25)',
+        borderRadius: 2,
+        letterSpacing: '0.02em',
+      }}
+    >
+      <Link
+        href={`/dashboard/bookmarks?tag=${encodeURIComponent(tag.name)}`}
+        style={{
+          color: 'var(--hal-a)',
+          textDecoration: 'none',
+        }}
+      >
+        #{tag.name}
+        {typeof tag.bookmark_count === 'number' && tag.bookmark_count > 0 && (
+          <span style={{ marginLeft: 6, color: 'var(--hal-text-3)' }}>
+            {tag.bookmark_count}
+          </span>
+        )}
+      </Link>
+      <button
+        type="button"
+        onClick={() => onDelete(tag.id)}
+        title={`Delete ${tag.name}`}
+        style={{
+          width: 16,
+          height: 16,
+          padding: 0,
+          background: 'transparent',
+          border: 'none',
+          color: 'var(--hal-text-3)',
+          cursor: 'pointer',
+          fontSize: 13,
+          lineHeight: 1,
+          fontFamily: 'var(--hal-mono)',
+          transition: 'color 0.1s',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.color = '#ef4444';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.color = 'var(--hal-text-3)';
+        }}
+      >
+        ×
+      </button>
+    </div>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div
+      style={{
+        background: 'var(--hal-bg-1)',
+        border: '1px solid var(--hal-line-1)',
+        borderRadius: 4,
+        padding: '28px 22px',
+      }}
+    >
+      <div
+        style={{
+          fontFamily: 'var(--hal-mono)',
+          fontSize: 10,
+          letterSpacing: '0.16em',
+          color: 'var(--hal-text-3)',
+          marginBottom: 8,
+        }}
+      >
+        NO TAGS YET
+      </div>
+      <div style={{ fontSize: 13, color: 'var(--hal-text-1)', lineHeight: 1.55 }}>
+        Create a tag above, or upgrade to Pro to receive AI auto-tags on every
+        bookmark save.
+      </div>
     </div>
   );
 }

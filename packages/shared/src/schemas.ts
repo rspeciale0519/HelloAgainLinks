@@ -12,7 +12,7 @@ export const createBookmarkSchema = z.object({
   media_urls: z.array(z.string()).optional().default([]),
   post_created_at: z.string().optional(),
   bookmarked_at: z.string().optional(),
-  x_author_avatar_url: z.string().optional(),
+  x_author_avatar_url: z.string().nullable().optional(),
   engagement: z.object({
     like_count: z.number().optional(),
     retweet_count: z.number().optional(),
@@ -44,6 +44,13 @@ export const listBookmarksSchema = z.object({
   author: z.string().optional(),
   folder_id: z.string().uuid().optional(),
   tag_id: z.string().uuid().optional(),
+  /**
+   * Comma-separated bookmark UUIDs. When present, the route returns ONLY the
+   * matching bookmarks (capped at 100) and ignores pagination, folder, and
+   * tag filters. Used by the chat surface to "pin" cited bookmarks into the
+   * feed view.
+   */
+  ids: z.string().optional(),
 });
 
 export const searchBookmarksSchema = z.object({
