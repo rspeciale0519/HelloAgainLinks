@@ -391,6 +391,16 @@ async function handleMessage(message: ExtensionMessage) {
     case 'GET_FOLDERS':
       return apiCall('/api/folders');
 
+    case 'HAL_FOLDERS_IMPORT_X': {
+      // Phase 3: forward the assembled { folders, assignments } payload to
+      // the HAL backend with the user's auth token attached.
+      const result = await apiCall('/api/folders/import-x', {
+        method: 'POST',
+        body: JSON.stringify(message.payload),
+      });
+      return { ok: !result?.error, ...result };
+    }
+
     case 'GET_BOOKMARK_COUNT':
       return apiCall('/api/bookmarks/count');
 
@@ -505,13 +515,14 @@ function broadcastToXTabs(message: TabMessage) {
   });
 }
 
-async function handleSaveBookmark(data: { postId: string; author: string; authorName?: string; content: string; mediaUrls?: string; timestamp?: string }) {
+async function handleSaveBookmark(data: { postId: string; author: string; authorName?: string; avatarUrl?: string; content: string; mediaUrls?: string; timestamp?: string }) {
   const result = await apiCall('/api/bookmarks', {
     method: 'POST',
     body: JSON.stringify({
       x_post_id: data.postId,
       x_author_handle: data.author,
       x_author_name: data.authorName || '',
+      x_author_avatar_url: data.avatarUrl || null,
       content_text: data.content,
       media_urls: data.mediaUrls ? JSON.parse(data.mediaUrls) : [],
       post_created_at: data.timestamp || new Date().toISOString(),

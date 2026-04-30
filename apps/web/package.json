@@ -21,6 +21,7 @@
     "@capgo/capacitor-share-target": "^8.0.16",
     "@helloagain/shared": "workspace:*",
     "@helloagain/ui": "workspace:*",
+    "@helloagain/ui-hal": "workspace:*",
     "@supabase/ssr": "^0.6.0",
     "@supabase/supabase-js": "^2.49.0",
     "framer-motion": "^12.0.0",

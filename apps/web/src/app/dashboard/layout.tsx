@@ -1,38 +1,68 @@
 'use client';
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import '@helloagain/ui-hal/styles';
+
+import { useRouter, usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useCallback } from 'react';
 import { ImpactStyle } from '@capacitor/haptics';
 
-import { HalLogo } from '@helloagain/ui';
+import {
+  BackgroundLayers,
+  Index as IndexSidebar,
+  type AppNavItem,
+} from '@helloagain/ui-hal';
+
 import { useAuth } from '@/lib/use-auth';
 import { usePlan } from '@/lib/use-plan';
 import { triggerHaptic } from '@/lib/mobile';
+import { authFetch } from '@/lib/auth-fetch';
 import UserMenu from '@/components/UserMenu';
+import { BookmarkSidebarProvider, useBookmarkSidebar, ALL_FOLDER_ID } from './bookmark-context';
 
-const navItems = [
-  { id: 'home', label: 'Dashboard', href: '/dashboard', icon: '⬡' },
-  { id: 'bookmarks', label: 'Bookmarks', href: '/dashboard/bookmarks', icon: '🔖' },
-  { id: 'tags', label: 'Tags', href: '/dashboard/tags', icon: '🏷️' },
-  { id: 'lists', label: 'Shared Lists', href: '/dashboard/lists', icon: '📋' },
-  { id: 'blend', label: 'Blend', href: '/dashboard/blend', icon: '🔗' },
-  { id: 'assistant', label: 'Assistant', href: '/dashboard/assistant', icon: '✨' },
+const APP_NAV: AppNavItem[] = [
+  { id: 'home', label: 'Dashboard', icon: 'inbox', href: '/dashboard' },
+  { id: 'bookmarks', label: 'Bookmarks', icon: 'bookmark', href: '/dashboard/bookmarks' },
+  { id: 'tags', label: 'Tags', icon: 'tag', href: '/dashboard/tags' },
+  { id: 'lists', label: 'Shared Lists', icon: 'layers', href: '/dashboard/lists' },
+  { id: 'blend', label: 'Blend', icon: 'users', href: '/dashboard/blend' },
+  { id: 'assistant', label: 'Assistant', icon: 'sparkle', href: '/dashboard/assistant' },
 ];
 
 const MOBILE_BREAKPOINT = 768;
-const SIDEBAR_WIDTH = 260;
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <BookmarkSidebarProvider>
+      <DashboardChrome>{children}</DashboardChrome>
+    </BookmarkSidebarProvider>
+  );
+}
+
+function DashboardChrome({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const pathname = usePathname();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
   const { user } = useAuth();
   const meta = user?.user_metadata || {};
   const displayName = meta.preferred_username || meta.user_name || 'User';
   const avatarUrl = meta.avatar_url || meta.picture || '';
   const plan = usePlan(user?.id);
+
+  const [isMobile, setIsMobile] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  // Lifted UserMenu open state so the collapsed-sidebar avatar button can
+  // expand the sidebar and pop the menu in one click.
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+
+  const sidebar = useBookmarkSidebar();
+  const isBookmarksRoute = pathname === '/dashboard/bookmarks';
+
+  // Apply HAL theme tokens at document level so the sidebar can read --hal-* vars
+  useEffect(() => {
+    document.documentElement.setAttribute('data-hal', 'on');
+    return () => document.documentElement.removeAttribute('data-hal');
+  }, []);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
@@ -41,167 +71,320 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return () => window.removeEventListener('resize', check);
   }, []);
 
-  // Close sidebar on route change (mobile)
+  // Close drawer on route change
   useEffect(() => {
-    if (isMobile) setSidebarOpen(false);
+    if (isMobile) setDrawerOpen(false);
   }, [pathname, isMobile]);
 
-  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
+  const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 
-  const showSidebar = !isMobile || sidebarOpen;
+  const handleAppNavClick = useCallback(
+    async (href: string) => {
+      if (isMobile) await triggerHaptic(ImpactStyle.Light);
+      if (isMobile) setDrawerOpen(false);
+      router.push(href);
+    },
+    [isMobile, router],
+  );
+
+  // ── Phase 3: folder CRUD handlers ───────────────────────────
+  // v1 uses native browser dialogs; a custom inline-edit affordance
+  // can come in Phase 6 polish.
+
+  const handleCreateFolder = useCallback(async () => {
+    const name = window.prompt('Folder name:')?.trim();
+    if (!name) return;
+    const res = await authFetch('/api/folders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    if (!res?.ok) {
+      const body = await res?.json().catch(() => null);
+      window.alert(body?.error ?? 'Failed to create folder');
+      return;
+    }
+    await sidebar.refetchFolders();
+  }, [sidebar]);
+
+  const handleRenameFolder = useCallback(
+    async (id: string) => {
+      const current = sidebar.folders.find((f) => f.id === id);
+      const next = window.prompt('New folder name:', current?.name ?? '')?.trim();
+      if (!next || next === current?.name) return;
+      const res = await authFetch(`/api/folders/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: next }),
+      });
+      if (!res?.ok) {
+        const body = await res?.json().catch(() => null);
+        window.alert(body?.error ?? 'Failed to rename folder');
+        return;
+      }
+      await sidebar.refetchFolders();
+    },
+    [sidebar],
+  );
+
+  const handleDeleteFolder = useCallback(
+    async (id: string) => {
+      const target = sidebar.folders.find((f) => f.id === id);
+      const ok = window.confirm(
+        `Delete folder "${target?.name ?? 'this folder'}"? Bookmarks inside will become Unfiled.`,
+      );
+      if (!ok) return;
+      const res = await authFetch(`/api/folders/${id}`, { method: 'DELETE' });
+      if (!res?.ok) {
+        const body = await res?.json().catch(() => null);
+        window.alert(body?.error ?? 'Failed to delete folder');
+        return;
+      }
+      if (sidebar.activeFolder === id) sidebar.setActiveFolder(ALL_FOLDER_ID);
+      await sidebar.refetchFolders();
+    },
+    [sidebar],
+  );
+
+  const handleImportXFolders = useCallback(() => {
+    // Bridge to the extension content script (apps/extension/src/content.ts).
+    // The dashboard origin doesn't have the extension content script, so we
+    // also open x.com/i/bookmarks in a new tab — the extension picks up the
+    // pending walk via chrome.storage state once it's loaded there.
+    window.postMessage(
+      { source: 'hal-app', type: 'HAL_START_FOLDER_WALK_IMPORT' },
+      window.location.origin,
+    );
+    // Hand off to x.com so the extension's content script can run.
+    window.open('https://x.com/i/bookmarks?hal_folder_walk=1', '_blank', 'noopener');
+  }, []);
+
+  const sidebarNode = (
+    <IndexSidebar
+      appNav={APP_NAV}
+      activePath={pathname}
+      onAppNavClick={handleAppNavClick}
+      showBookmarkSections={isBookmarksRoute}
+      folders={sidebar.folders}
+      activeFolder={sidebar.activeFolder}
+      onSelectFolder={(id) => {
+        sidebar.setActiveFolder(id);
+        if (isMobile) setDrawerOpen(false);
+      }}
+      onCreateFolder={handleCreateFolder}
+      onRenameFolder={handleRenameFolder}
+      onDeleteFolder={handleDeleteFolder}
+      onImportXFolders={handleImportXFolders}
+      tags={sidebar.tags}
+      activeTags={sidebar.activeTags}
+      onToggleTag={(id) =>
+        sidebar.setActiveTags((prev) =>
+          prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+        )
+      }
+      onOpenCmd={() => {
+        // Re-dispatch a ⌘K keydown so the page-level command palette
+        // (mounted in apps/web/src/app/dashboard/bookmarks/page.tsx) toggles.
+        // Sidebar lives in this layout so it can't directly read that page's
+        // state.
+        window.dispatchEvent(
+          new KeyboardEvent('keydown', { key: 'k', metaKey: true, ctrlKey: true, bubbles: true }),
+        );
+      }}
+      collapsed={collapsed && !isMobile}
+      onToggleCollapsed={() => setCollapsed((v) => !v)}
+      userFooter={
+        <UserMenu
+          avatarUrl={avatarUrl}
+          displayName={displayName}
+          plan={plan}
+          onNavigate={isMobile ? closeDrawer : undefined}
+          open={userMenuOpen}
+          onOpenChange={setUserMenuOpen}
+        />
+      }
+      collapsedAvatar={
+        <button
+          type="button"
+          aria-label="User menu"
+          title={`@${displayName}`}
+          onClick={() => {
+            // Expand the sidebar and pop the user menu in one click.
+            setCollapsed(false);
+            setUserMenuOpen(true);
+          }}
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: '50%',
+            padding: 0,
+            background: avatarUrl ? 'transparent' : 'var(--hal-a-dim)',
+            border: '1px solid var(--hal-line-2)',
+            cursor: 'pointer',
+            overflow: 'hidden',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'border-color 0.1s',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = 'var(--hal-a)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = 'var(--hal-line-2)';
+          }}
+        >
+          {avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={avatarUrl}
+              alt=""
+              width={32}
+              height={32}
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          ) : null}
+        </button>
+      }
+    />
+  );
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
-      {/* Overlay backdrop (mobile only) */}
-      <AnimatePresence>
-        {isMobile && sidebarOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            onClick={closeSidebar}
-            style={{
-              position: 'fixed',
-              inset: 0,
-              background: 'rgba(0,0,0,0.6)',
-              zIndex: 25,
-            }}
-          />
-        )}
-      </AnimatePresence>
+    <div
+      style={{
+        display: 'flex',
+        minHeight: '100vh',
+        position: 'relative',
+        background: 'var(--hal-bg-0)',
+      }}
+    >
+      <BackgroundLayers />
 
-      {/* Sidebar */}
-      <AnimatePresence>
-        {showSidebar && (
-          <motion.nav
-            initial={isMobile ? { x: -SIDEBAR_WIDTH } : false}
-            animate={{ x: 0 }}
-            exit={{ x: -SIDEBAR_WIDTH }}
-            transition={{ type: 'tween', duration: 0.25 }}
+      {/* Mobile top bar (hamburger + brand) */}
+      {isMobile && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            padding: '10px 14px',
+            borderBottom: '1px solid var(--hal-line-1)',
+            background: 'var(--hal-bg-1)',
+            zIndex: 20,
+          }}
+        >
+          <button
+            type="button"
+            onClick={async () => {
+              await triggerHaptic(ImpactStyle.Light);
+              setDrawerOpen(true);
+            }}
+            aria-label="Open menu"
             style={{
-              width: `${SIDEBAR_WIDTH}px`,
-              borderRight: '1px solid rgba(0,212,255,0.08)',
-              background: 'rgba(10,10,15,0.98)',
-              padding: '20px 12px',
-              display: 'flex',
-              flexDirection: 'column',
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              bottom: 0,
-              zIndex: 30,
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--hal-a)',
+              fontSize: 22,
+              cursor: 'pointer',
+              padding: '2px 8px 2px 0',
+              lineHeight: 1,
             }}
           >
-            {/* Logo */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                padding: '8px 12px',
-                marginBottom: '32px',
-              }}
-            >
-              <HalLogo size={32} />
-              <span style={{ fontSize: '16px', fontWeight: 600, color: '#f0f0f5' }}>Hello Again Links</span>
-            </div>
-
-            {/* Nav items */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
-              {navItems.map((item) => {
-                const isActive = pathname === item.href;
-                return (
-                  <Link
-                    key={item.id}
-                    href={item.href}
-                    onClick={isMobile ? closeSidebar : undefined}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px',
-                      padding: '10px 14px',
-                      borderRadius: '10px',
-                      textDecoration: 'none',
-                      fontSize: '14px',
-                      background: isActive ? 'rgba(0,212,255,0.08)' : 'transparent',
-                      color: isActive ? '#00d4ff' : '#8a8a9a',
-                      transition: 'all 0.2s ease',
-                      fontFamily: "'Inter', sans-serif",
-                      position: 'relative',
-                    }}
-                  >
-                    <span style={{ fontSize: '16px' }}>{item.icon}</span>
-                    {item.label}
-                    {isActive && (
-                      <div
-                        style={{
-                          position: 'absolute',
-                          left: 0,
-                          width: '3px',
-                          height: '24px',
-                          borderRadius: '0 4px 4px 0',
-                          background: '#00d4ff',
-                          boxShadow: '0 0 10px rgba(0,212,255,0.5)',
-                        }}
-                      />
-                    )}
-                  </Link>
-                );
-              })}
-            </div>
-
-            {/* User menu */}
-            <UserMenu
-              avatarUrl={avatarUrl}
-              displayName={displayName}
-              plan={plan}
-              onNavigate={isMobile ? closeSidebar : undefined}
-            />
-          </motion.nav>
-        )}
-      </AnimatePresence>
-
-      {/* Main content */}
-      <main style={{ marginLeft: isMobile ? 0 : `${SIDEBAR_WIDTH}px`, flex: 1, padding: '0 0 0 0' }}>
-        {/* Top bar with hamburger (mobile) */}
-        {isMobile && (
+            ☰
+          </button>
           <div
             style={{
-              borderBottom: '1px solid rgba(0,212,255,0.08)',
-              padding: '10px 16px',
+              width: 22,
+              height: 22,
+              border: '1px solid var(--hal-a)',
+              background: 'var(--hal-a-dim)',
+              color: 'var(--hal-a)',
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
+              justifyContent: 'center',
+              fontFamily: 'var(--hal-mono)',
+              fontWeight: 600,
+              fontSize: 11,
             }}
           >
-            <button
-              onClick={async () => { await triggerHaptic(ImpactStyle.Light); setSidebarOpen(true); }}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#00d4ff',
-                fontSize: '22px',
-                cursor: 'pointer',
-                padding: '2px 8px 2px 0',
-                lineHeight: 1,
-              }}
-              aria-label="Open menu"
-            >
-              ☰
-            </button>
-            <span style={{ fontSize: '16px', fontWeight: 600, color: '#f0f0f5' }}>HAL</span>
+            H
           </div>
-        )}
-        <div style={{ padding: isMobile ? '20px 16px' : '32px 40px' }}>
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
+          <span
+            style={{
+              fontSize: 14,
+              fontWeight: 500,
+              color: 'var(--hal-text-0)',
+              fontFamily: 'var(--hal-sans)',
+              letterSpacing: '-0.01em',
+            }}
           >
-            {children}
-          </motion.div>
+            H.A.L.
+          </span>
         </div>
+      )}
+
+      {/* Mobile drawer + backdrop */}
+      <AnimatePresence>
+        {isMobile && drawerOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={closeDrawer}
+              style={{
+                position: 'fixed',
+                inset: 0,
+                background: 'rgba(0,0,0,0.6)',
+                zIndex: 25,
+              }}
+            />
+            <motion.div
+              initial={{ x: -244 }}
+              animate={{ x: 0 }}
+              exit={{ x: -244 }}
+              transition={{ type: 'tween', duration: 0.25 }}
+              style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                bottom: 0,
+                width: 244,
+                zIndex: 30,
+              }}
+            >
+              {sidebarNode}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Desktop sidebar */}
+      {!isMobile && sidebarNode}
+
+      {/* Main content */}
+      <main
+        style={{
+          flex: 1,
+          minWidth: 0,
+          marginTop: isMobile ? 44 : 0,
+          position: 'relative',
+          zIndex: 1,
+        }}
+      >
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          style={{ padding: isMobile ? '20px 16px' : '0' }}
+        >
+          {children}
+        </motion.div>
       </main>
     </div>
   );

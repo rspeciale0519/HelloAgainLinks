@@ -4,11 +4,44 @@
 // Response shape: data.bookmark_timeline_v2.timeline.instructions[].entries[]
 // Each entry is either a tweet item or a cursor for pagination.
 
-import type { TweetData } from './message-types';
+import type { TweetData, FolderContext } from './message-types';
 
 export interface ParsedBookmarksPage {
   tweets: TweetData[];
   cursor: string | null;
+  /** Phase 3: derived from the request URL when scraping a specific folder. */
+  folderContext?: FolderContext;
+}
+
+const FOLDER_URL_PATTERN = /\/i\/bookmarks\/([^/?#]+)/;
+
+/**
+ * Phase 3: extract `x_folder_id` from the page URL when the user is
+ * inside a specific folder. Returns null if the URL doesn't match a
+ * folder path. The folder name is best-effort: X renders it in the
+ * page header but the DOM markup is volatile — we tolerate missing.
+ *
+ * TODO(user): validate the folder-name DOM selector against live X.com
+ *   when running the first folder-walk import. The current best
+ *   guesses are <h2> under [data-testid="primaryColumn"].
+ */
+export function extractFolderContext(url: string, doc?: Document): FolderContext | null {
+  const match = url.match(FOLDER_URL_PATTERN);
+  if (!match) return null;
+  const folderId = decodeURIComponent(match[1] ?? '');
+  if (!folderId) return null;
+
+  let folderName: string | null = null;
+  if (doc) {
+    const heading =
+      doc.querySelector('[data-testid="primaryColumn"] h2[role="heading"] span') ||
+      doc.querySelector('[data-testid="primaryColumn"] h2 span') ||
+      doc.querySelector('header h2 span');
+    const text = heading?.textContent?.trim();
+    if (text && text.length > 0 && text.length <= 200) folderName = text;
+  }
+
+  return { x_folder_id: folderId, folder_name: folderName };
 }
 
 // X uses "Mon Jan 01 00:00:00 +0000 2024" format
@@ -104,15 +137,20 @@ export function parseBookmarksResponse(json: unknown): ParsedBookmarksPage {
 
   if (!json || typeof json !== 'object') return empty;
 
-  // Navigate to the entries array
-  // Path: data.bookmark_timeline_v2.timeline.instructions[].entries[]
+  // Navigate to the entries array. X uses two distinct GraphQL operations:
+  //   - `Bookmarks` → data.bookmark_timeline_v2.timeline (root /i/bookmarks)
+  //   - `BookmarkFolderTimeline` → data.bookmark_collection_timeline_v2.timeline
+  //     (folder-scoped /i/bookmarks/:folderId)
+  // Both share the same { instructions: [{ entries }] } shape inside `timeline`.
   const data = (json as Record<string, unknown>).data as Record<string, unknown> | undefined;
   if (!data) return empty;
 
-  const timeline_v2 = data.bookmark_timeline_v2 as Record<string, unknown> | undefined;
-  if (!timeline_v2) return empty;
+  const timelineRoot =
+    (data.bookmark_timeline_v2 as Record<string, unknown> | undefined) ??
+    (data.bookmark_collection_timeline_v2 as Record<string, unknown> | undefined);
+  if (!timelineRoot) return empty;
 
-  const timeline = timeline_v2.timeline as Record<string, unknown> | undefined;
+  const timeline = timelineRoot.timeline as Record<string, unknown> | undefined;
   if (!timeline) return empty;
 
   const instructions = timeline.instructions as Array<Record<string, unknown>> | undefined;

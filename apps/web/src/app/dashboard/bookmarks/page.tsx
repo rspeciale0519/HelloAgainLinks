@@ -1,299 +1,657 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { ImpactStyle } from '@capacitor/haptics';
-import { authFetch } from '@/lib/auth-fetch';
+
+import {
+  BulkActionBar,
+  ClassificationBanner,
+  Feed,
+  Palette,
+  SignalRail,
+  Spread,
+  TweaksPanel,
+  TweaksTrigger,
+  type CardBookmark,
+  type CitationBookmark,
+  type SpreadBookmark,
+} from '@helloagain/ui-hal';
+
 import { isNativeApp, triggerHaptic } from '@/lib/mobile';
-import BookmarkCard, { type BookmarkWithTags, type BookmarkTag, type TagInfo } from '@/components/BookmarkCard';
+import { useSyncTime } from '@/lib/use-sync-time';
+import { useTweaks } from '@/lib/use-tweaks';
+import { useKeyboardShortcuts } from '@/lib/use-keyboard-shortcuts';
+import { useBookmarksData, type RawBookmark } from '@/lib/use-bookmarks-data';
+import { useBookmarkMutations } from '@/lib/use-bookmark-mutations';
+import { authFetch } from '@/lib/auth-fetch';
+
+import { DeleteConfirmModal } from '@/components/hal/DeleteConfirmModal';
+import { TagPopoverAnchored, type TagAnchorRect } from '@/components/hal/TagPopoverAnchored';
+import { FolderPickerAnchored } from '@/components/hal/FolderPickerAnchored';
+import { HalSearchBar, PullIndicator } from '@/components/hal/HalSearchBar';
+
+import { useBookmarkSidebar, ALL_FOLDER_ID } from '../bookmark-context';
+
+const MOBILE_BREAKPOINT = 768;
+const PAGE_SIZE = 20;
+
+function toCardBookmark(b: RawBookmark): CardBookmark {
+  return {
+    id: b.id,
+    x_post_id: b.x_post_id,
+    x_author_handle: b.x_author_handle,
+    x_author_name: b.x_author_name,
+    x_author_avatar_url: b.x_author_avatar_url ?? null,
+    content_text: b.content_text,
+    media_urls: b.media_urls ?? [],
+    bookmarked_at: b.bookmarked_at,
+    post_created_at: b.post_created_at ?? null,
+    bookmark_tags: b.bookmark_tags ?? [],
+    ai_summary: b.ai_summary ?? null,
+    ai_tags: b.ai_tags ?? null,
+    folder_id: b.folder_id ?? null,
+  };
+}
+
+interface TagAnchor {
+  bookmarkId: string;
+  rect: TagAnchorRect;
+}
 
 export default function BookmarksPage() {
-  const [bookmarks, setBookmarks] = useState<BookmarkWithTags[]>([]);
-  const [allTags, setAllTags] = useState<TagInfo[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [tweaks, setTweaks] = useTweaks();
+  const sidebar = useBookmarkSidebar();
+
+  // ---- Search (debounced) + paging ----
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
-  const [pullDistance, setPullDistance] = useState(0);
-  const [isPulling, setIsPulling] = useState(false);
-  const [touchStartY, setTouchStartY] = useState<number | null>(null);
-  const pageSize = 20;
-  const [unclassifiedCount, setUnclassifiedCount] = useState(0);
-  const [userPlan, setUserPlan] = useState<string>('free');
-  const [classifying, setClassifying] = useState(false);
-
-  // Debounce search input (300ms)
+  // "Pin to feed" mode — populated by AskTab's "VIEW N IN FEED" pill. When
+  // non-null, the feed shows exactly these bookmarks (cited by the AI in a
+  // chat message) until the user clears it. Any of: typing in search,
+  // picking a folder, or toggling a tag also clears pinning so the user's
+  // intent always wins.
+  const [pinnedIds, setPinnedIds] = useState<string[] | null>(null);
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(search), 300);
-    return () => clearTimeout(timer);
+    const t = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(t);
   }, [search]);
 
-  const fetchBookmarks = useCallback(async () => {
-    setLoading(true);
+  const folderFilter =
+    sidebar.activeFolder && sidebar.activeFolder !== ALL_FOLDER_ID ? sidebar.activeFolder : undefined;
 
-    let res: Response | null;
-    if (debouncedSearch) {
-      const params = new URLSearchParams({
-        q: debouncedSearch,
-        page: page.toString(),
-        pageSize: pageSize.toString(),
-      });
-      res = await authFetch(`/api/bookmarks/search?${params}`);
-    } else {
-      const params = new URLSearchParams({
-        page: page.toString(),
-        pageSize: pageSize.toString(),
-        sort: 'bookmarked_at',
-        order: 'desc',
-      });
-      res = await authFetch(`/api/bookmarks?${params}`);
-    }
+  const data = useBookmarksData({
+    page,
+    pageSize: PAGE_SIZE,
+    search: debouncedSearch,
+    folderId: folderFilter,
+    idsFilter: pinnedIds,
+  });
+  const {
+    rawBookmarks,
+    setRawBookmarks,
+    total,
+    setTotal,
+    loading,
+    allTags,
+    unclassifiedCount,
+    setUnclassifiedCount,
+    userPlan,
+    refetch: fetchBookmarks,
+  } = data;
 
-    if (res?.ok) {
-      const data = await res.json();
-      setBookmarks(data.data || []);
-      setTotal(data.count || 0);
-    }
-    setLoading(false);
-  }, [page, debouncedSearch]);
+  // Push fetched tags into the layout-level sidebar context so the
+  // sidebar's Subjects section renders real tags. Destructure the
+  // useState setter (stable reference) so this effect doesn't see the
+  // whole `sidebar` context object — including it would loop forever
+  // because the context value reference changes whenever any state
+  // inside the provider updates.
+  const { setTags: setSidebarTags } = sidebar;
+  useEffect(() => {
+    setSidebarTags(allTags.map((t) => ({ id: t.id, name: t.name })));
+  }, [allTags, setSidebarTags]);
 
-  const fetchTags = useCallback(async () => {
-    const res = await authFetch('/api/tags');
-    if (res?.ok) {
-      const data = await res.json();
-      const tags = data.tags || data || [];
-      setAllTags(tags.map((t: TagInfo & Record<string, unknown>) => ({ id: t.id, name: t.name, color: t.color })));
+  // While pinning is active, picking a folder or tag in the sidebar should
+  // exit pinning and apply the filter normally. handlePinCitations resets
+  // folder to ALL and tags to [] before setting pinnedIds, so this effect
+  // only fires when the user explicitly changes the filter.
+  useEffect(() => {
+    if (!pinnedIds) return;
+    if (sidebar.activeFolder !== ALL_FOLDER_ID || sidebar.activeTags.length > 0) {
+      setPinnedIds(null);
     }
+  }, [pinnedIds, sidebar.activeFolder, sidebar.activeTags]);
+
+  const mutations = useBookmarkMutations({
+    allTags,
+    setRawBookmarks,
+    setTotal,
+    setUnclassifiedCount,
+    refetch: fetchBookmarks,
+  });
+
+  // ---- Page-local UI state ----
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [signalOpen, setSignalOpen] = useState(true);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; xPostId: string } | null>(null);
+  const [tagAnchor, setTagAnchor] = useState<TagAnchor | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  // ---- Phase 6: bulk selection ----
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+  const [bulkTagAnchor, setBulkTagAnchor] = useState<TagAnchorRect | null>(null);
+  const [bulkFolderAnchor, setBulkFolderAnchor] = useState<TagAnchorRect | null>(null);
+  const bulkTagBtnRef = useRef<HTMLButtonElement | null>(null);
+  const bulkMoveBtnRef = useRef<HTMLButtonElement | null>(null);
+  // ---- Phase 5: command palette + tweaks panel ----
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [tweaksOpen, setTweaksOpen] = useState(false);
+  // One-shot draft routed from the palette's "Ask HAL: '...'" action through
+  // SignalRail/AskTab. Cleared by AskTab's onAskDraftConsumed.
+  const [pendingAskDraft, setPendingAskDraft] = useState<string | null>(null);
+  // ---- Phase 5: Spread bookmark detail modal ----
+  // The active bookmark is held as a SpreadBookmark snapshot rather than
+  // just an id so opening Related rows that aren't on the current feed page
+  // still works without round-trip-blocking the modal. When the user picks
+  // an id we don't yet have, we fetch and populate.
+  const [spreadBookmark, setSpreadBookmark] = useState<SpreadBookmark | null>(null);
+
+  // ---- Pull-to-refresh ----
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isPulling, setIsPulling] = useState(false);
+  const touchStartY = useRef<number | null>(null);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
   }, []);
 
-  const fetchClassifyInfo = useCallback(async () => {
-    const res = await authFetch('/api/bookmarks/classify');
-    if (res?.ok) {
-      const data = await res.json();
-      setUnclassifiedCount(data.unclassified || 0);
-      setUserPlan(data.plan || 'free');
-    }
-  }, []);
-
-  const handleClassify = useCallback(async () => {
-    setClassifying(true);
-    const res = await authFetch('/api/bookmarks/classify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ limit: 50 }),
-    });
-    if (res?.ok) {
-      const data = await res.json();
-      setUnclassifiedCount(data.remaining || 0);
-      fetchBookmarks();
-    }
-    setClassifying(false);
-  }, [fetchBookmarks]);
-
-  useEffect(() => { fetchBookmarks(); }, [fetchBookmarks]);
-  useEffect(() => { fetchTags(); }, [fetchTags]);
-  useEffect(() => { fetchClassifyInfo(); }, [fetchClassifyInfo]);
-
-  // Live updates from the extension
+  // Live updates from extension
   useEffect(() => {
     const handler = (event: MessageEvent) => {
       if (event.data?.source !== 'hal-extension') return;
       if (event.data.type === 'HAL_BOOKMARK_ADDED') {
         fetchBookmarks();
       } else if (event.data.type === 'HAL_BOOKMARK_DELETED') {
-        setBookmarks((prev) => prev.filter((bm) => bm.x_post_id !== event.data.postId));
+        setRawBookmarks((prev) => prev.filter((bm) => bm.x_post_id !== event.data.postId));
         setTotal((prev) => Math.max(0, prev - 1));
       }
     };
     window.addEventListener('message', handler);
     return () => window.removeEventListener('message', handler);
-  }, [fetchBookmarks]);
+  }, [fetchBookmarks, setRawBookmarks, setTotal]);
 
-  const handleTagsChanged = useCallback((bookmarkId: string, tags: BookmarkTag[]) => {
-    setBookmarks((prev) =>
-      prev.map((bm) => bm.id === bookmarkId ? { ...bm, bookmark_tags: tags } : bm)
-    );
+  const handleTagClickFromCard = useCallback(
+    (tagName: string) => {
+      const tag = allTags.find((t) => t.name === tagName);
+      if (!tag) return;
+      setPinnedIds(null);
+      sidebar.setActiveTags((prev) => (prev.includes(tag.id) ? prev : [...prev, tag.id]));
+    },
+    [allTags, sidebar],
+  );
+
+  const handleOpenTagEditor = useCallback((bookmarkId: string, anchor: HTMLElement) => {
+    const r = anchor.getBoundingClientRect();
+    setTagAnchor({
+      bookmarkId,
+      rect: { top: r.top, left: r.left, right: r.right, bottom: r.bottom },
+    });
   }, []);
 
-  const handleDelete = useCallback(async (bookmarkId: string, xPostId: string) => {
-    const res = await authFetch(`/api/bookmarks/${bookmarkId}`, { method: 'DELETE' });
-    if (res?.ok) {
-      setBookmarks((prev) => prev.filter((bm) => bm.id !== bookmarkId));
-      setTotal((prev) => prev - 1);
-      // Notify extension to deactivate HAL button on any open X tabs
-      const extensionId = localStorage.getItem('hal_extension_id');
-      if (extensionId) {
-        const w = window as unknown as { chrome?: { runtime?: { sendMessage?: (id: string, msg: unknown) => void } } };
-        try { w.chrome?.runtime?.sendMessage?.(extensionId, { type: 'BOOKMARK_DELETED', postId: xPostId }); } catch { /* not installed */ }
+  // ---- Spread modal (Phase 5.2) ----
+  const buildSpreadBookmark = useCallback((b: RawBookmark): SpreadBookmark => ({
+    id: b.id,
+    x_post_id: b.x_post_id,
+    x_author_handle: b.x_author_handle,
+    x_author_name: b.x_author_name,
+    x_author_avatar_url: b.x_author_avatar_url ?? null,
+    content_text: b.content_text,
+    media_urls: b.media_urls ?? [],
+    bookmarked_at: b.bookmarked_at,
+    post_created_at: b.post_created_at ?? null,
+    ai_summary: b.ai_summary ?? null,
+    ai_tags: b.ai_tags ?? null,
+    user_notes: b.user_notes ?? null,
+  }), []);
+
+  const handleOpenBookmark = useCallback(
+    async (bookmarkId: string) => {
+      const local = rawBookmarks.find((b) => b.id === bookmarkId);
+      if (local) {
+        setSpreadBookmark(buildSpreadBookmark(local));
+        return;
       }
-    }
+      // Cross-page jump (e.g. clicking a Related item that isn't on the
+      // current feed page). Fetch the row directly.
+      const res = await authFetch(`/api/bookmarks/${bookmarkId}`);
+      if (!res?.ok) return;
+      const data = (await res.json()) as RawBookmark;
+      setSpreadBookmark(buildSpreadBookmark(data));
+    },
+    [rawBookmarks, buildSpreadBookmark],
+  );
+
+  const handleNotesSaved = useCallback(
+    (bookmarkId: string, notes: string) => {
+      setRawBookmarks((prev) =>
+        prev.map((b) => (b.id === bookmarkId ? { ...b, user_notes: notes } : b)),
+      );
+      setSpreadBookmark((prev) =>
+        prev && prev.id === bookmarkId ? { ...prev, user_notes: notes } : prev,
+      );
+    },
+    [setRawBookmarks],
+  );
+
+  const handleAskAboutBookmark = useCallback(
+    (bm: SpreadBookmark) => {
+      setSpreadBookmark(null);
+      setSignalOpen(true);
+      setPendingAskDraft(
+        `Tell me more about this bookmark by @${bm.x_author_handle}: ${bm.content_text.slice(0, 240)}`,
+      );
+    },
+    [],
+  );
+
+  // ---- Bulk action handlers (Phase 6) ----
+  const exitSelectionMode = useCallback(() => {
+    setSelectionMode(false);
+    setSelectedIds([]);
+    setBulkTagAnchor(null);
+    setBulkFolderAnchor(null);
+    setBulkConfirmOpen(false);
   }, []);
 
-  const totalPages = Math.ceil(total / pageSize);
+  const handleBulkDelete = useCallback(async () => {
+    if (selectedIds.length === 0) return;
+    const ids = [...selectedIds];
+    setBulkConfirmOpen(false);
+    const res = await authFetch('/api/bookmarks/bulk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, action: 'delete' }),
+    });
+    if (!res?.ok) return;
+    setRawBookmarks((prev) => prev.filter((b) => !ids.includes(b.id)));
+    setTotal((prev) => Math.max(0, prev - ids.length));
+    exitSelectionMode();
+    void fetchBookmarks();
+  }, [selectedIds, setRawBookmarks, setTotal, fetchBookmarks, exitSelectionMode]);
 
+  const handleBulkTagToggle = useCallback(
+    async (tagId: string, add: boolean) => {
+      if (!add) return; // bulk endpoint only supports adding tags for now
+      if (selectedIds.length === 0) return;
+      await authFetch('/api/bookmarks/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ids: selectedIds,
+          action: 'tag',
+          payload: { tag_id: tagId },
+        }),
+      });
+      void fetchBookmarks();
+      setBulkTagAnchor(null);
+    },
+    [selectedIds, fetchBookmarks],
+  );
+
+  const handleBulkMove = useCallback(
+    async (folderId: string | null) => {
+      if (selectedIds.length === 0) return;
+      const ids = [...selectedIds];
+      setBulkFolderAnchor(null);
+      await authFetch('/api/bookmarks/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ids,
+          action: 'move-folder',
+          payload: { folder_id: folderId },
+        }),
+      });
+      void fetchBookmarks();
+      void sidebar.refetchFolders();
+      exitSelectionMode();
+    },
+    [selectedIds, fetchBookmarks, sidebar, exitSelectionMode],
+  );
+
+  const openBulkTagAnchor = useCallback(() => {
+    const r = bulkTagBtnRef.current?.getBoundingClientRect();
+    if (!r) return;
+    setBulkTagAnchor({ top: r.top, left: r.left, right: r.right, bottom: r.bottom });
+  }, []);
+
+  const openBulkFolderAnchor = useCallback(() => {
+    const r = bulkMoveBtnRef.current?.getBoundingClientRect();
+    if (!r) return;
+    setBulkFolderAnchor({ top: r.top, left: r.left, right: r.right, bottom: r.bottom });
+  }, []);
+
+  const handleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }, []);
+
+  const handleClearFilters = useCallback(() => {
+    sidebar.setActiveFolder(ALL_FOLDER_ID);
+    sidebar.setActiveTags([]);
+    setPinnedIds(null);
+    setPage(1);
+  }, [sidebar]);
+
+  const handleClearPinned = useCallback(() => {
+    setPinnedIds(null);
+    setPage(1);
+  }, []);
+
+  // Pin a set of bookmark ids into the feed. Called when the AI chat surface's
+  // "VIEW N IN FEED" pill is clicked. We also reset folder/tag filters and
+  // search so the pinned set isn't accidentally re-filtered to nothing.
+  const handlePinCitations = useCallback(
+    (ids: string[]) => {
+      if (ids.length === 0) return;
+      sidebar.setActiveFolder(ALL_FOLDER_ID);
+      sidebar.setActiveTags([]);
+      setSearch('');
+      setDebouncedSearch('');
+      setPage(1);
+      setPinnedIds(ids);
+      // On mobile the feed lives below the rail; on desktop the sidebar may
+      // be in the user's peripheral vision but the feed is the focus.
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    },
+    [sidebar],
+  );
+
+  // ---- Filtering (client-side tag filter for Phase 2) ----
+  const filtered = useMemo(() => {
+    if (sidebar.activeTags.length === 0) return rawBookmarks;
+    const tagNames = new Set(
+      sidebar.activeTags.map((id) => allTags.find((t) => t.id === id)?.name).filter(Boolean) as string[],
+    );
+    return rawBookmarks.filter((bm) => {
+      const own = (bm.bookmark_tags ?? []).map((bt) => bt.tags.name);
+      const ai = (bm.ai_tags ?? []).map((t) => t.label);
+      return own.some((n) => tagNames.has(n)) || ai.some((n) => tagNames.has(n));
+    });
+  }, [rawBookmarks, sidebar.activeTags, allTags]);
+
+  const cardBookmarks = useMemo(() => filtered.map(toCardBookmark), [filtered]);
+  // Lookup map for citation chips and Related-tab rows. Citation chips only
+  // render for ids the page actually knows about, so missing entries are
+  // silently dropped rather than shown as a broken link.
+  const bookmarkLookup = useMemo<Record<string, CitationBookmark>>(() => {
+    const out: Record<string, CitationBookmark> = {};
+    for (const bm of rawBookmarks) {
+      out[bm.id] = {
+        id: bm.id,
+        x_post_id: bm.x_post_id,
+        x_author_handle: bm.x_author_handle,
+        content_text: bm.content_text,
+        bookmarked_at: bm.bookmarked_at,
+      };
+    }
+    return out;
+  }, [rawBookmarks]);
+  const folderName = useMemo(() => {
+    if (pinnedIds) return 'Cited bookmarks';
+    return sidebar.folders.find((f) => f.id === sidebar.activeFolder)?.name ?? 'Archive';
+  }, [pinnedIds, sidebar.folders, sidebar.activeFolder]);
+  const filterCount = pinnedIds
+    ? 0
+    : sidebar.activeTags.length + (sidebar.activeFolder !== ALL_FOLDER_ID ? 1 : 0);
+  const pinnedCount = pinnedIds?.length ?? 0;
+
+  const { label: syncLabel } = useSyncTime();
+
+  useKeyboardShortcuts({
+    onPalette: () => setPaletteOpen((v) => !v),
+    onSignal: () => setSignalOpen((v) => !v),
+    onEscape: () => {
+      if (paletteOpen) setPaletteOpen(false);
+      else if (spreadBookmark) setSpreadBookmark(null);
+      else if (tweaksOpen) setTweaksOpen(false);
+      else if (bulkTagAnchor) setBulkTagAnchor(null);
+      else if (bulkFolderAnchor) setBulkFolderAnchor(null);
+      else if (bulkConfirmOpen) setBulkConfirmOpen(false);
+      else if (confirmDelete) setConfirmDelete(null);
+      else if (tagAnchor) setTagAnchor(null);
+      else if (selectionMode) exitSelectionMode();
+    },
+  });
+
+  // ---- Pull to refresh (mobile) ----
   const onTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     if (!isNativeApp() || window.scrollY > 0) return;
-    setTouchStartY(e.touches[0].clientY);
+    touchStartY.current = e.touches[0].clientY;
   };
-
   const onTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (!isNativeApp() || touchStartY === null) return;
-    const distance = e.touches[0].clientY - touchStartY;
+    if (!isNativeApp() || touchStartY.current === null) return;
+    const distance = e.touches[0].clientY - touchStartY.current;
     if (distance > 0 && window.scrollY === 0) {
       setIsPulling(true);
       setPullDistance(Math.min(80, distance));
     }
   };
-
   const onTouchEnd = async () => {
     if (isPulling && pullDistance > 60) {
       await triggerHaptic(ImpactStyle.Medium);
       await fetchBookmarks();
     }
-    setTouchStartY(null);
+    touchStartY.current = null;
     setIsPulling(false);
     setPullDistance(0);
   };
 
+  const layout = tweaks.layout;
+  const showSignalRail = !isMobile && layout === '3pane' && signalOpen;
+
+  const tagPopoverContent = (() => {
+    if (!tagAnchor) return null;
+    const bm = rawBookmarks.find((b) => b.id === tagAnchor.bookmarkId);
+    if (!bm) return null;
+    const activeTagIds = new Set((bm.bookmark_tags ?? []).map((bt) => bt.tag_id));
+    return (
+      <TagPopoverAnchored
+        rect={tagAnchor.rect}
+        allTags={allTags}
+        activeTagIds={activeTagIds}
+        onToggle={(tagId, add) => mutations.toggleTag(bm.id, tagId, add)}
+        onClose={() => setTagAnchor(null)}
+      />
+    );
+  })();
+
   return (
-    <div onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
-      <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ fontSize: '28px', fontWeight: 600, color: '#f0f0f5', marginBottom: '4px' }}>
-          Bookmarks
-        </h1>
-        <p style={{ color: '#8a8a9a', fontSize: '14px' }}>
-          {total > 0 ? `${total} bookmarks saved` : 'Your saved X bookmarks will appear here.'}
-        </p>
-      </div>
+    <div
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      style={{ display: 'flex', alignItems: 'flex-start' }}
+    >
+      <PullIndicator visible={isNativeApp() && isPulling} pullDistance={pullDistance} />
 
-      {isNativeApp() && isPulling && (
-        <div style={{ color: '#8a8a9a', fontSize: '12px', marginBottom: '10px' }}>
-          {pullDistance > 60 ? 'Release to refresh' : 'Pull to refresh'}
-        </div>
-      )}
-
-      {/* Search */}
-      <div style={{ marginBottom: '24px' }}>
-        <input
-          type="text"
-          placeholder="Search bookmarks..."
+      {/* Main column — search bar + feed. The SignalRail is a sibling
+          column rendered after this one so it can extend to the very top
+          of the viewport without the search bar above it. */}
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        <HalSearchBar
           value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          style={{
-            width: '100%',
-            maxWidth: '400px',
-            padding: '10px 14px',
-            borderRadius: '10px',
-            border: '1px solid rgba(0,212,255,0.15)',
-            background: 'rgba(15,16,25,0.8)',
-            color: '#f0f0f5',
-            fontSize: '14px',
-            fontFamily: "'Inter', sans-serif",
-            outline: 'none',
+          onChange={(v) => {
+            setSearch(v);
+            setPage(1);
+            if (v) setPinnedIds(null);
           }}
+          rightSlot={
+            <TweaksTrigger open={tweaksOpen} onToggle={() => setTweaksOpen((v) => !v)} />
+          }
+        />
+
+        <Feed
+          bookmarks={cardBookmarks}
+          total={total}
+          page={page}
+          pageSize={PAGE_SIZE}
+          loading={loading}
+          onPageChange={async (p) => {
+            await triggerHaptic(ImpactStyle.Light);
+            setPage(p);
+          }}
+          folderName={folderName}
+          filterCount={filterCount}
+          onClearFilters={handleClearFilters}
+          pinnedCount={pinnedCount}
+          onClearPinned={handleClearPinned}
+          density={tweaks.density}
+          onDensityChange={(d) => setTweaks((prev) => ({ ...prev, density: d }))}
+          selectionMode={selectionMode}
+          onToggleSelectionMode={() => {
+            setSelectionMode((v) => !v);
+            if (selectionMode) setSelectedIds([]);
+          }}
+          layout={layout}
+          signalOpen={signalOpen}
+          onToggleSignal={() => setSignalOpen((v) => !v)}
+          syncLabel={syncLabel}
+          onSelect={handleSelect}
+          onOpen={handleOpenBookmark}
+          onTagClick={handleTagClickFromCard}
+          onDelete={(id, xPostId) => setConfirmDelete({ id, xPostId })}
+          onOpenTagEditor={handleOpenTagEditor}
+          selectedIds={selectedIds}
+          emptyLabel={search ? 'No matches.' : 'No bookmarks yet.'}
+          classificationBanner={
+            unclassifiedCount > 0 && userPlan !== 'free' ? (
+              <ClassificationBanner
+                unclassifiedCount={unclassifiedCount}
+                classifying={mutations.classifying}
+                onClassify={mutations.classify}
+              />
+            ) : null
+          }
         />
       </div>
 
-      {/* Classification banner */}
-      {unclassifiedCount > 0 && userPlan !== 'free' && (
-        <div style={{
-          marginBottom: '16px',
-          padding: '12px 16px',
-          borderRadius: '10px',
-          border: '1px solid rgba(0,212,255,0.15)',
-          background: 'rgba(0,212,255,0.05)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}>
-          <span style={{ color: '#8a8a9a', fontSize: '13px' }}>
-            {unclassifiedCount} bookmark{unclassifiedCount !== 1 ? 's' : ''} can be AI-classified
-          </span>
-          <button
-            onClick={handleClassify}
-            disabled={classifying}
-            style={{
-              padding: '6px 14px',
-              borderRadius: '8px',
-              border: '1px solid rgba(0,212,255,0.3)',
-              background: classifying ? 'rgba(0,212,255,0.1)' : 'rgba(0,212,255,0.15)',
-              color: '#00d4ff',
-              fontSize: '13px',
-              cursor: classifying ? 'default' : 'pointer',
-              fontFamily: "'Inter', sans-serif",
-            }}
-          >
-            {classifying ? 'Classifying...' : 'Classify'}
-          </button>
-        </div>
+      {showSignalRail && (
+        <SignalRail
+          isProUser={userPlan !== 'free'}
+          totalBookmarks={total}
+          activeBookmarkId={spreadBookmark?.id ?? null}
+          onJumpTo={handleOpenBookmark}
+          onPinCitations={handlePinCitations}
+          bookmarkLookup={bookmarkLookup}
+          authFetch={authFetch}
+          onClose={() => setSignalOpen(false)}
+          pendingAskDraft={pendingAskDraft}
+          onAskDraftConsumed={() => setPendingAskDraft(null)}
+        />
       )}
 
-      {/* Bookmarks list */}
-      {loading ? (
-        <div style={{ color: '#4a4a5a', textAlign: 'center', padding: '40px' }}>Loading...</div>
-      ) : bookmarks.length === 0 ? (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="glass glow-border"
-          style={{ padding: '48px', borderRadius: '14px', textAlign: 'center' }}
-        >
-          <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔖</div>
-          <div style={{ fontSize: '18px', color: '#f0f0f5', fontWeight: 600, marginBottom: '8px' }}>
-            {search ? 'No bookmarks match your search' : 'No bookmarks yet'}
-          </div>
-          <div style={{ fontSize: '14px', color: '#8a8a9a' }}>
-            {search ? 'Try a different search term.' : 'Install the Chrome extension and save posts from X.'}
-          </div>
-        </motion.div>
-      ) : (
-        <>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {bookmarks.map((bm, i) => (
-              <BookmarkCard
-                key={bm.id}
-                bookmark={bm}
-                index={i}
-                allTags={allTags}
-                onTagsChanged={handleTagsChanged}
-                onDelete={handleDelete}
-              />
-            ))}
-          </div>
+      <Palette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        authFetch={authFetch}
+        folders={sidebar.folders
+          .filter((f) => f.id !== ALL_FOLDER_ID)
+          .map((f) => ({ id: f.id, name: f.name }))}
+        onSelectFolder={(folderId) => {
+          setPinnedIds(null);
+          sidebar.setActiveFolder(folderId);
+          setPage(1);
+        }}
+        onOpenBookmark={(bookmarkId) => {
+          void handleOpenBookmark(bookmarkId);
+        }}
+        onAskHal={(query) => {
+          setSignalOpen(true);
+          setPendingAskDraft(query);
+        }}
+        onToggleSignal={() => setSignalOpen((v) => !v)}
+        onSetDensity={(d) => setTweaks((prev) => ({ ...prev, density: d }))}
+      />
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '24px' }}>
-              <button
-                onClick={async () => { await triggerHaptic(ImpactStyle.Light); setPage(p => Math.max(1, p - 1)); }}
-                disabled={page === 1}
-                style={{
-                  padding: '8px 14px', borderRadius: '8px', border: '1px solid rgba(0,212,255,0.15)',
-                  background: 'transparent', color: page === 1 ? '#4a4a5a' : '#00d4ff',
-                  cursor: page === 1 ? 'default' : 'pointer', fontFamily: "'Inter', sans-serif", fontSize: '13px',
-                }}
-              >
-                ← Prev
-              </button>
-              <span style={{ padding: '8px 14px', color: '#8a8a9a', fontSize: '13px' }}>
-                {page} / {totalPages}
-              </span>
-              <button
-                onClick={async () => { await triggerHaptic(ImpactStyle.Light); setPage(p => Math.min(totalPages, p + 1)); }}
-                disabled={page === totalPages}
-                style={{
-                  padding: '8px 14px', borderRadius: '8px', border: '1px solid rgba(0,212,255,0.15)',
-                  background: 'transparent', color: page === totalPages ? '#4a4a5a' : '#00d4ff',
-                  cursor: page === totalPages ? 'default' : 'pointer', fontFamily: "'Inter', sans-serif", fontSize: '13px',
-                }}
-              >
-                Next →
-              </button>
-            </div>
-          )}
-        </>
+      <Spread
+        bookmark={spreadBookmark}
+        onClose={() => setSpreadBookmark(null)}
+        authFetch={authFetch}
+        onJumpTo={(id) => {
+          void handleOpenBookmark(id);
+        }}
+        onAskAbout={handleAskAboutBookmark}
+        onNotesSaved={handleNotesSaved}
+      />
+
+      <TweaksPanel
+        open={tweaksOpen}
+        onClose={() => setTweaksOpen(false)}
+        value={tweaks}
+        onChange={(next) => setTweaks(next)}
+      />
+
+      <BulkActionBar
+        count={selectionMode ? selectedIds.length : 0}
+        tagButtonRef={bulkTagBtnRef}
+        moveButtonRef={bulkMoveBtnRef}
+        onTag={openBulkTagAnchor}
+        onMoveFolder={openBulkFolderAnchor}
+        onDelete={() => setBulkConfirmOpen(true)}
+        onClear={exitSelectionMode}
+      />
+
+      {bulkTagAnchor && (
+        <TagPopoverAnchored
+          rect={bulkTagAnchor}
+          allTags={allTags}
+          activeTagIds={new Set<string>()}
+          onToggle={(tagId, add) => {
+            void handleBulkTagToggle(tagId, add);
+          }}
+          onClose={() => setBulkTagAnchor(null)}
+        />
       )}
+
+      {bulkFolderAnchor && (
+        <FolderPickerAnchored
+          rect={bulkFolderAnchor}
+          folders={sidebar.folders
+            .filter((f) => f.id !== ALL_FOLDER_ID)
+            .map((f) => ({ id: f.id, name: f.name }))}
+          onPick={(folderId) => {
+            void handleBulkMove(folderId);
+          }}
+          onClose={() => setBulkFolderAnchor(null)}
+        />
+      )}
+
+      <DeleteConfirmModal
+        open={bulkConfirmOpen}
+        onCancel={() => setBulkConfirmOpen(false)}
+        onConfirm={() => {
+          void handleBulkDelete();
+        }}
+        title={`Delete ${selectedIds.length} bookmark${selectedIds.length === 1 ? '' : 's'}?`}
+        description={`This will permanently remove ${selectedIds.length === 1 ? 'this bookmark' : `these ${selectedIds.length} bookmarks`} from HAL. This action cannot be undone.`}
+        confirmLabel={`Delete ${selectedIds.length}`}
+      />
+
+      {tagPopoverContent}
+
+      <DeleteConfirmModal
+        open={confirmDelete !== null}
+        onCancel={() => setConfirmDelete(null)}
+        onConfirm={() => {
+          if (!confirmDelete) return;
+          const target = confirmDelete;
+          setConfirmDelete(null);
+          mutations.remove(target.id, target.xPostId);
+        }}
+      />
     </div>
   );
 }
