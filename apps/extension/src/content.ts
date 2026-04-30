@@ -2,6 +2,7 @@
 
 import { extractTweetData } from './tweet-utils';
 import { startBulkImport, startScrollInterceptImport, stopBulkImport } from './bulk-import';
+import { startFolderWalkImport, maybeResumeFolderWalk } from './folder-walk-import';
 import type { XSessionCredentials, TweetData } from './message-types';
 
 console.log('[HelloAgain] Content script loaded on', window.location.href);
@@ -251,6 +252,7 @@ function createSaveButton(article: Element) {
             content: data.content,
             author: data.author,
             authorName: data.authorName,
+            avatarUrl: data.avatarUrl,
             timestamp: data.timestamp,
             mediaUrls: JSON.stringify(data.mediaUrls),
           },
@@ -362,6 +364,7 @@ document.addEventListener(
             content: tweetData.content,
             author: tweetData.author,
             authorName: tweetData.authorName,
+            avatarUrl: tweetData.avatarUrl,
             timestamp: tweetData.timestamp,
             mediaUrls: JSON.stringify(tweetData.mediaUrls),
           },
@@ -496,11 +499,42 @@ chrome.runtime.onMessage.addListener((message) => {
   }
 });
 
+// Phase 3: bridge from the HAL web app — when the user clicks the
+// "Import X folders" button on the dashboard, that page posts a
+// HAL_START_FOLDER_WALK_IMPORT message via window.postMessage. The
+// extension content script (this file) is loaded on x.com only, so the
+// dashboard message reaches us only if the user already has x.com
+// open. To handle the typical case (user is on the dashboard, not on
+// x.com), the dashboard layout will detect "no extension answered" and
+// fall back to a tab-open redirect — that path is wired in a future
+// task. For now we capture the message when it does arrive on x.com.
+window.addEventListener('message', (event) => {
+  if (event.source !== window) return;
+  if (event.data?.source !== 'hal-app') return;
+  if (event.data.type !== 'HAL_START_FOLDER_WALK_IMPORT') return;
+  void startFolderWalkImport();
+});
+
+// Phase 3: when this script loads on /i/bookmarks/* due to a folder-walk
+// navigation, resume from chrome.storage state. If the URL also carries
+// ?hal_folder_walk=1, kick off a fresh walk (this is the path used when
+// the user clicks "Import X folders" from the HAL dashboard which then
+// opens x.com/i/bookmarks?hal_folder_walk=1 in a new tab).
+function maybeResumeOnLoad() {
+  if (!/^\/i\/bookmarks(\/|$)/.test(window.location.pathname)) return;
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('hal_folder_walk') === '1') {
+    void startFolderWalkImport();
+    return;
+  }
+  void maybeResumeFolderWalk();
+}
+
 // Start — load settings first, then HAL post IDs + observe timeline
 chrome.storage.sync.get({ showHalButton: true }, (result) => {
   showHalButton = result.showHalButton;
 
-  const init = () => { syncHalPostIds(); observeTimeline(); };
+  const init = () => { syncHalPostIds(); observeTimeline(); maybeResumeOnLoad(); };
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {

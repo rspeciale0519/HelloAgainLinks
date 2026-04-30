@@ -1,3 +1,14 @@
+export interface FolderContext {
+  /** X.com's folder id from the /i/bookmarks/:folderId URL. */
+  x_folder_id: string;
+  /**
+   * Best-effort folder name (DOM scrape from X's page header). Null when
+   * we couldn't read it, in which case the HAL backend will fall back to
+   * the folder id while showing the folder in the sidebar.
+   */
+  folder_name: string | null;
+}
+
 export interface TweetData {
   content: string;
   author: string;
@@ -19,6 +30,8 @@ export interface TweetData {
   inReplyToStatusId?: string;
   quotedStatusId?: string;
   possiblySensitive?: boolean;
+  /** Phase 3: folder this tweet was scraped from (only present during folder-walk import). */
+  folder_context?: FolderContext;
 }
 
 // X.com session credentials captured by the MAIN world interceptor
@@ -56,9 +69,15 @@ export interface ImportProgress {
   strategy: ImportStrategy | null;
 }
 
+// Phase 3: payload for the folder-walk import POST.
+export interface FolderImportPayload {
+  folders: Array<{ x_folder_id: string; name: string }>;
+  assignments: Array<{ bookmark_x_post_id: string; x_folder_id: string }>;
+}
+
 // Messages sent TO the background script (from popup, sidepanel, content)
 export type ExtensionMessage =
-  | { type: 'SAVE_BOOKMARK'; data: { postId: string; author: string; authorName?: string; content: string; mediaUrls?: string; timestamp?: string } }
+  | { type: 'SAVE_BOOKMARK'; data: { postId: string; author: string; authorName?: string; avatarUrl?: string; content: string; mediaUrls?: string; timestamp?: string } }
   | { type: 'DELETE_BOOKMARK'; data: { postId: string } }
   | { type: 'GET_AUTH_STATUS' }
   | { type: 'LOGIN' }
@@ -79,7 +98,9 @@ export type ExtensionMessage =
   | { type: 'OPEN_IN_CURRENT_TAB'; url: string }
   // New: MAIN world interceptor messages (relayed by content script)
   | { type: 'X_CREDENTIALS_CAPTURED'; credentials: XSessionCredentials }
-  | { type: 'X_BOOKMARKS_PAGE_RESULT'; tweets: TweetData[]; cursor: string | null };
+  | { type: 'X_BOOKMARKS_PAGE_RESULT'; tweets: TweetData[]; cursor: string | null }
+  // Phase 3: folder-walk import endpoint relay
+  | { type: 'HAL_FOLDERS_IMPORT_X'; payload: FolderImportPayload };
 
 // Messages sent FROM the background script (to content scripts / tabs)
 export type TabMessage =

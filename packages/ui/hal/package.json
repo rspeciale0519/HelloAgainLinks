@@ -1,0 +1,33 @@
+{
+  "name": "@helloagain/ui-hal",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./theme": "./src/theme.ts",
+    "./primitives": "./src/primitives/index.ts",
+    "./feed": "./src/feed/index.ts",
+    "./sidebar": "./src/sidebar/index.ts",
+    "./signal": "./src/signal/index.ts",
+    "./spread": "./src/spread/index.ts",
+    "./palette": "./src/palette/index.ts",
+    "./tweaks": "./src/tweaks/index.ts",
+    "./styles": "./src/styles/globals.css"
+  },
+  "scripts": {
+    "lint": "echo \"(no eslint configured for ui-hal yet)\"",
+    "type-check": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "typescript": "^5.7.0"
+  }
+}
