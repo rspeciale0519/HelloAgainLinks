@@ -137,7 +137,16 @@
       "mcp__firecrawl__firecrawl_map",
       "mcp__firecrawl__firecrawl_scrape",
       "mcp__supabase__apply_migration",
-      "mcp__supabase__list_tables"
+      "mcp__supabase__list_tables",
+      "Skill(git-workflow-planning:start)",
+      "mcp__supabase__list_migrations",
+      "mcp__supabase__execute_sql",
+      "Skill(git-workflow-planning:checkpoint)",
+      "Bash(curl -sS -m 2 -o /dev/null -w \"%{http_code}\\\\n\" \"http://localhost:3001/api/health\")",
+      "mcp__supabase__get_logs",
+      "PowerShell(Get-NetTCPConnection *)",
+      "PowerShell(pnpm *)",
+      "PowerShell(Stop-Process *)"
     ]
   },
   "enabledMcpjsonServers": [
