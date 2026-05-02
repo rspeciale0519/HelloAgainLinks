@@ -4,14 +4,14 @@
 import { useState, type CSSProperties } from 'react';
 
 /**
- * Stable avatar that prefers the captured X profile picture (`avatarUrl`) and
- * falls back to a deterministic colored-letter circle when the URL is null,
- * empty, or fails to load. Pre-Phase-6 bookmarks have no avatar URL and the
- * fallback keeps them visually consistent with the rest of the feed.
+ * Tiered avatar resolution:
+ *   1. Captured X profile picture (`avatarUrl`, e.g. pbs.twimg.com/profile_images/…)
+ *   2. unavatar.io X-handle lookup (covers pre-Phase-6 rows where the column is
+ *      null because the bookmark was imported before migration 008)
+ *   3. Deterministic hue + first-letter circle (last-resort visual)
  *
- * Falls back automatically when X serves a 404 (deleted/suspended account) or
- * when the image is otherwise unreachable. Component re-renders into the
- * lettered circle without breaking the surrounding grid.
+ * Each tier falls through on `onError`, so deleted/suspended X accounts and
+ * unavatar misses both degrade cleanly without breaking the surrounding grid.
  */
 
 export interface AvatarProps {
@@ -36,7 +36,8 @@ function hashHue(s: string): number {
 }
 
 export function Avatar({ avatarUrl, name, handle, size = 32, style }: AvatarProps) {
-  const [errored, setErrored] = useState(false);
+  // 0 = primary URL, 1 = unavatar fallback, 2 = lettered circle
+  const [tier, setTier] = useState(0);
   const initial = (name?.[0] ?? handle?.[0] ?? '?').toUpperCase();
   const hue = hashHue(handle || name || initial);
 
@@ -48,14 +49,35 @@ export function Avatar({ avatarUrl, name, handle, size = 32, style }: AvatarProp
     ...style,
   };
 
-  if (avatarUrl && !errored) {
+  // Tier 1: captured X URL from the extension scrape
+  if (tier === 0 && avatarUrl) {
     return (
       <img
         src={avatarUrl}
         alt={name || handle}
         loading="lazy"
         decoding="async"
-        onError={() => setErrored(true)}
+        onError={() => setTier(1)}
+        style={{
+          ...base,
+          objectFit: 'cover',
+          background: 'var(--hal-bg-3)',
+        }}
+      />
+    );
+  }
+
+  // Tier 2: unavatar.io handle lookup. `?fallback=false` makes the service
+  // return 404 (instead of a generic placeholder) when the handle is unknown,
+  // so our onError can drop us cleanly into the lettered tier.
+  if (tier <= 1 && handle) {
+    return (
+      <img
+        src={`https://unavatar.io/x/${encodeURIComponent(handle)}?fallback=false`}
+        alt={name || handle}
+        loading="lazy"
+        decoding="async"
+        onError={() => setTier(2)}
         style={{
           ...base,
           objectFit: 'cover',
