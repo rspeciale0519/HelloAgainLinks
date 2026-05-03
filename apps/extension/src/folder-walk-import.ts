@@ -269,7 +269,15 @@ async function postImport(
       (response) => {
         void chrome.runtime.lastError;
         if (!response?.ok) {
-          console.warn('[HAL] folder-walk: import-x failed', response);
+          // JSON.stringify so the runtime errors panel actually shows the
+          // failure body instead of `[object Object]`. Truncate so a huge
+          // Zod issues array doesn't blow up the panel.
+          const dump = (() => {
+            try { return JSON.stringify(response).slice(0, 2000); }
+            catch { return String(response); }
+          })();
+          console.warn('[HAL] folder-walk: import-x failed', dump,
+            '· payload sizes:', `folders=${folders.length}`, `assignments=${assignments.length}`);
         }
         resolve();
       },
