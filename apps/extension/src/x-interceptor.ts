@@ -215,6 +215,22 @@ function extractCredentials(url: string, init?: RequestInit): CapturedCredential
 
 let storedCredentials: CapturedCredentials | null = null;
 
+// Phase 4: track queryIds per GraphQL operation. The Bookmarks operation
+// (root /i/bookmarks) and BookmarkFolderTimeline operation (folder pages)
+// have DIFFERENT queryIds. Direct-API folder fetches need the
+// BookmarkFolderTimeline queryId, which is only seen when X has fetched a
+// folder page in the current session. We persist the most recent
+// queryId-per-operation so the orchestrator can read either one.
+const queryIdsByOperation: { Bookmarks?: string; BookmarkFolderTimeline?: string } = {};
+
+function noteQueryIdFromUrl(url: string): void {
+  const match = url.match(BOOKMARKS_PATTERN);
+  if (!match) return;
+  const queryId = match[1];
+  const operation = match[2] as 'Bookmarks' | 'BookmarkFolderTimeline';
+  if (queryId) queryIdsByOperation[operation] = queryId;
+}
+
 // Save original fetch for Phase 2 relay (our own direct API calls use fetch)
 const originalFetch = window.fetch.bind(window);
 
@@ -317,6 +333,7 @@ XMLHttpRequest.prototype.send = function (body?: Document | XMLHttpRequestBodyIn
     const features = urlObj.searchParams.get('features') || '';
 
     if (bearerToken && csrfToken && queryId) {
+      noteQueryIdFromUrl(meta.url);
       const creds: CapturedCredentials = {
         bearerToken, csrfToken, queryId, features, capturedAt: Date.now(),
       };
@@ -380,6 +397,12 @@ window.addEventListener('message', async (event) => {
     const cursor: string | null = event.data.cursor || null;
     await fetchBookmarksPage(cursor);
   }
+
+  if (event.data.type === 'FETCH_FOLDER_PAGE') {
+    const folderId: string = event.data.folderId;
+    const cursor: string | null = event.data.cursor || null;
+    await fetchFolderPage(folderId, cursor);
+  }
 });
 
 function postPageResult(
@@ -399,11 +422,12 @@ function postPageResult(
 async function fetchBookmarksPage(cursor: string | null): Promise<void> {
   if (!storedCredentials) { postPageResult([], null, 'No credentials available'); return; }
 
-  const { bearerToken, csrfToken, queryId, features } = storedCredentials;
+  const bookmarksQueryId = queryIdsByOperation.Bookmarks ?? storedCredentials.queryId;
+  const { bearerToken, csrfToken, features } = storedCredentials;
   const variables: Record<string, unknown> = { count: 100 };
   if (cursor) variables.cursor = cursor;
   const params = new URLSearchParams({ variables: JSON.stringify(variables), features });
-  const url = `https://x.com/i/api/graphql/${queryId}/Bookmarks?${params.toString()}`;
+  const url = `https://x.com/i/api/graphql/${bookmarksQueryId}/Bookmarks?${params.toString()}`;
 
   try {
     const response = await originalFetch(url, {
@@ -431,5 +455,68 @@ async function fetchBookmarksPage(cursor: string | null): Promise<void> {
     postPageResult(tweetsWithCtx, parsed.cursor, null, folderCtx);
   } catch (err) {
     postPageResult([], null, (err as Error).message || 'Fetch failed');
+  }
+}
+
+// Phase 4: emit folder-scoped page result (separate channel from the
+// main bookmarks one so the orchestrator's folder-fetch loop doesn't
+// race the regular Bookmarks relay).
+function postFolderPageResult(
+  folderId: string,
+  tweets: TweetData[],
+  cursor: string | null,
+  error: string | null,
+): void {
+  window.postMessage({
+    source: 'hal-x-interceptor',
+    type: 'X_FOLDER_PAGE_RESULT',
+    folderId, tweets, cursor, error,
+  }, '*');
+}
+
+// Phase 4: direct-API folder fetch — paginates BookmarkFolderTimeline
+// for one cursor page using the captured BookmarkFolderTimeline queryId
+// (NOT the Bookmarks queryId — they're different operations).
+async function fetchFolderPage(folderId: string, cursor: string | null): Promise<void> {
+  if (!storedCredentials) {
+    postFolderPageResult(folderId, [], null, 'No credentials available');
+    return;
+  }
+  const folderQueryId = queryIdsByOperation.BookmarkFolderTimeline;
+  if (!folderQueryId) {
+    postFolderPageResult(folderId, [], null, 'No BookmarkFolderTimeline queryId captured yet — visit a folder page first');
+    return;
+  }
+
+  const { bearerToken, csrfToken, features } = storedCredentials;
+  const variables: Record<string, unknown> = {
+    bookmark_collection_id: folderId,
+    includePromotedContent: true,
+  };
+  if (cursor) variables.cursor = cursor;
+  const params = new URLSearchParams({ variables: JSON.stringify(variables), features });
+  const url = `https://x.com/i/api/graphql/${folderQueryId}/BookmarkFolderTimeline?${params.toString()}`;
+
+  try {
+    const response = await originalFetch(url, {
+      method: 'GET', credentials: 'include',
+      headers: {
+        'authorization': bearerToken, 'x-csrf-token': csrfToken,
+        'x-twitter-active-user': 'yes', 'x-twitter-auth-type': 'OAuth2Session',
+        'x-twitter-client-language': 'en', 'content-type': 'application/json',
+      },
+    });
+
+    if (response.status === 429) { postFolderPageResult(folderId, [], null, 'rate_limited'); return; }
+    if (response.status === 401 || response.status === 403) {
+      postFolderPageResult(folderId, [], null, 'auth_expired'); return;
+    }
+    if (!response.ok) { postFolderPageResult(folderId, [], null, `HTTP ${response.status}`); return; }
+
+    const json = await response.json();
+    const parsed = parseBookmarksResponse(json);
+    postFolderPageResult(folderId, parsed.tweets, parsed.cursor, null);
+  } catch (err) {
+    postFolderPageResult(folderId, [], null, (err as Error).message || 'Fetch failed');
   }
 }

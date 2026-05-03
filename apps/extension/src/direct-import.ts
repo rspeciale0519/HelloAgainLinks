@@ -150,6 +150,95 @@ async function fetchBookmarksPageViaRelay(tabId: number, cursor: string | null):
   });
 }
 
+// ── Phase 4: Folder-scoped direct fetch via MAIN world relay ──
+
+interface FolderPageResult { tweets: TweetData[]; cursor: string | null; error: string | null }
+
+let pendingFolderPageResolve: ((result: FolderPageResult) => void) | null = null;
+let pendingFolderId: string | null = null;
+
+export function handleFolderPageResult(folderId: string, tweets: TweetData[], cursor: string | null, error: string | null): void {
+  if (pendingFolderPageResolve && pendingFolderId === folderId) {
+    pendingFolderPageResolve({ tweets, cursor, error });
+    pendingFolderPageResolve = null;
+    pendingFolderId = null;
+  }
+}
+
+async function fetchFolderPageViaRelay(tabId: number, folderId: string, cursor: string | null): Promise<FolderPageResult> {
+  return new Promise((resolve) => {
+    const timeout = setTimeout(() => {
+      pendingFolderPageResolve = null;
+      pendingFolderId = null;
+      resolve({ tweets: [], cursor: null, error: 'timeout' });
+    }, 30000);
+
+    pendingFolderPageResolve = (result) => {
+      clearTimeout(timeout);
+      resolve(result);
+    };
+    pendingFolderId = folderId;
+
+    chrome.tabs.sendMessage(tabId, { type: 'FETCH_FOLDER_PAGE', folderId, cursor }).catch(() => {
+      clearTimeout(timeout);
+      pendingFolderPageResolve = null;
+      pendingFolderId = null;
+      resolve({ tweets: [], cursor: null, error: 'Tab communication failed' });
+    });
+  });
+}
+
+/**
+ * Direct GraphQL pagination for one folder. Loops until X returns the
+ * same cursor twice (= end of data) or an error/safety limit. Returns
+ * every postId observed inside that folder. Replaces the old
+ * scroll-intercept-per-folder dance which routinely missed pages.
+ */
+export async function directFolderFetch(
+  tabId: number,
+  folderId: string,
+  isActive: () => boolean,
+): Promise<{ postIds: string[]; error?: string }> {
+  const postIds = new Set<string>();
+  let cursor: string | null = null;
+  let prevCursor: string | null = null;
+  let safety = 200; // hard cap (~20K tweets per folder); X bookmark folders are far smaller
+  let consecutiveErrors = 0;
+
+  while (safety-- > 0) {
+    if (!isActive()) return { postIds: [...postIds], error: 'cancelled' };
+
+    const result = await fetchFolderPageViaRelay(tabId, folderId, cursor);
+
+    if (result.error) {
+      if (result.error === 'rate_limited') return { postIds: [...postIds], error: 'rate_limited' };
+      if (result.error === 'auth_expired') return { postIds: [...postIds], error: 'auth_expired' };
+      consecutiveErrors++;
+      if (consecutiveErrors >= 3) return { postIds: [...postIds], error: result.error };
+      await new Promise((r) => setTimeout(r, 1000));
+      continue;
+    }
+    consecutiveErrors = 0;
+
+    for (const t of result.tweets) {
+      if (t.postId) postIds.add(t.postId);
+    }
+
+    prevCursor = cursor;
+    cursor = result.cursor;
+
+    // X returns the same cursor when there's no more data. Also exit if
+    // X returns no cursor at all OR no tweets (defensive).
+    if (!cursor) break;
+    if (cursor === prevCursor) break;
+    if (result.tweets.length === 0) break;
+
+    await new Promise((r) => setTimeout(r, 200)); // small delay to be polite
+  }
+
+  return { postIds: [...postIds] };
+}
+
 // ── Direct GraphQL import loop ──────────────────────────────
 
 export async function directGraphQLImport(

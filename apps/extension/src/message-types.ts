@@ -99,8 +99,11 @@ export type ExtensionMessage =
   // New: MAIN world interceptor messages (relayed by content script)
   | { type: 'X_CREDENTIALS_CAPTURED'; credentials: XSessionCredentials }
   | { type: 'X_BOOKMARKS_PAGE_RESULT'; tweets: TweetData[]; cursor: string | null }
+  | { type: 'X_FOLDER_PAGE_RESULT'; tweets: TweetData[]; cursor: string | null; error: string | null }
   // Phase 3: folder-walk import endpoint relay
-  | { type: 'HAL_FOLDERS_IMPORT_X'; payload: FolderImportPayload };
+  | { type: 'HAL_FOLDERS_IMPORT_X'; payload: FolderImportPayload }
+  // Phase 4: orchestrator triggers background to direct-fetch all folders
+  | { type: 'HAL_DIRECT_FOLDER_FETCH'; folders: Array<{ x_folder_id: string; folder_name: string }>; tabId?: number };
 
 // Messages sent FROM the background script (to content scripts / tabs)
 export type TabMessage =
@@ -110,6 +113,7 @@ export type TabMessage =
   | { type: 'HAL_LOGGED_OUT' }
   // New: Direct API relay (background → content → MAIN world)
   | { type: 'FETCH_BOOKMARKS_PAGE'; cursor: string | null }
+  | { type: 'FETCH_FOLDER_PAGE'; folderId: string; cursor: string | null }
   | { type: 'START_SCROLL_INTERCEPT_IMPORT' };
 
 // Messages sent from the web app (via chrome.runtime.sendMessage with extension ID)
