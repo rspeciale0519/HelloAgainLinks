@@ -234,11 +234,15 @@ XMLHttpRequest.prototype.open = function (method: string, url: string | URL, ...
     xhrMetaMap.set(this, { url: urlStr, headers: {} });
   } else if (FOLDERS_LIST_PATTERN.test(urlStr)) {
     // Phase 3: piggyback the folder-list response back to the orchestrator.
+    // Also cache to a window-global so the orchestrator (which loads later
+    // than the page's first BookmarkFoldersSlice fetch) can read it
+    // synchronously and not race the postMessage event.
     this.addEventListener('load', () => {
       try {
         const json = JSON.parse((this as XMLHttpRequest).responseText);
         const folders = parseFoldersListResponse(json);
         if (folders.length > 0) {
+          (window as unknown as { __halXFoldersList?: XFolderEntry[] }).__halXFoldersList = folders;
           window.postMessage({
             source: 'hal-x-interceptor',
             type: 'X_INTERCEPT_FOLDERS_LIST',

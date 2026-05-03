@@ -2,7 +2,7 @@
 
 import { extractTweetData } from './tweet-utils';
 import { startBulkImport, startScrollInterceptImport, stopBulkImport } from './bulk-import';
-import { startFolderWalkImport, maybeResumeFolderWalk } from './folder-walk-import';
+import { startMainFirstImport, maybeResumeFolderWalk } from './folder-walk-import';
 import type { XSessionCredentials, TweetData } from './message-types';
 
 console.log('[HelloAgain] Content script loaded on', window.location.href);
@@ -512,7 +512,7 @@ window.addEventListener('message', (event) => {
   if (event.source !== window) return;
   if (event.data?.source !== 'hal-app') return;
   if (event.data.type !== 'HAL_START_FOLDER_WALK_IMPORT') return;
-  void startFolderWalkImport();
+  void startMainFirstImport();
 });
 
 // Phase 3: when this script loads on /i/bookmarks/* due to a folder-walk
@@ -524,7 +524,7 @@ function maybeResumeOnLoad() {
   if (!/^\/i\/bookmarks(\/|$)/.test(window.location.pathname)) return;
   const params = new URLSearchParams(window.location.search);
   if (params.get('hal_folder_walk') === '1') {
-    void startFolderWalkImport();
+    void startMainFirstImport();
     return;
   }
   void maybeResumeFolderWalk();

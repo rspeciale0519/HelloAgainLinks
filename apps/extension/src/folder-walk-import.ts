@@ -1,25 +1,37 @@
-// HelloAgain — Phase 3: folder-walk import for X bookmarks.
+// HelloAgain — Main-first X bookmark import.
 //
-// Orchestrates a per-folder walk of the user's X bookmarks:
-//   1. Navigate to https://x.com/i/bookmarks (root) and listen for the
-//      BookmarkFoldersSlice GraphQL response (intercepted in
-//      x-interceptor.ts and forwarded as X_INTERCEPT_FOLDERS_LIST).
-//   2. For each folder: navigate to /i/bookmarks/:folderId, run the
-//      existing scroll-intercept import, and accumulate the assignment
-//      list (bookmark_x_post_id → x_folder_id).
-//   3. POST the assembled { folders, assignments } to /api/folders/import-x.
+// Flow (entered when the user lands on /i/bookmarks?hal_folder_walk=1
+// after clicking "Import X folders" on the HAL dashboard):
 //
-// Network is owned by the existing batch sender (background.ts /
-// content.ts BULK_IMPORT_BATCH path), so the per-folder scrape itself
-// reuses startScrollInterceptImport. We maintain a side-channel for the
-// folder→tweet mapping by inspecting the X_INTERCEPT_BOOKMARKS messages
-// we see during each folder phase.
+//   Phase A — main pass:
+//     Auto-scroll the root /i/bookmarks page and import every bookmark
+//     into HAL via the existing BULK_IMPORT_BATCH path. The X main page
+//     shows ALL bookmarks (loose + foldered), so this single sweep
+//     captures everything. No folder is assigned at this stage.
+//
+//   Phase B — folder discovery:
+//     While the main pass runs, x-interceptor.ts caches the
+//     BookmarkFoldersSlice GraphQL response to window.__halXFoldersList
+//     and posts an X_INTERCEPT_FOLDERS_LIST message. We collect both
+//     and reconcile after the main pass completes.
+//
+//   Phase C — folder walk (only if folders exist):
+//     Persist { folders, assignments:[], currentIndex:0 } to
+//     chrome.storage.local and navigate to /i/bookmarks/:firstFolderId.
+//     Each navigation tears down the script context, so resumption is
+//     handled by maybeResumeFolderWalk() on the next page load.
+//     For each folder we run the same scroll-intercept-import (its
+//     BULK_IMPORT_BATCH calls are no-op skips because the main pass
+//     already inserted those rows) and record every postId we see, so
+//     we can POST { folders, assignments } to /api/folders/import-x at
+//     the end. That endpoint reconciles X folders into HAL folders by
+//     x_folder_id and sets bookmarks.folder_id by x_post_id.
 
 import { startScrollInterceptImport } from './bulk-import';
 import type { TweetData } from './message-types';
 
 const ROOT_URL = 'https://x.com/i/bookmarks';
-const FOLDER_LIST_TIMEOUT_MS = 15_000;
+const FOLDER_LIST_GRACE_MS = 5_000;
 const PER_FOLDER_NAVIGATION_WAIT_MS = 2_500;
 
 interface XFolderEntry {
@@ -32,69 +44,6 @@ interface FolderAssignment {
   x_folder_id: string;
 }
 
-let walkRunning = false;
-
-export function isFolderWalkRunning(): boolean {
-  return walkRunning;
-}
-
-export async function startFolderWalkImport(): Promise<void> {
-  if (walkRunning) {
-    showWalkOverlay('A folder-walk import is already running.');
-    return;
-  }
-  walkRunning = true;
-  showWalkOverlay('Discovering folders on X.com…');
-
-  try {
-    // Phase 1: navigate to bookmark root if we're not already there.
-    if (!/\/i\/bookmarks\/?$/.test(window.location.pathname + window.location.search)) {
-      window.location.href = ROOT_URL;
-      // Page navigation will discard this script context — abort here.
-      return;
-    }
-
-    const folders = await waitForFolderList(FOLDER_LIST_TIMEOUT_MS);
-    if (!folders || folders.length === 0) {
-      showWalkOverlay('No folders found on X. Nothing to import.', { final: true });
-      walkRunning = false;
-      return;
-    }
-
-    // Phase 2: walk each folder.
-    const assignments: FolderAssignment[] = [];
-    for (let i = 0; i < folders.length; i++) {
-      const f = folders[i];
-      showWalkOverlay(`Walking folder ${i + 1}/${folders.length}: ${f.folder_name}`);
-
-      // Hand off via the background → content path: navigate, wait for
-      // the page to load and the folder timeline to be intercepted, then
-      // scroll-intercept-import.
-      // Because navigation tears down our script context, we persist
-      // walk state in chrome.storage so the next instance can resume.
-      await persistWalkState({ folders, assignments, currentIndex: i });
-      window.location.href = `${ROOT_URL}/${encodeURIComponent(f.x_folder_id)}`;
-      // Navigation discards this context.
-      return;
-    }
-
-    // (Reached only when the loop finishes without navigation, which is
-    // currently never — kept for future "single-page" mode.)
-    await postImport(folders, assignments);
-    showWalkOverlay(
-      `Done — ${folders.length} folders, ${assignments.length} assignments.`,
-      { final: true },
-    );
-    walkRunning = false;
-  } catch (err) {
-    showWalkOverlay(`Folder-walk failed: ${(err as Error).message}`, { final: true });
-    walkRunning = false;
-  }
-}
-
-// ── Resume entry point — content.ts calls this on every page load
-// when chrome.storage has a pending walk-state with currentIndex < N ──
-
 interface WalkState {
   folders: XFolderEntry[];
   assignments: FolderAssignment[];
@@ -102,6 +51,217 @@ interface WalkState {
 }
 
 const STORAGE_KEY = 'hal_folder_walk_state';
+
+let importRunning = false;
+
+export function isImportRunning(): boolean {
+  return importRunning;
+}
+
+// ── Entry point: main-first orchestration ───────────────────────────
+
+export async function startMainFirstImport(): Promise<void> {
+  if (importRunning) {
+    showWalkOverlay('An import is already running.');
+    return;
+  }
+  if (!/\/i\/bookmarks\/?$/.test(window.location.pathname)) {
+    // Not on the root page — bounce there. Navigation discards this
+    // context; on reload we re-enter via the ?hal_folder_walk=1 path.
+    window.location.href = `${ROOT_URL}?hal_folder_walk=1`;
+    return;
+  }
+
+  importRunning = true;
+
+  // Start collecting any folder-list responses that fire during the
+  // main pass. We also check the synchronous cache after the pass.
+  const collectedFolders: XFolderEntry[] = [];
+  const folderListListener = (event: MessageEvent) => {
+    if (event.source !== window) return;
+    if (event.data?.source !== 'hal-x-interceptor') return;
+    if (event.data.type !== 'X_INTERCEPT_FOLDERS_LIST') return;
+    const folders = (event.data.folders ?? []) as XFolderEntry[];
+    for (const f of folders) {
+      if (!collectedFolders.some((x) => x.x_folder_id === f.x_folder_id)) {
+        collectedFolders.push(f);
+      }
+    }
+  };
+  window.addEventListener('message', folderListListener);
+
+  try {
+    showWalkOverlay('Importing all bookmarks from X…');
+    await runScrollImportAsPromise();
+
+    // Give the BookmarkFoldersSlice response one last grace window in
+    // case X loads it lazily (e.g. only after timeline render).
+    const folders = await waitForFolders(collectedFolders, FOLDER_LIST_GRACE_MS);
+    window.removeEventListener('message', folderListListener);
+
+    if (folders.length === 0) {
+      showWalkOverlay('Done — main bookmarks imported. No folders found.', { final: true });
+      importRunning = false;
+      return;
+    }
+
+    // Persist state and navigate to the first folder. Resumption is
+    // handled by maybeResumeFolderWalk() on the next page load.
+    const state: WalkState = { folders, assignments: [], currentIndex: 0 };
+    await persistWalkState(state);
+    showWalkOverlay(`Indexing folder 1/${folders.length}: ${folders[0].folder_name}…`);
+    window.location.href = `${ROOT_URL}/${encodeURIComponent(folders[0].x_folder_id)}`;
+    // Navigation discards this context.
+  } catch (err) {
+    window.removeEventListener('message', folderListListener);
+    showWalkOverlay(`Import failed: ${(err as Error).message}`, { final: true });
+    importRunning = false;
+  }
+}
+
+// ── Resume entry point — runs on every /i/bookmarks/* page load ─────
+
+export async function maybeResumeFolderWalk(): Promise<void> {
+  const state = await loadWalkState();
+  if (!state) return;
+  if (!/\/i\/bookmarks\//.test(window.location.pathname)) return;
+
+  const folder = state.folders[state.currentIndex];
+  if (!folder) {
+    await finalize(state);
+    return;
+  }
+
+  importRunning = true;
+  showWalkOverlay(
+    `Indexing folder ${state.currentIndex + 1}/${state.folders.length}: ${folder.folder_name}…`,
+  );
+
+  // Wait briefly for X's folder timeline GraphQL to start firing.
+  await sleep(PER_FOLDER_NAVIGATION_WAIT_MS);
+
+  const interceptedPostIds = new Set<string>();
+  const onMessage = (event: MessageEvent) => {
+    if (event.source !== window) return;
+    if (event.data?.source !== 'hal-x-interceptor') return;
+    if (event.data.type !== 'X_INTERCEPT_BOOKMARKS') return;
+    const tweets = (event.data.tweets ?? []) as TweetData[];
+    for (const t of tweets) {
+      if (t.postId) interceptedPostIds.add(t.postId);
+    }
+  };
+  window.addEventListener('message', onMessage);
+
+  try {
+    await runScrollImportAsPromise();
+  } catch (err) {
+    // Skip this folder, continue to the next one.
+    console.warn('[HAL] folder-walk: folder failed —', err);
+  } finally {
+    window.removeEventListener('message', onMessage);
+  }
+
+  for (const postId of interceptedPostIds) {
+    state.assignments.push({ bookmark_x_post_id: postId, x_folder_id: folder.x_folder_id });
+  }
+
+  state.currentIndex += 1;
+  await persistWalkState(state);
+
+  if (state.currentIndex >= state.folders.length) {
+    await finalize(state);
+    return;
+  }
+
+  const nextFolder = state.folders[state.currentIndex];
+  window.location.href = `${ROOT_URL}/${encodeURIComponent(nextFolder.x_folder_id)}`;
+}
+
+// ── Internals ───────────────────────────────────────────────────────
+
+function runScrollImportAsPromise(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    startScrollInterceptImport({
+      onBatch: (tweets) =>
+        new Promise((batchResolve) => {
+          chrome.runtime.sendMessage({ type: 'BULK_IMPORT_BATCH', tweets }, (response) => {
+            void chrome.runtime.lastError;
+            batchResolve({
+              imported: response?.imported || 0,
+              skipped: response?.skipped || 0,
+            });
+          });
+        }),
+      onDone: () => resolve(),
+      onError: (msg) => reject(new Error(msg)),
+    });
+  });
+}
+
+async function waitForFolders(
+  collected: XFolderEntry[],
+  graceMs: number,
+): Promise<XFolderEntry[]> {
+  // Prefer whatever has already been cached by the interceptor.
+  const cached = (window as unknown as { __halXFoldersList?: XFolderEntry[] }).__halXFoldersList;
+  if (cached && cached.length > 0) return dedupeFolders([...cached, ...collected]);
+  if (collected.length > 0) return dedupeFolders(collected);
+
+  // Poll briefly in case the response arrives during the grace window.
+  const deadline = Date.now() + graceMs;
+  while (Date.now() < deadline) {
+    await sleep(250);
+    const latest = (window as unknown as { __halXFoldersList?: XFolderEntry[] }).__halXFoldersList;
+    if (latest && latest.length > 0) return dedupeFolders([...latest, ...collected]);
+    if (collected.length > 0) return dedupeFolders(collected);
+  }
+  return [];
+}
+
+function dedupeFolders(list: XFolderEntry[]): XFolderEntry[] {
+  const seen = new Set<string>();
+  const out: XFolderEntry[] = [];
+  for (const f of list) {
+    if (seen.has(f.x_folder_id)) continue;
+    seen.add(f.x_folder_id);
+    out.push(f);
+  }
+  return out;
+}
+
+async function finalize(state: WalkState): Promise<void> {
+  await postImport(state.folders, state.assignments);
+  await clearWalkState();
+  importRunning = false;
+  showWalkOverlay(
+    `Done — ${state.folders.length} folders, ${state.assignments.length} bookmarks assigned.`,
+    { final: true },
+  );
+}
+
+async function postImport(
+  folders: XFolderEntry[],
+  assignments: FolderAssignment[],
+): Promise<void> {
+  const payload = {
+    folders: folders.map((f) => ({ x_folder_id: f.x_folder_id, name: f.folder_name })),
+    assignments,
+  };
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage(
+      { type: 'HAL_FOLDERS_IMPORT_X', payload },
+      (response) => {
+        void chrome.runtime.lastError;
+        if (!response?.ok) {
+          console.warn('[HAL] folder-walk: import-x failed', response);
+        }
+        resolve();
+      },
+    );
+  });
+}
+
+// ── chrome.storage helpers ──────────────────────────────────────────
 
 async function persistWalkState(state: WalkState): Promise<void> {
   return new Promise((resolve) => {
@@ -120,132 +280,6 @@ async function loadWalkState(): Promise<WalkState | null> {
 async function clearWalkState(): Promise<void> {
   return new Promise((resolve) => {
     chrome.storage.local.remove(STORAGE_KEY, () => resolve());
-  });
-}
-
-export async function maybeResumeFolderWalk(): Promise<void> {
-  const state = await loadWalkState();
-  if (!state) return;
-  if (!/\/i\/bookmarks\//.test(window.location.pathname)) return;
-
-  const folder = state.folders[state.currentIndex];
-  if (!folder) {
-    // No more folders — submit and clear.
-    await postImport(state.folders, state.assignments);
-    await clearWalkState();
-    walkRunning = false;
-    showWalkOverlay(
-      `Done — imported ${state.folders.length} folders, ${state.assignments.length} bookmarks assigned.`,
-      { final: true },
-    );
-    return;
-  }
-
-  walkRunning = true;
-  showWalkOverlay(`Resuming folder ${state.currentIndex + 1}/${state.folders.length}: ${folder.folder_name}`);
-
-  // Wait briefly for the folder timeline GraphQL to start firing.
-  await sleep(PER_FOLDER_NAVIGATION_WAIT_MS);
-
-  // Capture all tweet postIds intercepted during this folder's scroll.
-  const interceptedPostIds = new Set<string>();
-  const onMessage = (event: MessageEvent) => {
-    if (event.source !== window) return;
-    if (event.data?.source !== 'hal-x-interceptor') return;
-    if (event.data.type !== 'X_INTERCEPT_BOOKMARKS') return;
-    const tweets = (event.data.tweets ?? []) as TweetData[];
-    for (const t of tweets) {
-      if (t.postId) interceptedPostIds.add(t.postId);
-    }
-  };
-  window.addEventListener('message', onMessage);
-
-  await new Promise<void>((resolve, reject) => {
-    startScrollInterceptImport({
-      onBatch: async (tweets) => {
-        // Send batch via the existing background path.
-        return new Promise((batchResolve) => {
-          chrome.runtime.sendMessage({ type: 'BULK_IMPORT_BATCH', tweets }, (response) => {
-            void chrome.runtime.lastError;
-            batchResolve({
-              imported: response?.imported || 0,
-              skipped: response?.skipped || 0,
-            });
-          });
-        });
-      },
-      onDone: () => resolve(),
-      onError: (msg) => reject(new Error(msg)),
-    });
-  }).catch((err) => {
-    // Skip this folder, continue.
-    console.warn('[HAL] folder-walk: folder failed —', err);
-  });
-
-  window.removeEventListener('message', onMessage);
-
-  for (const postId of interceptedPostIds) {
-    state.assignments.push({ bookmark_x_post_id: postId, x_folder_id: folder.x_folder_id });
-  }
-
-  state.currentIndex += 1;
-  await persistWalkState(state);
-
-  if (state.currentIndex >= state.folders.length) {
-    await postImport(state.folders, state.assignments);
-    await clearWalkState();
-    walkRunning = false;
-    showWalkOverlay(
-      `Done — imported ${state.folders.length} folders, ${state.assignments.length} bookmarks assigned.`,
-      { final: true },
-    );
-    return;
-  }
-
-  // Navigate to the next folder; resume picks it up on next load.
-  const nextFolder = state.folders[state.currentIndex];
-  window.location.href = `${ROOT_URL}/${encodeURIComponent(nextFolder.x_folder_id)}`;
-}
-
-// ── Helpers ─────────────────────────────────────────────────────
-
-function waitForFolderList(timeoutMs: number): Promise<XFolderEntry[] | null> {
-  return new Promise((resolve) => {
-    const timer = setTimeout(() => {
-      window.removeEventListener('message', listener);
-      resolve(null);
-    }, timeoutMs);
-    function listener(event: MessageEvent) {
-      if (event.source !== window) return;
-      if (event.data?.source !== 'hal-x-interceptor') return;
-      if (event.data.type !== 'X_INTERCEPT_FOLDERS_LIST') return;
-      const folders = (event.data.folders ?? []) as XFolderEntry[];
-      if (folders.length === 0) return;
-      clearTimeout(timer);
-      window.removeEventListener('message', listener);
-      resolve(folders);
-    }
-    window.addEventListener('message', listener);
-  });
-}
-
-async function postImport(folders: XFolderEntry[], assignments: FolderAssignment[]): Promise<void> {
-  const payload = {
-    folders: folders.map((f) => ({ x_folder_id: f.x_folder_id, name: f.folder_name })),
-    assignments,
-  };
-  // Use the existing background-bridged authenticated relay.
-  return new Promise((resolve) => {
-    chrome.runtime.sendMessage(
-      { type: 'HAL_FOLDERS_IMPORT_X', payload },
-      (response) => {
-        void chrome.runtime.lastError;
-        if (!response?.ok) {
-          console.warn('[HAL] folder-walk: import-x failed', response);
-        }
-        resolve();
-      },
-    );
   });
 }
 
