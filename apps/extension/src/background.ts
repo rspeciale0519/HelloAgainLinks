@@ -109,8 +109,10 @@ async function apiCall(path: string, options: RequestInit = {}) {
 
 interface ImportSession {
   tabId: number;
-  imported: number;
-  skipped: number;
+  imported: number;     // API `inserted` — brand-new rows
+  updated: number;      // API `updated` — existing row, incoming was richer & merged
+  skipped: number;      // API `skipped` — existing row, no change needed
+  errored: number;      // batches the API rejected (validation, network, etc.)
   limitReached: boolean;
 }
 
@@ -120,7 +122,7 @@ let currentImport: ImportSession | null = null;
 
 async function handleStartBulkImport() {
   setImportTiming('connecting', null, Date.now());
-  currentImport = { tabId: -1, imported: 0, skipped: 0, limitReached: false };
+  currentImport = { tabId: -1, imported: 0, updated: 0, skipped: 0, errored: 0, limitReached: false };
   broadcastExtendedProgress(getImportProgress, 'connecting', 'Connecting to X...');
 
   const runDirectImport = async (tabId: number) => {
@@ -207,7 +209,7 @@ async function handleBulkImportBatch(tweets: TweetData[]) {
   // background-managed tab" — chrome.tabs.sendMessage on it will fail
   // silently via the existing .catch() guards on call sites.
   if (!currentImport) {
-    currentImport = { tabId: -1, imported: 0, skipped: 0, limitReached: false };
+    currentImport = { tabId: -1, imported: 0, updated: 0, skipped: 0, errored: 0, limitReached: false };
   }
   // Capture reference — currentImport can be nulled by DONE/STOP during our awaits
   const session = currentImport;
@@ -252,10 +254,14 @@ async function handleBulkImportBatch(tweets: TweetData[]) {
       : (result.details ?? '');
     const errorMsg = detailsStr ? `${result.error}: ${detailsStr}` : result.error;
     console.error('[BulkImport] Batch API error:', errorMsg, '\nFirst payload row:', JSON.stringify(bookmarks[0]));
-    return { ...result, error: errorMsg };
+    // Account the rejected batch so the overlay's accuracy invariant
+    // (Found = Imported + Updated + Skipped + Errored + Queued) holds.
+    session.errored += tweets.length;
+    return { ...result, error: errorMsg, errored: tweets.length };
   }
 
   session.imported += result.imported || 0;
+  session.updated += result.updated || 0;
   session.skipped += result.skipped || 0;
   session.limitReached = result.limitReached || false;
 
@@ -277,7 +283,9 @@ function handleBulkImportDone() {
   if (!currentImport) return;
   const progress = {
     imported: currentImport.imported,
+    updated: currentImport.updated,
     skipped: currentImport.skipped,
+    errored: currentImport.errored,
     limitReached: currentImport.limitReached,
     done: true,
     error: null,
@@ -289,7 +297,9 @@ function handleBulkImportDone() {
 function handleBulkImportError(error: string) {
   const progress = {
     imported: currentImport?.imported || 0,
+    updated: currentImport?.updated || 0,
     skipped: currentImport?.skipped || 0,
+    errored: currentImport?.errored || 0,
     limitReached: false,
     done: true,
     error,
@@ -302,7 +312,9 @@ function broadcastImportProgress() {
   if (!currentImport) return;
   const progress = {
     imported: currentImport.imported,
+    updated: currentImport.updated,
     skipped: currentImport.skipped,
+    errored: currentImport.errored,
     limitReached: currentImport.limitReached,
     done: false,
     error: null,
@@ -315,7 +327,9 @@ function broadcastImportProgress() {
 function getImportProgress() {
   return {
     imported: currentImport?.imported || 0,
+    updated: currentImport?.updated || 0,
     skipped: currentImport?.skipped || 0,
+    errored: currentImport?.errored || 0,
     limitReached: currentImport?.limitReached || false,
   };
 }
