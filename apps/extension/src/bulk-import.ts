@@ -415,9 +415,14 @@ export function startScrollInterceptImport(callbacks: BulkImportCallbacks) {
       emptyScrolls = 0;
     }
 
-    // If we haven't received any intercepted data after 5 scrolls, signal error
-    // so the orchestrator can fall back to DOM scraping
-    if (!receivedInterceptedData && emptyScrolls >= 5) {
+    // If we haven't received any intercepted data, signal error so the
+    // orchestrator can fall back to DOM scraping. 15 cycles × 400ms = 6s
+    // — folder walks need this much time on heavy accounts because each
+    // folder navigation creates a fresh page that has to fetch
+    // BookmarkFolderTimeline before the interceptor can capture anything.
+    // The previous 5-cycle (2s) limit caused 21/29 folders to silently
+    // fail and produce an empty assignment POST.
+    if (!receivedInterceptedData && emptyScrolls >= 15) {
       teardownInterceptListener();
       cleanup();
       callbacks.onError('intercept_failed');

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Hello Again Links — X Bookmark Manager",
-  "version": "0.4.10",
+  "version": "0.4.11",
   "description": "HAL — AI-powered bookmark manager for X/Twitter with social features.",
   "permissions": ["activeTab", "tabs", "storage", "identity", "sidePanel"],
   "host_permissions": ["https://x.com/*", "https://twitter.com/*", "https://helloagainlinks.com/*"],

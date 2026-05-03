@@ -32,7 +32,11 @@ import type { TweetData } from './message-types';
 
 const ROOT_URL = 'https://x.com/i/bookmarks';
 const FOLDER_LIST_GRACE_MS = 5_000;
-const PER_FOLDER_NAVIGATION_WAIT_MS = 2_500;
+// Each folder navigation tears down the script context and X has to fire
+// `BookmarkFolderTimeline` before the scroll-intercept's 5×400ms empty-
+// scroll fail-fast triggers `intercept_failed`. 2.5s wasn't enough on a
+// heavy account — most folders failed silently. 6s gives X room to load.
+const PER_FOLDER_NAVIGATION_WAIT_MS = 6_000;
 
 interface XFolderEntry {
   x_folder_id: string;
