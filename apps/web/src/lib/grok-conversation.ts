@@ -25,7 +25,10 @@ interface BookmarkRow {
   x_author_handle: string;
   x_author_name: string;
   bookmarked_at: string;
+  user_notes: string | null;
 }
+
+const NOTE_CHAR_LIMIT = 500;
 
 interface NamedRow {
   name: string;
@@ -92,7 +95,12 @@ function formatBookmarkLine(b: BookmarkRow): string {
   const date = new Date(b.bookmarked_at).toISOString().slice(0, 10);
   const text = b.content_text.replace(/\s+/g, ' ').slice(0, 240);
   const handle = b.x_author_handle ? `@${b.x_author_handle}` : 'unknown';
-  return `- [bm:${b.id}] ${handle} (${date}): ${text}`;
+  const base = `- [bm:${b.id}] ${handle} (${date}): ${text}`;
+  const rawNote = b.user_notes?.trim();
+  if (!rawNote) return base;
+  const note = rawNote.replace(/\s+/g, ' ').slice(0, NOTE_CHAR_LIMIT);
+  const suffix = rawNote.length > NOTE_CHAR_LIMIT ? '…' : '';
+  return `${base}\n  user note: ${note}${suffix}`;
 }
 
 /**
@@ -131,7 +139,7 @@ export async function buildBookmarkContext(
       : Promise.resolve({ data: [], error: null }),
     client
       .from('bookmarks')
-      .select('id, content_text, x_author_handle, x_author_name, bookmarked_at')
+      .select('id, content_text, x_author_handle, x_author_name, bookmarked_at, user_notes')
       .eq('user_id', userId)
       .order('bookmarked_at', { ascending: false })
       .limit(RECENT_SLICE_LIMIT),
@@ -156,7 +164,7 @@ export async function buildBookmarkContext(
     const rankMap = new Map(ranked.map((r) => [r.id, r.rank]));
     const { data: hydrated } = await client
       .from('bookmarks')
-      .select('id, content_text, x_author_handle, x_author_name, bookmarked_at')
+      .select('id, content_text, x_author_handle, x_author_name, bookmarked_at, user_notes')
       .eq('user_id', userId)
       .in(
         'id',
@@ -224,6 +232,10 @@ export function buildSystemPrompt(contextText: string): string {
     "  because it scored highly against their question.",
     "- Answer directly from the bookmarks shown. Quote, summarize, or cite",
     '  specific ones — that is the entire job.',
+    "- A bookmark line may be followed by an indented `user note:` line — that",
+    "  is the user's own commentary saved on the bookmark. Treat it as high-",
+    "  signal: it usually explains why they saved the post or what they want",
+    "  to remember. Reflect it in your answer when relevant.",
     "- Do NOT offer to help the user brainstorm search terms, refine their",
     "  query, suggest alternative wordings, or ask them to be more specific.",
     "  They asked you a question; answer it from what's in the context.",
