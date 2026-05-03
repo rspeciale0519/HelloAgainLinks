@@ -116,9 +116,14 @@ function parseBookmarksResponse(json: unknown): ParsedBookmarksPage {
 
   // Phase 3: support both Bookmarks (root) and BookmarkFolderTimeline (folder-scoped)
   // operations. They share the same nested timeline shape.
+  // X uses `bookmark_collection_timeline` (no `_v2` suffix) for the
+  // folder-scoped operation as of May 2026 — the previous parser only
+  // checked `_v2` variants and silently returned 0 tweets for every
+  // folder, which surfaced as `intercept_failed` in the orchestrator.
   const timelineRoot =
     (data.bookmark_timeline_v2 as Record<string, unknown> | undefined) ??
-    (data.bookmark_collection_timeline_v2 as Record<string, unknown> | undefined);
+    (data.bookmark_collection_timeline_v2 as Record<string, unknown> | undefined) ??
+    (data.bookmark_collection_timeline as Record<string, unknown> | undefined);
   if (!timelineRoot) return empty;
 
   const timeline = timelineRoot.timeline as Record<string, unknown> | undefined;
