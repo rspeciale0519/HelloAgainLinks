@@ -42,7 +42,8 @@
   - [x] Extension `folder-walk-import.ts` orchestrator with `chrome.storage`-backed walk-state for resume across navigations
   - [x] Extension version bumped 0.3.3 → 0.4.0
   - [x] Legacy multi-folder routes archived to `archive/phase3/` per Rule 1
-  - **User verification still needed:** reload unpacked extension in Chrome, confirm v0.4.0; test single-bookmark save + bulk import unchanged; run end-to-end folder-walk against a real X account; validate GraphQL parser TODOs against live X markup
+  - [x] **Main-first import orchestrator (v0.4.2):** `folder-walk-import.ts` rewritten so a single root-page sweep imports every X bookmark before walking folders; folder walk now only collects post-IDs to POST as assignments; handles "no folders" by exiting after the main pass. Interceptor caches `BookmarkFoldersSlice` to `window.__halXFoldersList` so the orchestrator doesn't race the initial GraphQL fire. Plan: `.claude/plans/feature-x-import-main-first.md`.
+  - **User verification still needed:** reload unpacked extension in Chrome, confirm v0.4.2; test single-bookmark save + bulk import unchanged; run end-to-end main-first import against a real X account (with and without folders); validate GraphQL parser TODOs against live X markup
 - [x] **Phase 4 — Signal rail** *(complete)*
   - [x] Conversations + messages CRUD (`/api/conversations`, `/api/conversations/[id]`, `/api/conversations/[id]/messages`)
   - [x] Migration 007: `get_related_bookmarks` clustering RPC (Jaccard tags + primary_category)

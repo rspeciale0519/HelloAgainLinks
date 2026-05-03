@@ -2,7 +2,10 @@
 
 import { extractTweetData, type TweetData } from './tweet-utils';
 
-const BATCH_SIZE = 25;
+// 100 matches the server-side `batchImportSchema.max(100)` cap. Larger
+// batches cut API roundtrips 4× vs the historical 25, which matters when
+// a heavy X account has thousands of bookmarks to drain.
+const BATCH_SIZE = 100;
 const SCROLL_PX = 800;
 const SCROLL_WAIT_MS = 1500;
 const MAX_EMPTY_SCROLLS = 3;
@@ -293,16 +296,45 @@ const INTERCEPT_SCROLL_WAIT_MS = 400;
 
 let interceptBuffer: TweetData[] = [];
 let interceptListener: ((event: MessageEvent) => void) | null = null;
+// Dedup set scoped to the lifetime of one import session. The MAIN-world
+// interceptor pushes BOTH to a window cache (for late-attaching listeners)
+// AND to a postMessage event, so it's normal for the same tweet to land in
+// both channels — we de-dupe by postId here so the loop doesn't loop
+// forever on phantom "new" data.
+let seenPostIds = new Set<string>();
+
+function pushUniqueToBuffer(tweets: TweetData[]) {
+  for (const t of tweets) {
+    if (!t.postId || seenPostIds.has(t.postId)) continue;
+    seenPostIds.add(t.postId);
+    interceptBuffer.push(t);
+  }
+}
 
 function setupInterceptListener() {
   interceptBuffer = [];
+  seenPostIds = new Set<string>();
+  // Drain anything the MAIN-world interceptor cached before our listener
+  // attached (e.g. the page's initial Bookmarks GraphQL response that
+  // fires before the content script runs).
+  const cache = (window as unknown as { __halXBookmarksBuffer?: TweetData[] }).__halXBookmarksBuffer;
+  if (Array.isArray(cache) && cache.length > 0) {
+    pushUniqueToBuffer(cache);
+    cache.length = 0;
+  }
   interceptListener = (event: MessageEvent) => {
     if (event.source !== window) return;
     if (event.data?.source !== 'hal-x-interceptor') return;
     if (event.data.type !== 'X_INTERCEPT_BOOKMARKS') return;
 
-    const tweets: TweetData[] = event.data.tweets || [];
-    interceptBuffer.push(...tweets);
+    pushUniqueToBuffer(event.data.tweets || []);
+    // Also drain anything the interceptor wrote to the cache between
+    // events, then clear so the cache and the live stream don't diverge.
+    const c = (window as unknown as { __halXBookmarksBuffer?: TweetData[] }).__halXBookmarksBuffer;
+    if (Array.isArray(c) && c.length > 0) {
+      pushUniqueToBuffer(c);
+      c.length = 0;
+    }
   };
   window.addEventListener('message', interceptListener);
 }
@@ -313,6 +345,7 @@ function teardownInterceptListener() {
     interceptListener = null;
   }
   interceptBuffer = [];
+  seenPostIds = new Set<string>();
 }
 
 export function startScrollInterceptImport(callbacks: BulkImportCallbacks) {
@@ -333,10 +366,17 @@ export function startScrollInterceptImport(callbacks: BulkImportCallbacks) {
     } catch { /* ignore */ }
   }, KEEPALIVE_INTERVAL_MS);
 
-  let totalFound = 0;
   let totalImported = 0;
   let totalSkipped = 0;
   let emptyScrolls = 0;
+  // `seenPostIds.size` is the source of truth for unique tweets we've
+  // observed; tracking the previous value lets us compute "new this
+  // cycle" without re-counting leftover tweets that get unshifted back
+  // into interceptBuffer when a partial batch (< BATCH_SIZE) is left.
+  // The previous implementation incremented totalFound by
+  // newTweets.length on every drain, which double-counted leftovers and
+  // also kept resetting emptyScrolls so the loop never terminated.
+  let lastSeenSize = seenPostIds.size;
   // Track if we ever received intercepted data — if not after a few scrolls, signal failure
   let receivedInterceptedData = false;
 
@@ -345,11 +385,12 @@ export function startScrollInterceptImport(callbacks: BulkImportCallbacks) {
 
     // Drain the intercept buffer
     const newTweets = interceptBuffer.splice(0);
-    const newCount = newTweets.length;
+    const totalFound = seenPostIds.size;
+    const newThisCycle = totalFound - lastSeenSize;
+    lastSeenSize = totalFound;
 
-    if (newCount > 0) {
+    if (newThisCycle > 0) {
       receivedInterceptedData = true;
-      totalFound += newCount;
     }
 
     // Flush in batches
@@ -368,15 +409,20 @@ export function startScrollInterceptImport(callbacks: BulkImportCallbacks) {
 
     updateOverlay(totalFound, totalImported, totalSkipped);
 
-    if (newCount === 0) {
+    if (newThisCycle === 0) {
       emptyScrolls++;
     } else {
       emptyScrolls = 0;
     }
 
-    // If we haven't received any intercepted data after 5 scrolls, signal error
-    // so the orchestrator can fall back to DOM scraping
-    if (!receivedInterceptedData && emptyScrolls >= 5) {
+    // If we haven't received any intercepted data, signal error so the
+    // orchestrator can fall back to DOM scraping. 15 cycles × 400ms = 6s
+    // — folder walks need this much time on heavy accounts because each
+    // folder navigation creates a fresh page that has to fetch
+    // BookmarkFolderTimeline before the interceptor can capture anything.
+    // The previous 5-cycle (2s) limit caused 21/29 folders to silently
+    // fail and produce an empty assignment POST.
+    if (!receivedInterceptedData && emptyScrolls >= 15) {
       teardownInterceptListener();
       cleanup();
       callbacks.onError('intercept_failed');
@@ -384,14 +430,14 @@ export function startScrollInterceptImport(callbacks: BulkImportCallbacks) {
     }
 
     if (emptyScrolls >= MAX_EMPTY_SCROLLS && receivedInterceptedData) {
-      // Flush remaining buffer
+      // Flush remaining buffer (whatever was below BATCH_SIZE last cycle)
       const remaining = interceptBuffer.splice(0);
       if (remaining.length > 0) {
         const result = await callbacks.onBatch(remaining);
         totalImported += result.imported || 0;
         totalSkipped += result.skipped || 0;
       }
-      updateOverlay(totalFound, totalImported, totalSkipped, true);
+      updateOverlay(seenPostIds.size, totalImported, totalSkipped, true);
       teardownInterceptListener();
       callbacks.onDone();
       cleanupTimers();
