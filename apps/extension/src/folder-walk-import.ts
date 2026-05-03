@@ -193,9 +193,13 @@ function runScrollImportAsPromise(): Promise<void> {
         new Promise((batchResolve) => {
           chrome.runtime.sendMessage({ type: 'BULK_IMPORT_BATCH', tweets }, (response) => {
             void chrome.runtime.lastError;
+            // Forward all four buckets so the overlay's accuracy invariant
+            // holds: Found = imported + updated + skipped + errored + queued.
             batchResolve({
               imported: response?.imported || 0,
-              skipped: response?.skipped || 0,
+              updated:  response?.updated  || 0,
+              skipped:  response?.skipped  || 0,
+              errored:  response?.errored  || 0,
             });
           });
         }),

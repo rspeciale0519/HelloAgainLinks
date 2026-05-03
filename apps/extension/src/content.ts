@@ -448,7 +448,13 @@ chrome.runtime.onMessage.addListener((message) => {
         return new Promise((resolve) => {
           chrome.runtime.sendMessage({ type: 'BULK_IMPORT_BATCH', tweets }, (response) => {
             void chrome.runtime.lastError;
-            resolve({ imported: response?.imported || 0, skipped: response?.skipped || 0 });
+            // Forward all four buckets for the overlay's accuracy invariant.
+            resolve({
+              imported: response?.imported || 0,
+              updated:  response?.updated  || 0,
+              skipped:  response?.skipped  || 0,
+              errored:  response?.errored  || 0,
+            });
           });
         });
       },
@@ -474,7 +480,13 @@ chrome.runtime.onMessage.addListener((message) => {
         return new Promise((resolve) => {
           chrome.runtime.sendMessage({ type: 'BULK_IMPORT_BATCH', tweets }, (response) => {
             void chrome.runtime.lastError;
-            resolve({ imported: response?.imported || 0, skipped: response?.skipped || 0 });
+            // Forward all four buckets for the overlay's accuracy invariant.
+            resolve({
+              imported: response?.imported || 0,
+              updated:  response?.updated  || 0,
+              skipped:  response?.skipped  || 0,
+              errored:  response?.errored  || 0,
+            });
           });
         });
       },

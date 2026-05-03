@@ -3,7 +3,30 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"],
+      "env": [
+        "ANDROID_APP_LINK_PACKAGE_NAME",
+        "ANDROID_APP_LINK_SHA256_FINGERPRINTS",
+        "BOOKMARK_SYNC_SECRET",
+        "GROK_MODEL_FAST",
+        "GROK_MODEL_FULL",
+        "IOS_APP_LINK_BUNDLE_ID",
+        "IOS_APP_LINK_TEAM_ID",
+        "MOBILE_AUTH_HANDOFF_SECRET",
+        "NEXT_PUBLIC_API_IMPORT_ENABLED",
+        "NEXT_PUBLIC_APP_URL",
+        "NEXT_PUBLIC_MOBILE_AUTH_CALLBACK_URL",
+        "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
+        "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+        "NEXT_PUBLIC_SUPABASE_URL",
+        "STRIPE_SECRET_KEY",
+        "STRIPE_WEBHOOK_SECRET",
+        "SUPABASE_SERVICE_ROLE_KEY",
+        "SYNC_TIMEOUT_MS",
+        "XAI_API_KEY",
+        "X_CLIENT_ID",
+        "X_CLIENT_SECRET"
+      ]
     },
     "dev": {
       "cache": false,

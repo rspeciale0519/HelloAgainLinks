@@ -12,8 +12,10 @@ const MAX_EMPTY_SCROLLS = 3;
 const KEEPALIVE_INTERVAL_MS = 20000;
 
 export interface BatchResult {
-  imported?: number;
-  skipped?: number;
+  imported?: number;  // API `inserted` — brand-new bookmark rows
+  updated?: number;   // API `updated`  — existing row, incoming was richer & merged
+  skipped?: number;   // API `skipped`  — existing row, no change needed
+  errored?: number;   // tweet count from a batch the API rejected
 }
 
 export interface BulkImportCallbacks {
@@ -94,39 +96,80 @@ function injectOverlay(): HTMLDivElement {
   return overlay;
 }
 
-function updateOverlay(found: number, sent: number, skipped: number, done = false) {
+interface OverlayCounts {
+  imported: number;
+  updated: number;
+  skipped: number;
+  errored: number;
+}
+
+// Two-layer overlay so the relationship between numbers is honest:
+//   • Top line:    Found N           — total unique tweets the scraper has seen
+//   • Status line: Processed K of N  — derived: imported + updated + skipped + errored
+//   • Breakdown:   only non-zero buckets, each labeled
+// The gap (Found − Processed) is the queue still waiting to be sent. We
+// don't surface it as its own number because users intuit it as "still
+// working." On completion, Processed should equal Found; if it doesn't
+// we show a warning so the inconsistency is actionable, not silent.
+function updateOverlay(found: number, c: OverlayCounts, done = false) {
   const status = document.getElementById('hal-import-status');
   if (!status) return;
   status.textContent = '';
 
+  const processed = c.imported + c.updated + c.skipped + c.errored;
+  const queued = Math.max(0, found - processed);
+
   if (done) {
-    status.appendChild(createEl('div', { marginBottom: '6px' }, 'Scan complete!'));
+    status.appendChild(createEl('div', { marginBottom: '6px', fontWeight: '600' }, 'Scan complete!'));
   }
 
-  const line1 = createEl('div', { marginBottom: '6px' });
-  line1.appendChild(document.createTextNode('Found: '));
-  line1.appendChild(createEl('span', { color: '#00d4ff', fontWeight: '600' }, String(found)));
-  line1.appendChild(document.createTextNode(' bookmarks'));
-  status.appendChild(line1);
+  // Discovery line — what the scraper has seen.
+  const foundLine = createEl('div', { marginBottom: '6px' });
+  foundLine.appendChild(document.createTextNode('Found: '));
+  foundLine.appendChild(createEl('span', { color: '#00d4ff', fontWeight: '600' }, String(found)));
+  foundLine.appendChild(document.createTextNode(' on X'));
+  status.appendChild(foundLine);
 
-  const line2 = createEl('div', {});
-  line2.appendChild(document.createTextNode('Imported: '));
-  line2.appendChild(createEl('span', { color: '#00d4ff', fontWeight: '600' }, String(sent)));
-  status.appendChild(line2);
+  // Outcome summary — derived from the canonical buckets.
+  const processedLine = createEl('div', { marginBottom: '4px' });
+  processedLine.appendChild(document.createTextNode('Processed: '));
+  processedLine.appendChild(createEl('span', { color: '#00d4ff', fontWeight: '600' }, String(processed)));
+  processedLine.appendChild(document.createTextNode(` of ${found}`));
+  status.appendChild(processedLine);
 
-  if (skipped > 0) {
-    const line3 = createEl('div', { marginTop: '2px' });
-    line3.appendChild(document.createTextNode('Skipped: '));
-    line3.appendChild(createEl('span', { color: '#f59e0b', fontWeight: '600' }, String(skipped)));
-    line3.appendChild(document.createTextNode(' duplicates'));
-    status.appendChild(line3);
-  }
+  // Per-bucket breakdown (only show non-zero so the panel stays compact).
+  const bucket = (label: string, n: number, color: string) => {
+    if (n === 0) return;
+    const row = createEl('div', { marginLeft: '10px', fontSize: '12px', marginTop: '1px' });
+    row.appendChild(document.createTextNode('• '));
+    row.appendChild(createEl('span', { color, fontWeight: '600' }, String(n)));
+    row.appendChild(document.createTextNode(' ' + label));
+    status.appendChild(row);
+  };
+  bucket('new', c.imported, '#00d4ff');
+  bucket('enriched', c.updated, '#10b981');
+  bucket('already saved', c.skipped, '#f59e0b');
+  bucket('failed', c.errored, '#ef4444');
 
   if (!done) {
-    status.appendChild(createEl('div', { marginTop: '8px', fontSize: '11px', color: '#4a4a5a' }, 'Auto-scrolling page...'));
+    if (queued > 0) {
+      status.appendChild(createEl('div', { marginTop: '8px', fontSize: '11px', color: '#4a4a5a' },
+        `Auto-scrolling — ${queued} queued`));
+    } else {
+      status.appendChild(createEl('div', { marginTop: '8px', fontSize: '11px', color: '#4a4a5a' },
+        'Auto-scrolling page...'));
+    }
   }
 
   if (done) {
+    // Accuracy invariant: at completion every Found tweet must be in a bucket.
+    if (queued !== 0) {
+      status.appendChild(createEl('div',
+        { marginTop: '8px', fontSize: '11px', color: '#f59e0b' },
+        `Note: ${queued} tweet${queued === 1 ? '' : 's'} unaccounted (Found ≠ Processed). Check console.`));
+      console.warn('[BulkImport] Accuracy invariant failed at done:',
+        { found, processed, queued, ...c });
+    }
     const stopBtn = document.getElementById('hal-import-stop');
     if (stopBtn) {
       stopBtn.textContent = 'Close';
@@ -170,8 +213,7 @@ export function startBulkImport(callbacks: BulkImportCallbacks) {
 
   const buffer: TweetData[] = [];
   let totalFound = 0;
-  let totalImported = 0;
-  let totalSkipped = 0;
+  const tally: OverlayCounts = { imported: 0, updated: 0, skipped: 0, errored: 0 };
   let emptyScrolls = 0;
 
   async function waitForVisible(): Promise<void> {
@@ -223,14 +265,16 @@ export function startBulkImport(callbacks: BulkImportCallbacks) {
     // Flush buffer when it reaches batch size
     while (buffer.length >= BATCH_SIZE) {
       const batch = buffer.splice(0, BATCH_SIZE);
-      updateOverlay(totalFound, totalImported, totalSkipped);
+      updateOverlay(totalFound, tally);
       const result = await callbacks.onBatch(batch);
-      totalImported += result.imported || 0;
-      totalSkipped += result.skipped || 0;
-      updateOverlay(totalFound, totalImported, totalSkipped);
+      tally.imported += result.imported || 0;
+      tally.updated  += result.updated  || 0;
+      tally.skipped  += result.skipped  || 0;
+      tally.errored  += result.errored  || 0;
+      updateOverlay(totalFound, tally);
     }
 
-    updateOverlay(totalFound, totalImported, totalSkipped);
+    updateOverlay(totalFound, tally);
 
     // Track empty scrolls for end-of-list detection
     if (newThisCycle === 0) {
@@ -243,10 +287,12 @@ export function startBulkImport(callbacks: BulkImportCallbacks) {
       // Flush remaining buffer
       if (buffer.length > 0) {
         const result = await callbacks.onBatch(buffer.splice(0));
-        totalImported += result.imported || 0;
-        totalSkipped += result.skipped || 0;
+        tally.imported += result.imported || 0;
+        tally.updated  += result.updated  || 0;
+        tally.skipped  += result.skipped  || 0;
+        tally.errored  += result.errored  || 0;
       }
-      updateOverlay(totalFound, totalImported, totalSkipped, true);
+      updateOverlay(totalFound, tally, true);
       callbacks.onDone();
       cleanupTimers();
       return;
@@ -366,8 +412,7 @@ export function startScrollInterceptImport(callbacks: BulkImportCallbacks) {
     } catch { /* ignore */ }
   }, KEEPALIVE_INTERVAL_MS);
 
-  let totalImported = 0;
-  let totalSkipped = 0;
+  const tally: OverlayCounts = { imported: 0, updated: 0, skipped: 0, errored: 0 };
   let emptyScrolls = 0;
   // `seenPostIds.size` is the source of truth for unique tweets we've
   // observed; tracking the previous value lets us compute "new this
@@ -396,10 +441,12 @@ export function startScrollInterceptImport(callbacks: BulkImportCallbacks) {
     // Flush in batches
     while (newTweets.length >= BATCH_SIZE) {
       const batch = newTweets.splice(0, BATCH_SIZE);
-      updateOverlay(totalFound, totalImported, totalSkipped);
+      updateOverlay(totalFound, tally);
       const result = await callbacks.onBatch(batch);
-      totalImported += result.imported || 0;
-      totalSkipped += result.skipped || 0;
+      tally.imported += result.imported || 0;
+      tally.updated  += result.updated  || 0;
+      tally.skipped  += result.skipped  || 0;
+      tally.errored  += result.errored  || 0;
     }
 
     // Remaining tweets stay for next flush
@@ -407,7 +454,7 @@ export function startScrollInterceptImport(callbacks: BulkImportCallbacks) {
       interceptBuffer.unshift(...newTweets);
     }
 
-    updateOverlay(totalFound, totalImported, totalSkipped);
+    updateOverlay(totalFound, tally);
 
     if (newThisCycle === 0) {
       emptyScrolls++;
@@ -434,10 +481,12 @@ export function startScrollInterceptImport(callbacks: BulkImportCallbacks) {
       const remaining = interceptBuffer.splice(0);
       if (remaining.length > 0) {
         const result = await callbacks.onBatch(remaining);
-        totalImported += result.imported || 0;
-        totalSkipped += result.skipped || 0;
+        tally.imported += result.imported || 0;
+        tally.updated  += result.updated  || 0;
+        tally.skipped  += result.skipped  || 0;
+        tally.errored  += result.errored  || 0;
       }
-      updateOverlay(seenPostIds.size, totalImported, totalSkipped, true);
+      updateOverlay(seenPostIds.size, tally, true);
       teardownInterceptListener();
       callbacks.onDone();
       cleanupTimers();
