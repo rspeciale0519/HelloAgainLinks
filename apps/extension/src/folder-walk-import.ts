@@ -91,8 +91,9 @@ export async function startMainFirstImport(): Promise<void> {
   window.addEventListener('message', folderListListener);
 
   try {
-    showWalkOverlay('Importing all bookmarks from X…');
+    showWalkOverlay('phase=main-pass · Importing all bookmarks from X…');
     await runScrollImportAsPromise();
+    showWalkOverlay('phase=main-pass-done · Looking for folders…');
 
     // Give the BookmarkFoldersSlice response one last grace window in
     // case X loads it lazily (e.g. only after timeline render).
@@ -100,21 +101,23 @@ export async function startMainFirstImport(): Promise<void> {
     window.removeEventListener('message', folderListListener);
 
     if (folders.length === 0) {
-      showWalkOverlay('Done — main bookmarks imported. No folders found.', { final: true });
+      sendBulkImportDone();
+      showWalkOverlay('phase=done · Main bookmarks imported. No folders found.', { final: true });
       importRunning = false;
       return;
     }
 
     // Persist state and navigate to the first folder. Resumption is
     // handled by maybeResumeFolderWalk() on the next page load.
+    showWalkOverlay(`phase=persist-state · Saving state for ${folders.length} folders…`);
     const state: WalkState = { folders, assignments: [], currentIndex: 0 };
     await persistWalkState(state);
-    showWalkOverlay(`Indexing folder 1/${folders.length}: ${folders[0].folder_name}…`);
+    showWalkOverlay(`phase=navigate · Indexing folder 1/${folders.length}: ${folders[0].folder_name}…`);
     window.location.href = `${ROOT_URL}/${encodeURIComponent(folders[0].x_folder_id)}`;
     // Navigation discards this context.
   } catch (err) {
     window.removeEventListener('message', folderListListener);
-    showWalkOverlay(`Import failed: ${(err as Error).message}`, { final: true });
+    showWalkOverlay(`phase=error · Import failed: ${(err as Error).message}`, { final: true });
     importRunning = false;
   }
 }
@@ -231,12 +234,21 @@ function dedupeFolders(list: XFolderEntry[]): XFolderEntry[] {
 
 async function finalize(state: WalkState): Promise<void> {
   await postImport(state.folders, state.assignments);
+  sendBulkImportDone();
   await clearWalkState();
   importRunning = false;
   showWalkOverlay(
     `Done — ${state.folders.length} folders, ${state.assignments.length} bookmarks assigned.`,
     { final: true },
   );
+}
+
+function sendBulkImportDone(): void {
+  try {
+    chrome.runtime.sendMessage({ type: 'BULK_IMPORT_DONE' }, () => {
+      void chrome.runtime.lastError;
+    });
+  } catch { /* no-op */ }
 }
 
 async function postImport(

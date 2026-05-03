@@ -234,19 +234,29 @@ XMLHttpRequest.prototype.open = function (method: string, url: string | URL, ...
     xhrMetaMap.set(this, { url: urlStr, headers: {} });
   } else if (FOLDERS_LIST_PATTERN.test(urlStr)) {
     // Phase 3: piggyback the folder-list response back to the orchestrator.
-    // Also cache to a window-global so the orchestrator (which loads later
-    // than the page's first BookmarkFoldersSlice fetch) can read it
-    // synchronously and not race the postMessage event.
+    // Append+dedupe to a window-global cache so the orchestrator (which
+    // loads after the page's first BookmarkFoldersSlice fetch and can also
+    // race subsequent paginated fetches as the user horizontally scrolls
+    // the folder tabs) can read the full list synchronously.
     this.addEventListener('load', () => {
       try {
         const json = JSON.parse((this as XMLHttpRequest).responseText);
         const folders = parseFoldersListResponse(json);
         if (folders.length > 0) {
-          (window as unknown as { __halXFoldersList?: XFolderEntry[] }).__halXFoldersList = folders;
+          const w = window as unknown as { __halXFoldersList?: XFolderEntry[] };
+          const existing = Array.isArray(w.__halXFoldersList) ? w.__halXFoldersList : [];
+          const seen = new Set(existing.map((f) => f.x_folder_id));
+          for (const f of folders) {
+            if (!seen.has(f.x_folder_id)) {
+              existing.push(f);
+              seen.add(f.x_folder_id);
+            }
+          }
+          w.__halXFoldersList = existing;
           window.postMessage({
             source: 'hal-x-interceptor',
             type: 'X_INTERCEPT_FOLDERS_LIST',
-            folders,
+            folders: existing,
           }, '*');
         }
       } catch {
@@ -327,6 +337,15 @@ XMLHttpRequest.prototype.send = function (body?: Document | XMLHttpRequestBodyIn
           const tweetsWithCtx = folderCtx
             ? parsed.tweets.map((t) => ({ ...t, folder_context: folderCtx }))
             : parsed.tweets;
+          // Buffer tweets in a window-global so the orchestrator can drain
+          // anything that arrived before its listener attached. The
+          // orchestrator clears this buffer when it consumes it; messages
+          // that arrive while the listener is active are double-pushed
+          // (cache + postMessage), but the listener uses a Set keyed by
+          // postId, so the dedupe is free.
+          const w = window as unknown as { __halXBookmarksBuffer?: TweetData[] };
+          if (!Array.isArray(w.__halXBookmarksBuffer)) w.__halXBookmarksBuffer = [];
+          w.__halXBookmarksBuffer.push(...tweetsWithCtx);
           window.postMessage({
             source: 'hal-x-interceptor',
             type: 'X_INTERCEPT_BOOKMARKS',

@@ -201,27 +201,42 @@ async function handleStartBulkImport() {
 }
 
 async function handleBulkImportBatch(tweets: TweetData[]) {
+  // Lazy-init the session for orchestrator-driven imports
+  // (folder-walk-import.ts) that send batches directly without the
+  // START_BULK_IMPORT bootstrap. tabId=-1 is a sentinel meaning "no
+  // background-managed tab" — chrome.tabs.sendMessage on it will fail
+  // silently via the existing .catch() guards on call sites.
+  if (!currentImport) {
+    currentImport = { tabId: -1, imported: 0, skipped: 0, limitReached: false };
+  }
   // Capture reference — currentImport can be nulled by DONE/STOP during our awaits
   const session = currentImport;
   if (!session) return { error: 'No import session' };
 
-  const bookmarks = tweets.map((t) => ({
-    x_post_id: t.postId,
-    x_author_handle: t.author,
-    x_author_name: t.authorName,
-    content_text: t.content,
-    media_urls: t.mediaUrls,
-    post_created_at: t.timestamp || new Date().toISOString(),
-    bookmarked_at: new Date().toISOString(),
-    x_author_avatar_url: t.avatarUrl || null,
-    language: t.language || null,
-    engagement: t.engagement || null,
-    conversation_id: t.conversationId || null,
-    in_reply_to_status_id: t.inReplyToStatusId || null,
-    quoted_status_id: t.quotedStatusId || null,
-    possibly_sensitive: t.possiblySensitive ?? false,
-    ingested_via: 'extension' as const,
-  }));
+  // The shared Zod schema marks most optional fields as `.optional()` (not
+  // `.nullable()`), so we must OMIT keys when the value is missing rather
+  // than passing `null`. Sending `null` triggers Invalid request errors and
+  // the whole batch is rejected.
+  const bookmarks = tweets.map((t) => {
+    const row: Record<string, unknown> = {
+      x_post_id: t.postId,
+      x_author_handle: t.author,
+      x_author_name: t.authorName,
+      content_text: t.content,
+      media_urls: t.mediaUrls,
+      post_created_at: t.timestamp || new Date().toISOString(),
+      bookmarked_at: new Date().toISOString(),
+      possibly_sensitive: t.possiblySensitive ?? false,
+      ingested_via: 'extension' as const,
+    };
+    if (t.avatarUrl) row.x_author_avatar_url = t.avatarUrl;
+    if (t.language) row.language = t.language;
+    if (t.engagement) row.engagement = t.engagement;
+    if (t.conversationId) row.conversation_id = t.conversationId;
+    if (t.inReplyToStatusId) row.in_reply_to_status_id = t.inReplyToStatusId;
+    if (t.quotedStatusId) row.quoted_status_id = t.quotedStatusId;
+    return row;
+  });
 
   const result = await apiCall('/api/bookmarks/batch', {
     method: 'POST',
@@ -229,8 +244,14 @@ async function handleBulkImportBatch(tweets: TweetData[]) {
   });
 
   if (result.error) {
-    const errorMsg = result.details ? `${result.error}: ${result.details}` : result.error;
-    console.error('[BulkImport] Batch API error:', errorMsg, result);
+    // Stringify Zod issues so the runtime errors panel shows the failure
+    // instead of `[object Object],[object Object],...` — that hid the
+    // actual validation problem during the v0.4.x main-first roll-out.
+    const detailsStr = Array.isArray(result.details)
+      ? JSON.stringify(result.details).slice(0, 1500)
+      : (result.details ?? '');
+    const errorMsg = detailsStr ? `${result.error}: ${detailsStr}` : result.error;
+    console.error('[BulkImport] Batch API error:', errorMsg, '\nFirst payload row:', JSON.stringify(bookmarks[0]));
     return { ...result, error: errorMsg };
   }
 
