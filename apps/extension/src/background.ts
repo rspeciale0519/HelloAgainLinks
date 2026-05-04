@@ -6,6 +6,7 @@ import {
   setImportTiming, broadcastExtendedProgress,
   waitForTabLoad, ensureXTab, waitForCredentialCapture,
   handleBookmarksPageResult, directGraphQLImport,
+  handleFolderPageResult, directFolderFetch,
 } from './direct-import';
 
 const API_BASE = 'https://helloagainlinks.com';
@@ -279,6 +280,82 @@ async function handleBulkImportBatch(tweets: TweetData[]) {
   return { success: true, ...result };
 }
 
+// ── Phase 4: Direct-API folder fetch + finalize ──────────────
+//
+// Replaces the per-folder navigation+scroll-intercept dance with N
+// direct GraphQL pagination loops, one per folder, all from the same X
+// tab. This is far more accurate (we drive pagination ourselves
+// instead of indirectly tickling X's IntersectionObserver) and far
+// faster (no per-folder navigation, no scroll waits, no termination
+// timing guesses).
+
+async function handleDirectFolderFetch(
+  folders: Array<{ x_folder_id: string; folder_name: string }>,
+  hintTabId?: number,
+): Promise<{ ok: boolean; assignmentsCount: number; foldersFetched: number; error?: string }> {
+  const session = await getXSession();
+  if (!session || !isXSessionFresh(session)) {
+    return { ok: false, assignmentsCount: 0, foldersFetched: 0, error: 'No fresh X credentials' };
+  }
+
+  // Find the X tab to relay through. Prefer the hint (the orchestrator
+  // sends sender.tab.id), otherwise fall back to any open x.com tab.
+  let tabId = hintTabId ?? -1;
+  if (tabId < 0) {
+    const xTabs = await chrome.tabs.query({ url: ['https://x.com/*', 'https://twitter.com/*'] });
+    tabId = xTabs[0]?.id ?? -1;
+  }
+  if (tabId < 0) {
+    return { ok: false, assignmentsCount: 0, foldersFetched: 0, error: 'No X tab open for relay' };
+  }
+
+  const assignments: Array<{ bookmark_x_post_id: string; x_folder_id: string }> = [];
+  let foldersFetched = 0;
+  let cancelled = false;
+  const isActive = () => !cancelled;
+
+  for (const folder of folders) {
+    const result = await directFolderFetch(tabId, folder.x_folder_id, isActive);
+    if (result.error === 'cancelled') break;
+    if (result.error === 'rate_limited' || result.error === 'auth_expired') {
+      // Surface fatal errors but keep what we collected so far.
+      // POST partial assignments rather than throwing it all away.
+      console.warn('[HAL] direct-folder-fetch: fatal error after', foldersFetched, 'folders:', result.error);
+      cancelled = true;
+    }
+    for (const postId of result.postIds) {
+      assignments.push({ bookmark_x_post_id: postId, x_folder_id: folder.x_folder_id });
+    }
+    foldersFetched++;
+  }
+
+  // POST whatever we collected (even if cancelled mid-way — partial is
+  // better than nothing). The /api/folders/import-x endpoint handles
+  // empty assignments arrays gracefully.
+  const importResult = await apiCall('/api/folders/import-x', {
+    method: 'POST',
+    body: JSON.stringify({
+      folders: folders.map((f) => ({ x_folder_id: f.x_folder_id, name: f.folder_name })),
+      assignments,
+    }),
+  });
+
+  if (importResult.error) {
+    return {
+      ok: false,
+      assignmentsCount: assignments.length,
+      foldersFetched,
+      error: `import-x failed: ${importResult.error}`,
+    };
+  }
+
+  return {
+    ok: true,
+    assignmentsCount: assignments.length,
+    foldersFetched,
+  };
+}
+
 function handleBulkImportDone() {
   if (!currentImport) return;
   const progress = {
@@ -348,8 +425,8 @@ chrome.runtime.onInstalled.addListener(() => {
   console.log('[HelloAgain] Extension installed');
 });
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  handleMessage(message)
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  handleMessage(message, sender)
     .then(sendResponse)
     .catch((err) => {
       console.error('[HelloAgain] Message handler error:', err);
@@ -391,7 +468,7 @@ chrome.runtime.onMessageExternal.addListener((message: ExternalMessage, sender, 
   }
 });
 
-async function handleMessage(message: ExtensionMessage) {
+async function handleMessage(message: ExtensionMessage, sender?: chrome.runtime.MessageSender) {
   switch (message.type) {
     case 'SAVE_BOOKMARK':
       return handleSaveBookmark(message.data);
@@ -493,6 +570,18 @@ async function handleMessage(message: ExtensionMessage) {
         (message as unknown as { error?: string }).error || null,
       );
       return { success: true };
+
+    case 'X_FOLDER_PAGE_RESULT':
+      handleFolderPageResult(
+        (message as unknown as { folderId: string }).folderId,
+        message.tweets || [],
+        message.cursor || null,
+        (message as unknown as { error?: string | null }).error || null,
+      );
+      return { success: true };
+
+    case 'HAL_DIRECT_FOLDER_FETCH':
+      return handleDirectFolderFetch(message.folders, message.tabId ?? sender?.tab?.id);
 
     case 'OPEN_IN_CURRENT_TAB': {
       const win = await chrome.windows.getLastFocused({ windowTypes: ['normal'], populate: true });

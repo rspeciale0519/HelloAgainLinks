@@ -46,6 +46,20 @@ window.addEventListener('message', (event) => {
     });
     return;
   }
+
+  if (type === 'X_FOLDER_PAGE_RESULT') {
+    // Phase 4 relay result: MAIN world → content → background
+    chrome.runtime.sendMessage({
+      type: 'X_FOLDER_PAGE_RESULT',
+      folderId: event.data.folderId,
+      tweets: event.data.tweets || [],
+      cursor: event.data.cursor || null,
+      error: event.data.error || null,
+    }, () => {
+      void chrome.runtime.lastError;
+    });
+    return;
+  }
 });
 
 // ── HAL bookmarked post IDs cache ────────────────────────────
@@ -505,6 +519,17 @@ chrome.runtime.onMessage.addListener((message) => {
     window.postMessage({
       source: 'hal-content',
       type: 'FETCH_BOOKMARKS_PAGE',
+      cursor: message.cursor || null,
+    }, '*');
+    return;
+  }
+
+  // Phase 4 relay: background → content → MAIN world (folder direct fetch)
+  if (message.type === 'FETCH_FOLDER_PAGE') {
+    window.postMessage({
+      source: 'hal-content',
+      type: 'FETCH_FOLDER_PAGE',
+      folderId: message.folderId,
       cursor: message.cursor || null,
     }, '*');
     return;
