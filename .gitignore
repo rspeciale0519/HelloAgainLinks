@@ -9,3 +9,5 @@ dist/
 temp/.claude/settings.local.json
 .worktrees/
 .superpowers/
+temp/
+archive/
