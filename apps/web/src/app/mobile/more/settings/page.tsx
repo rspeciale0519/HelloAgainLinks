@@ -19,7 +19,10 @@ export default function MobileSettingsPage() {
     const supabase = getSupabaseBrowserClient();
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
-      const res = await fetch('/api/sync/background', { headers: { Authorization: `Bearer ${session.access_token}` } });
+      const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'https://helloagainlinks.com'}/api/sync/background`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
       setSyncStatus(res.ok ? 'Sync complete' : 'Sync failed');
     }
     setSyncing(false);
