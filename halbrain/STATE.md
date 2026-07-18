@@ -2,8 +2,9 @@
 Updated: 2026-07-18
 
 ## Current focus
-None active — knowledge-build runbook completed this session. All four
-knowledge docs are `status: current`.
+feature/mobile-sync-trigger — app-open + resume auto-sync implemented and
+checkpointed (725011c); PR to develop pending owner's on-device verification
+(resume sync, throttle, share sheet).
 
 ## Latest synopsis
 Full knowledge-build pass: product intent, codebase build-status,

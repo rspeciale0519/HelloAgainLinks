@@ -709,9 +709,16 @@
 - Added background sync endpoint (`/api/sync/background`)
 - Added pull-to-refresh + haptic feedback improvements
 - Added mobile scripts and README mobile docs
+- Added automatic sync triggers: app-open + Capacitor `resume`, 2-min throttle
+  (`apps/web/src/lib/use-auto-sync.ts`). Cron scheduler deliberately deferred —
+  server-side polling costs scale with total users rather than active ones and
+  Vercel Hobby caps crons at once daily; revisit when a feature needs data
+  freshness without the user present (Scout agent, push notifications) or an
+  800-bookmark API-window loss is reported. Decision record:
+  `halbrain/journal/2026-07-18.md`.
 
 ### 🔜 Next
 - Finalize iOS Share Extension setup/verification in Xcode release pipeline
-- Add background sync scheduler wiring (Vercel Cron/GitHub Actions/worker)
 - Add telemetry for share ingestion success/failure rates
 - Add retry/backoff for sync runs across large user sets
+- (Deferred by decision, see above) background sync cron scheduler
