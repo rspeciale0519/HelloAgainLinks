@@ -11,3 +11,9 @@ temp/.claude/settings.local.json
 .superpowers/
 temp/
 archive/
+
+# >>> brain (managed) >>>
+halbrain/.brainstate/
+halbrain/.obsidian/
+# <<< brain (managed) <<<
+
