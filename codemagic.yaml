@@ -29,6 +29,8 @@ workflows:
           corepack prepare pnpm@10.28.2 --activate
       - name: Install dependencies
         script: pnpm install --frozen-lockfile
+      - name: Build workspace packages (@helloagain/ui, @helloagain/shared)
+        script: pnpm --filter @helloagain/ui --filter @helloagain/shared run build
       - name: Build web app + sync Capacitor iOS
         script: pnpm mobile:build
       - name: Set up code signing (App Store Connect integration)
@@ -78,6 +80,8 @@ workflows:
           corepack prepare pnpm@10.28.2 --activate
       - name: Install dependencies
         script: pnpm install --frozen-lockfile
+      - name: Build workspace packages (@helloagain/ui, @helloagain/shared)
+        script: pnpm --filter @helloagain/ui --filter @helloagain/shared run build
       - name: Build web app + sync Capacitor Android
         script: |
           BUILD_TARGET=mobile pnpm --filter @helloagain/web run build
