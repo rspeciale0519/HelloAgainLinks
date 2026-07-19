@@ -6,11 +6,17 @@ workflows:
     integrations:
       app_store_connect: hal_app_store_connect
     environment:
-      groups:
-        - hal_mobile_env
       node: "22"
       vars:
         NEXT_TELEMETRY_DISABLED: "1"
+        # Public client env — inlined into the static bundle at build time.
+        # These are public by design (the anon key ships in every web/app
+        # bundle; Supabase RLS protects the data, not the key's secrecy), so
+        # they live in-repo where they are verifiable and cannot silently go
+        # empty. Do NOT add the service-role/Stripe/X *secret* keys here.
+        NEXT_PUBLIC_SUPABASE_URL: "https://hvvvoiwpoldnresqqcbc.supabase.co"
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh2dnZvaXdwb2xkbnJlc3FxY2JjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0NzU2MjQsImV4cCI6MjA4NjA1MTYyNH0.G2QvTRYedCFC4QVClI0ajI4IkfpevAeI7WBcF_OAkbI"
+        NEXT_PUBLIC_APP_URL: "https://helloagainlinks.com"
         XCODE_PROJECT: "apps/web/ios/App/App.xcodeproj"
         XCODE_SCHEME: "App"
         BUNDLE_ID: "com.helloagainlinks.app"
@@ -69,9 +75,12 @@ workflows:
       node: "22"
       groups:
         - hal_android_signing
-        - hal_mobile_env
       vars:
         NEXT_TELEMETRY_DISABLED: "1"
+        # Public client env — see the iOS workflow above for rationale.
+        NEXT_PUBLIC_SUPABASE_URL: "https://hvvvoiwpoldnresqqcbc.supabase.co"
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh2dnZvaXdwb2xkbnJlc3FxY2JjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0NzU2MjQsImV4cCI6MjA4NjA1MTYyNH0.G2QvTRYedCFC4QVClI0ajI4IkfpevAeI7WBcF_OAkbI"
+        NEXT_PUBLIC_APP_URL: "https://helloagainlinks.com"
         PACKAGE_NAME: "com.helloagainlinks.app"
     triggering:
       events:
