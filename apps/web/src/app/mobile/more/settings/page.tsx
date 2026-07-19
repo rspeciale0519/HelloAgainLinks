@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { authFetch } from '@/lib/auth-fetch';
 
 export default function MobileSettingsPage() {
   const router = useRouter();
@@ -16,12 +16,8 @@ export default function MobileSettingsPage() {
 
   const triggerSync = async () => {
     setSyncing(true);
-    const supabase = getSupabaseBrowserClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session) {
-      const res = await fetch('/api/sync/background', { headers: { Authorization: `Bearer ${session.access_token}` } });
-      setSyncStatus(res.ok ? 'Sync complete' : 'Sync failed');
-    }
+    const res = await authFetch('/api/sync/background');
+    setSyncStatus(res?.ok ? 'Sync complete' : 'Sync failed');
     setSyncing(false);
   };
 
