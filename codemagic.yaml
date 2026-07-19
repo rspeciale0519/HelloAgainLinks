@@ -9,7 +9,7 @@ workflows:
       node: "22"
       vars:
         NEXT_TELEMETRY_DISABLED: "1"
-        XCODE_WORKSPACE: "apps/web/ios/App/App.xcworkspace"
+        XCODE_PROJECT: "apps/web/ios/App/App.xcodeproj"
         XCODE_SCHEME: "App"
         BUNDLE_ID: "com.helloagainlinks.app"
       ios_signing:
@@ -43,7 +43,7 @@ workflows:
       - name: Build .ipa for App Store Connect
         script: |
           xcode-project build-ipa \
-            --workspace "$XCODE_WORKSPACE" \
+            --project "$XCODE_PROJECT" \
             --scheme "$XCODE_SCHEME"
     artifacts:
       - build/ios/ipa/*.ipa
