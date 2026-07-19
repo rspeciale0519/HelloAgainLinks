@@ -715,3 +715,4 @@
 - Add background sync scheduler wiring (Vercel Cron/GitHub Actions/worker)
 - Add telemetry for share ingestion success/failure rates
 - Add retry/backoff for sync runs across large user sets
+- **iOS TestFlight pipeline via Codemagic** — `codemagic.yaml` added (no Mac required for build/sign/distribute). Blocked on one-time portal setup (Apple Developer App ID + App Store Connect API key + Codemagic integration) — checklist: `docs/dev-docs/IOS_CODEMAGIC_SETUP.md`.

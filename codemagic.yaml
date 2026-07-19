@@ -1,0 +1,111 @@
+workflows:
+  ios-testflight:
+    name: HAL iOS — TestFlight (internal)
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: hal_app_store_connect
+    environment:
+      node: "22"
+      vars:
+        NEXT_TELEMETRY_DISABLED: "1"
+        # Public client env — inlined into the static bundle at build time.
+        # These are public by design (the anon key ships in every web/app
+        # bundle; Supabase RLS protects the data, not the key's secrecy), so
+        # they live in-repo where they are verifiable and cannot silently go
+        # empty. Do NOT add the service-role/Stripe/X *secret* keys here.
+        NEXT_PUBLIC_SUPABASE_URL: "https://hvvvoiwpoldnresqqcbc.supabase.co"
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh2dnZvaXdwb2xkbnJlc3FxY2JjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0NzU2MjQsImV4cCI6MjA4NjA1MTYyNH0.G2QvTRYedCFC4QVClI0ajI4IkfpevAeI7WBcF_OAkbI"
+        NEXT_PUBLIC_APP_URL: "https://helloagainlinks.com"
+        XCODE_PROJECT: "apps/web/ios/App/App.xcodeproj"
+        XCODE_SCHEME: "App"
+        BUNDLE_ID: "com.helloagainlinks.app"
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.helloagainlinks.app
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: develop
+          include: true
+      cancel_previous_builds: true
+    scripts:
+      - name: Enable corepack / pnpm
+        script: |
+          corepack enable
+          corepack prepare pnpm@10.28.2 --activate
+      - name: Install dependencies
+        script: pnpm install --frozen-lockfile
+      - name: Build workspace packages (@helloagain/ui, @helloagain/shared)
+        script: pnpm --filter @helloagain/ui --filter @helloagain/shared run build
+      - name: Build web app + sync Capacitor iOS
+        script: pnpm mobile:build
+      - name: Set up code signing (App Store Connect integration)
+        script: |
+          xcode-project use-profiles
+      - name: Increment build number
+        script: |
+          cd $CM_BUILD_DIR/apps/web/ios/App
+          # Use Codemagic's monotonic build counter for CFBundleVersion.
+          # The App Store Connect get-latest-build-number query returns empty
+          # right after an upload (API lag), which produced a duplicate "1"
+          # and a 409 on publish. $BUILD_NUMBER is always unique & increasing.
+          agvtool new-version -all "$BUILD_NUMBER"
+      - name: Build .ipa for App Store Connect
+        script: |
+          xcode-project build-ipa \
+            --project "$XCODE_PROJECT" \
+            --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        beta_groups:
+          - Internal Testers
+
+  android-release:
+    name: HAL Android — signed release APK/AAB
+    max_build_duration: 45
+    instance_type: linux_x2
+    environment:
+      node: "22"
+      groups:
+        - hal_android_signing
+      vars:
+        NEXT_TELEMETRY_DISABLED: "1"
+        # Public client env — see the iOS workflow above for rationale.
+        NEXT_PUBLIC_SUPABASE_URL: "https://hvvvoiwpoldnresqqcbc.supabase.co"
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh2dnZvaXdwb2xkbnJlc3FxY2JjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0NzU2MjQsImV4cCI6MjA4NjA1MTYyNH0.G2QvTRYedCFC4QVClI0ajI4IkfpevAeI7WBcF_OAkbI"
+        NEXT_PUBLIC_APP_URL: "https://helloagainlinks.com"
+        PACKAGE_NAME: "com.helloagainlinks.app"
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: develop
+          include: true
+      cancel_previous_builds: true
+    scripts:
+      - name: Enable corepack / pnpm
+        script: |
+          corepack enable
+          corepack prepare pnpm@10.28.2 --activate
+      - name: Install dependencies
+        script: pnpm install --frozen-lockfile
+      - name: Build workspace packages (@helloagain/ui, @helloagain/shared)
+        script: pnpm --filter @helloagain/ui --filter @helloagain/shared run build
+      - name: Build web app + sync Capacitor Android
+        script: |
+          BUILD_TARGET=mobile pnpm --filter @helloagain/web run build
+          pnpm --filter @helloagain/web exec cap sync android
+      - name: Build signed AAB
+        script: |
+          cd apps/web/android
+          ./gradlew bundleRelease
+    artifacts:
+      - apps/web/android/app/build/outputs/**/*.aab
+      - apps/web/android/app/build/outputs/**/*.apk

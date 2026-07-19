@@ -9,3 +9,14 @@ dist/
 temp/.claude/settings.local.json
 .worktrees/
 .superpowers/
+temp/
+archive/
+
+# >>> brain (managed) >>>
+halbrain/.brainstate/
+halbrain/.obsidian/
+# <<< brain (managed) <<<
+
+# mobile static export output
+apps/web/out/
+
