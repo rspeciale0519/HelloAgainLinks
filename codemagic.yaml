@@ -41,7 +41,11 @@ workflows:
       - name: Increment build number
         script: |
           cd $CM_BUILD_DIR/apps/web/ios/App
-          agvtool new-version -all $(($(app-store-connect get-latest-testflight-build-number "$BUNDLE_ID") + 1))
+          # Use Codemagic's monotonic build counter for CFBundleVersion.
+          # The App Store Connect get-latest-build-number query returns empty
+          # right after an upload (API lag), which produced a duplicate "1"
+          # and a 409 on publish. $BUILD_NUMBER is always unique & increasing.
+          agvtool new-version -all "$BUILD_NUMBER"
       - name: Build .ipa for App Store Connect
         script: |
           xcode-project build-ipa \
