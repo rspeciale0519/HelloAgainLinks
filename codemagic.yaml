@@ -6,6 +6,8 @@ workflows:
     integrations:
       app_store_connect: hal_app_store_connect
     environment:
+      groups:
+        - hal_mobile_env
       node: "22"
       vars:
         NEXT_TELEMETRY_DISABLED: "1"
@@ -63,6 +65,7 @@ workflows:
       node: "22"
       groups:
         - hal_android_signing
+        - hal_mobile_env
       vars:
         NEXT_TELEMETRY_DISABLED: "1"
         PACKAGE_NAME: "com.helloagainlinks.app"
