@@ -27,3 +27,7 @@ Codemagic — none require a Mac; all are browser + your iPhone (for 2FA).
 - `beta_groups: [Internal Testers]` skips Apple's external-tester review entirely — internal-group builds are available as soon as Apple's automated processing finishes (usually minutes, not days).
 - Every push to `develop` ships a new build automatically once this is wired up. Adjust `branch_patterns` in `codemagic.yaml` if that's too aggressive (e.g. restrict to a `release/*` branch instead).
 - The Android workflow (`android-release`) in the same file needs a `hal_android_signing` variable group in Codemagic (keystore + passwords) before it will produce a signed build — lower priority since you don't have an Android device to test on, but the existing GitHub Actions debug-APK build (`.github/workflows/build-android.yml`) already works today for anyone who does.
+
+For reference, the two non-secret IDs Codemagic will ask for alongside the key file:
+- Issuer ID: 0a4ade37-ec84-4216-b792-b3817686be40
+- Key ID: R2NCBVA4W9
