@@ -32,6 +32,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build workspace packages
+        run: pnpm --filter @helloagain/ui --filter @helloagain/shared run build
+
       - name: Build web app
         run: pnpm --filter @helloagain/web run build
         env:
@@ -80,6 +83,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build workspace packages
+        run: pnpm --filter @helloagain/ui --filter @helloagain/shared run build
+
       - name: Build web app
         run: pnpm --filter @helloagain/web run build
         env:
@@ -92,7 +98,7 @@ jobs:
         working-directory: apps/web
         run: |
           xcodebuild \
-            -workspace ios/App/App.xcworkspace \
+            -project ios/App/App.xcodeproj \
             -scheme App \
             -configuration Debug \
             -sdk iphonesimulator \

@@ -17,3 +17,6 @@ halbrain/.brainstate/
 halbrain/.obsidian/
 # <<< brain (managed) <<<
 
+# mobile static export output
+apps/web/out/
+
