@@ -67,7 +67,7 @@ export default function MobileAuthCallbackPage() {
             padding: '14px 16px',
             borderRadius: '14px',
             border: 'none',
-            background: fallbackUrl ? 'linear-gradient(135deg, #00d4ff, #0ea5e9)' : '#30303a',
+            background: fallbackUrl ? 'var(--accent-cyan)' : '#30303a',
             color: '#0a0a0f',
             fontWeight: 700,
             cursor: fallbackUrl ? 'pointer' : 'not-allowed',

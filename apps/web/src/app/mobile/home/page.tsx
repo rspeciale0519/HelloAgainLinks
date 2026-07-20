@@ -8,6 +8,7 @@ import { timeAgo, hexToRgba } from '@helloagain/shared';
 
 interface Bookmark {
   id: string;
+  x_post_id: string;
   x_author_handle: string;
   x_author_name: string;
   content_text: string;
@@ -102,7 +103,8 @@ export default function MobileHomePage() {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.1 + i * 0.05 }}
                 className="glass glow-border"
-                style={{ padding: '14px 16px', borderRadius: 12 }}
+                style={{ padding: '14px 16px', borderRadius: 12, cursor: 'pointer' }}
+                onClick={() => window.open(`https://x.com/${bm.x_author_handle}/status/${bm.x_post_id}`, '_system')}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
                   <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent-cyan)' }}>@{bm.x_author_handle}</span>

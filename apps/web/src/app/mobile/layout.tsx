@@ -187,7 +187,7 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0f', fontFamily: "'Inter', sans-serif", display: 'flex', flexDirection: 'column' }}>
       <MobileShareSheet />
-      <main style={{ flex: 1, overflowY: 'auto', paddingBottom: 64 }}>
+      <main style={{ flex: 1, overflowY: 'auto', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'calc(64px + env(safe-area-inset-bottom))' }}>
         <AnimatePresence mode="wait">
           <motion.div
             key={pathname}
@@ -207,7 +207,8 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
         display: 'flex',
         borderTop: '1px solid rgba(var(--accent-rgb),0.1)',
         background: 'rgba(10,10,15,0.98)',
-        padding: '6px 4px 10px',
+        padding: '6px 4px',
+        paddingBottom: 'calc(10px + env(safe-area-inset-bottom))',
         zIndex: 50,
       }}>
         {TABS.map((tab) => {
