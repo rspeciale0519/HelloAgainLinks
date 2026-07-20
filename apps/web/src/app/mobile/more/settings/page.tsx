@@ -16,8 +16,20 @@ export default function MobileSettingsPage() {
 
   const triggerSync = async () => {
     setSyncing(true);
-    const res = await authFetch('/api/sync/background');
-    setSyncStatus(res?.ok ? 'Sync complete' : 'Sync failed');
+    const res = await authFetch('/api/sync/background', { method: 'POST' });
+    if (!res) { setSyncStatus('Please sign in again'); setSyncing(false); return; }
+    if (!res.ok) { setSyncStatus('Sync failed'); setSyncing(false); return; }
+    const data = await res.json().catch(() => null);
+    if (data?.xApiError) {
+      setSyncStatus(
+        data.xApiError.status === 402
+          ? 'X API quota reached — add credits to your X developer plan'
+          : `X API error (${data.xApiError.status})`
+      );
+    } else {
+      const n = data?.imported ?? 0;
+      setSyncStatus(n > 0 ? `Synced ${n} new bookmark${n === 1 ? '' : 's'}` : 'Up to date — no new bookmarks');
+    }
     setSyncing(false);
   };
 
