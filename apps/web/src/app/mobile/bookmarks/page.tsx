@@ -83,7 +83,7 @@ export default function MobileBookmarksPage() {
       {/* Search */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8,
-        background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(0,212,255,0.1)',
+        background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(var(--accent-rgb),0.1)',
         borderRadius: 12, padding: '10px 14px', marginBottom: 12,
       }}>
         <span style={{ fontSize: 14, color: '#4a4a5a' }}>🔍</span>
@@ -107,9 +107,9 @@ export default function MobileBookmarksPage() {
           onClick={() => setActiveTag(null)}
           style={{
             borderRadius: 100, padding: '5px 12px', fontSize: 11, fontWeight: 500,
-            border: `1px solid ${!activeTag ? 'rgba(0,212,255,0.4)' : 'rgba(255,255,255,0.08)'}`,
-            background: !activeTag ? 'rgba(0,212,255,0.1)' : 'rgba(255,255,255,0.03)',
-            color: !activeTag ? '#00d4ff' : '#4a4a5a',
+            border: `1px solid ${!activeTag ? 'rgba(var(--accent-rgb),0.4)' : 'rgba(255,255,255,0.08)'}`,
+            background: !activeTag ? 'rgba(var(--accent-rgb),0.1)' : 'rgba(255,255,255,0.03)',
+            color: !activeTag ? 'var(--accent-cyan)' : '#4a4a5a',
             cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: "'Inter', sans-serif",
           }}
         >All</button>
@@ -166,7 +166,7 @@ export default function MobileBookmarksPage() {
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: '#00d4ff' }}>@{bm.x_author_handle}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent-cyan)' }}>@{bm.x_author_handle}</span>
                   <span style={{ fontSize: 11, color: '#4a4a5a', marginLeft: 'auto' }}>{timeAgo(bm.bookmarked_at, { short: true })}</span>
                 </div>
                 <div style={{ fontSize: 13, color: '#8a8a9a', lineHeight: 1.5 }}>
@@ -193,8 +193,8 @@ export default function MobileBookmarksPage() {
               onClick={() => { const next = page + 1; setPage(next); fetchBookmarks(next); }}
               style={{
                 padding: '12px 0', borderRadius: 12,
-                border: '1px solid rgba(0,212,255,0.15)',
-                background: 'transparent', color: '#00d4ff',
+                border: '1px solid rgba(var(--accent-rgb),0.15)',
+                background: 'transparent', color: 'var(--accent-cyan)',
                 fontSize: 13, cursor: 'pointer', fontFamily: "'Inter', sans-serif",
               }}
             >Load more</button>

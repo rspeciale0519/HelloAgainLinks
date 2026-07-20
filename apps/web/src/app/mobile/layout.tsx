@@ -11,6 +11,7 @@ import { ImpactStyle } from '@capacitor/haptics';
 import { HalLogo } from '@helloagain/ui';
 import { triggerHaptic } from '@/lib/mobile';
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { useAutoSync } from '@/lib/use-auto-sync';
 import { MobileShareSheet } from '@/components/MobileShareSheet';
 
 const TABS = [
@@ -38,6 +39,9 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
   const router = useRouter();
   const pathname = usePathname();
   const [appState, setAppState] = useState<AppState>('loading');
+
+  // App-open + resume auto-sync (native only, throttled) — from PR #9.
+  useAutoSync();
 
   // Platform guard + onboarding check + deep-link listener
   useEffect(() => {
@@ -201,7 +205,7 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
       <nav style={{
         position: 'fixed', bottom: 0, left: 0, right: 0,
         display: 'flex',
-        borderTop: '1px solid rgba(0,212,255,0.1)',
+        borderTop: '1px solid rgba(var(--accent-rgb),0.1)',
         background: 'rgba(10,10,15,0.98)',
         padding: '6px 4px 10px',
         zIndex: 50,
@@ -220,14 +224,14 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
               }}
             >
               <span style={{ fontSize: 20, lineHeight: 1 }}>{tab.icon}</span>
-              <span style={{ fontSize: 9, color: isActive ? '#00d4ff' : '#4a4a5a' }}>
+              <span style={{ fontSize: 9, color: isActive ? 'var(--accent-cyan)' : '#4a4a5a' }}>
                 {tab.label}
               </span>
               {isActive && (
                 <div style={{
                   width: 4, height: 4, borderRadius: '50%',
-                  background: '#00d4ff',
-                  boxShadow: '0 0 6px rgba(0,212,255,0.8)',
+                  background: 'var(--accent-cyan)',
+                  boxShadow: '0 0 6px rgba(var(--accent-rgb),0.8)',
                   marginTop: 2,
                 }} />
               )}

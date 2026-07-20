@@ -11,7 +11,7 @@ interface Blend {
 
 const TIER_COLORS: Record<string, string> = {
   'Intellectual Twins': '#22c55e',
-  'Bookmark Buddies': '#00d4ff',
+  'Bookmark Buddies': 'var(--accent-cyan)',
   'Interesting Crossovers': '#f59e0b',
   "Expanding Each Other's Horizons": '#8b5cf6',
 };
@@ -47,7 +47,7 @@ export default function MobileBlendPage() {
   // Best blend score across all completed blends
   const bestScore = blends.reduce((max, b) => Math.max(max, b.blend_score ?? 0), 0);
   const bestBlend = blends.find(b => b.blend_score === bestScore && bestScore > 0);
-  const ringColor = (bestBlend && TIER_COLORS[bestBlend.analysis_json?.tier ?? '']) || '#00d4ff';
+  const ringColor = (bestBlend && TIER_COLORS[bestBlend.analysis_json?.tier ?? '']) || 'var(--accent-cyan)';
   const ringR = 38;
   const ringCirc = 2 * Math.PI * ringR;
   const ringProgress = (bestScore / 100) * ringCirc;
@@ -61,7 +61,7 @@ export default function MobileBlendPage() {
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 28 }}>
         <div style={{ position: 'relative', width: 100, height: 100 }}>
           <svg width="100" height="100" viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)' }}>
-            <circle cx="50" cy="50" r={ringR} fill="none" stroke="rgba(0,212,255,0.1)" strokeWidth="8" />
+            <circle cx="50" cy="50" r={ringR} fill="none" stroke="rgba(var(--accent-rgb),0.1)" strokeWidth="8" />
             <circle
               cx="50" cy="50" r={ringR} fill="none" stroke={ringColor} strokeWidth="8"
               strokeDasharray={`${ringProgress} ${ringCirc}`} strokeLinecap="round"
@@ -92,12 +92,12 @@ export default function MobileBlendPage() {
             <div style={{ display: 'flex', gap: 8 }}>
               <input readOnly value={inviteUrl} style={{
                 flex: 1, padding: '9px 12px', borderRadius: 10,
-                border: '1px solid rgba(0,212,255,0.15)', background: 'rgba(15,16,25,0.8)',
-                color: '#00d4ff', fontSize: 11, fontFamily: 'monospace', outline: 'none',
+                border: '1px solid rgba(var(--accent-rgb),0.15)', background: 'rgba(15,16,25,0.8)',
+                color: 'var(--accent-cyan)', fontSize: 11, fontFamily: 'monospace', outline: 'none',
               }} />
               <button onClick={copyInvite} style={{
                 padding: '9px 14px', borderRadius: 10, border: 'none',
-                background: copied ? 'rgba(34,197,94,0.2)' : 'linear-gradient(135deg, #00d4ff, #0ea5e9)',
+                background: copied ? 'rgba(34,197,94,0.2)' : 'linear-gradient(135deg, var(--accent-cyan), var(--accent-cyan))',
                 color: copied ? '#22c55e' : '#0a0a0f', fontWeight: 600, fontSize: 12,
                 cursor: 'pointer', fontFamily: "'Inter', sans-serif",
               }}>{copied ? '✓' : 'Copy'}</button>
@@ -112,7 +112,7 @@ export default function MobileBlendPage() {
             </div>
             <button onClick={createInvite} disabled={creating} style={{
               padding: '11px 24px', borderRadius: 10, border: 'none',
-              background: 'linear-gradient(135deg, #00d4ff, #0ea5e9)',
+              background: 'linear-gradient(135deg, var(--accent-cyan), var(--accent-cyan))',
               color: '#0a0a0f', fontWeight: 600, fontSize: 13, cursor: 'pointer',
               fontFamily: "'Inter', sans-serif", opacity: creating ? 0.5 : 1,
             }}>{creating ? 'Creating…' : 'Create Blend Invite'}</button>
@@ -156,8 +156,8 @@ export default function MobileBlendPage() {
                     {blend.analysis_json!.commonGround!.map((t) => (
                       <span key={t} style={{
                         padding: '3px 9px', borderRadius: 100, fontSize: 11,
-                        background: 'rgba(0,212,255,0.06)', color: '#00d4ff',
-                        border: '1px solid rgba(0,212,255,0.15)',
+                        background: 'rgba(var(--accent-rgb),0.06)', color: 'var(--accent-cyan)',
+                        border: '1px solid rgba(var(--accent-rgb),0.15)',
                       }}>{t}</span>
                     ))}
                   </div>

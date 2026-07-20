@@ -53,10 +53,10 @@ export default function MobileAIPage() {
               alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
               background: msg.role === 'user'
                 ? 'rgba(255,255,255,0.05)'
-                : 'rgba(0,212,255,0.07)',
+                : 'rgba(var(--accent-rgb),0.07)',
               border: msg.role === 'user'
                 ? '1px solid rgba(255,255,255,0.08)'
-                : '1px solid rgba(0,212,255,0.15)',
+                : '1px solid rgba(var(--accent-rgb),0.15)',
               borderRadius: msg.role === 'user' ? '12px 12px 3px 12px' : '12px 12px 12px 3px',
               padding: '10px 14px',
               fontSize: 13,
@@ -70,7 +70,7 @@ export default function MobileAIPage() {
         {loading && (
           <div style={{
             alignSelf: 'flex-start',
-            background: 'rgba(0,212,255,0.07)', border: '1px solid rgba(0,212,255,0.15)',
+            background: 'rgba(var(--accent-rgb),0.07)', border: '1px solid rgba(var(--accent-rgb),0.15)',
             borderRadius: '12px 12px 12px 3px', padding: '10px 14px',
             fontSize: 13, color: '#4a4a5a',
           }}>Thinking…</div>
@@ -81,7 +81,7 @@ export default function MobileAIPage() {
       {/* Input */}
       <div style={{
         display: 'flex', gap: 8, alignItems: 'center',
-        background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(0,212,255,0.12)',
+        background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(var(--accent-rgb),0.12)',
         borderRadius: 12, padding: '10px 12px', marginBottom: 16,
       }}>
         <input
@@ -99,7 +99,7 @@ export default function MobileAIPage() {
           disabled={!input.trim() || loading}
           style={{
             width: 28, height: 28, borderRadius: 7, border: 'none',
-            background: input.trim() && !loading ? '#00d4ff' : 'rgba(0,212,255,0.2)',
+            background: input.trim() && !loading ? 'var(--accent-cyan)' : 'rgba(var(--accent-rgb),0.2)',
             color: '#0a0a0f', fontSize: 13, fontWeight: 700,
             cursor: input.trim() && !loading ? 'pointer' : 'default',
             display: 'flex', alignItems: 'center', justifyContent: 'center',

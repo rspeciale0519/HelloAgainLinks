@@ -24,7 +24,7 @@ export default function MobileSettingsPage() {
   return (
     <div style={{ padding: '20px 16px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-        <button onClick={() => router.back()} style={{ background: 'none', border: 'none', color: '#00d4ff', fontSize: 20, cursor: 'pointer', padding: 0 }}>‹</button>
+        <button onClick={() => router.back()} style={{ background: 'none', border: 'none', color: 'var(--accent-cyan)', fontSize: 20, cursor: 'pointer', padding: 0 }}>‹</button>
         <h1 style={{ fontSize: 20, fontWeight: 600, color: '#f0f0f5' }}>Settings</h1>
       </div>
 
@@ -41,8 +41,8 @@ export default function MobileSettingsPage() {
               disabled={syncing}
               style={{
                 padding: '10px 20px', borderRadius: 10, border: 'none',
-                background: syncing ? 'rgba(0,212,255,0.2)' : 'linear-gradient(135deg, #00d4ff, #0ea5e9)',
-                color: syncing ? '#00d4ff' : '#0a0a0f', fontSize: 13, fontWeight: 600,
+                background: syncing ? 'rgba(var(--accent-rgb),0.2)' : 'linear-gradient(135deg, var(--accent-cyan), var(--accent-cyan))',
+                color: syncing ? 'var(--accent-cyan)' : '#0a0a0f', fontSize: 13, fontWeight: 600,
                 cursor: syncing ? 'default' : 'pointer', fontFamily: "'Inter', sans-serif",
               }}
             >{syncing ? 'Syncing…' : 'Sync Now'}</button>
