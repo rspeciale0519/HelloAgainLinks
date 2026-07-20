@@ -100,8 +100,7 @@ workflows:
         script: pnpm --filter @helloagain/ui --filter @helloagain/shared run build
       - name: Build web app + sync Capacitor Android
         script: |
-          BUILD_TARGET=mobile pnpm --filter @helloagain/web run build
-          pnpm --filter @helloagain/web exec cap sync android
+          CAP_PLATFORM=android pnpm mobile:build
       - name: Build signed AAB
         script: |
           cd apps/web/android

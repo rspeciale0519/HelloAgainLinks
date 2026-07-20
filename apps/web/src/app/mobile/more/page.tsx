@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { ImpactStyle } from '@capacitor/haptics';
+import { Preferences } from '@capacitor/preferences';
 import { triggerHaptic } from '@/lib/mobile';
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { usePlan } from '@/lib/use-plan';
@@ -31,6 +32,9 @@ export default function MobileMorePage() {
   const signOut = async () => {
     const supabase = getSupabaseBrowserClient();
     await supabase.auth.signOut();
+    // Clear the onboarding flag too — otherwise a relaunch sees onboarding
+    // complete + no session and strands the user on a sessionless app shell.
+    await Preferences.remove({ key: 'onboarding_complete' });
     router.replace('/mobile/onboarding');
   };
 

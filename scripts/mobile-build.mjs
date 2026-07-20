@@ -104,8 +104,18 @@ try {
     env: { ...process.env, BUILD_TARGET: 'mobile' },
   });
 
-  console.log('→ Running cap sync...');
-  execSync('pnpm --filter @helloagain/web exec cap sync', { stdio: 'inherit' });
+  // CAP_PLATFORM lets platform-specific CI (e.g. the Android runner on Linux,
+  // which has no Xcode/CocoaPods) sync only its platform. Unset = sync all
+  // (default; correct on a Mac that has both toolchains). Allowlisted so no
+  // arbitrary value is ever interpolated into the shell command.
+  const capPlatform = ['ios', 'android'].includes(process.env.CAP_PLATFORM)
+    ? process.env.CAP_PLATFORM
+    : '';
+  console.log(`→ Running cap sync${capPlatform ? ` (${capPlatform})` : ''}...`);
+  execSync(
+    `pnpm --filter @helloagain/web exec cap sync${capPlatform ? ` ${capPlatform}` : ''}`,
+    { stdio: 'inherit' },
+  );
 } finally {
   console.log('→ Restoring app directories...');
   for (const name of entries) {

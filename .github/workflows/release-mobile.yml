@@ -35,13 +35,15 @@ jobs:
       - name: Build workspace packages
         run: pnpm --filter @helloagain/ui --filter @helloagain/shared run build
 
-      - name: Build web app
-        run: pnpm --filter @helloagain/web run build
+      - name: Build web app + sync Capacitor (Android)
+        run: pnpm mobile:build
         env:
           NEXT_TELEMETRY_DISABLED: '1'
-
-      - name: Sync Capacitor
-        run: pnpm --filter @helloagain/web exec cap sync android
+          CAP_PLATFORM: android
+          # Public client env — inlined at build time (see codemagic.yaml). Not secrets.
+          NEXT_PUBLIC_SUPABASE_URL: 'https://hvvvoiwpoldnresqqcbc.supabase.co'
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh2dnZvaXdwb2xkbnJlc3FxY2JjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0NzU2MjQsImV4cCI6MjA4NjA1MTYyNH0.G2QvTRYedCFC4QVClI0ajI4IkfpevAeI7WBcF_OAkbI'
+          NEXT_PUBLIC_APP_URL: 'https://helloagainlinks.com'
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -86,13 +88,15 @@ jobs:
       - name: Build workspace packages
         run: pnpm --filter @helloagain/ui --filter @helloagain/shared run build
 
-      - name: Build web app
-        run: pnpm --filter @helloagain/web run build
+      - name: Build web app + sync Capacitor (iOS)
+        run: pnpm mobile:build
         env:
           NEXT_TELEMETRY_DISABLED: '1'
-
-      - name: Sync Capacitor
-        run: pnpm --filter @helloagain/web exec cap sync ios
+          CAP_PLATFORM: ios
+          # Public client env — inlined at build time (see codemagic.yaml). Not secrets.
+          NEXT_PUBLIC_SUPABASE_URL: 'https://hvvvoiwpoldnresqqcbc.supabase.co'
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh2dnZvaXdwb2xkbnJlc3FxY2JjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0NzU2MjQsImV4cCI6MjA4NjA1MTYyNH0.G2QvTRYedCFC4QVClI0ajI4IkfpevAeI7WBcF_OAkbI'
+          NEXT_PUBLIC_APP_URL: 'https://helloagainlinks.com'
 
       - name: Build iOS app for simulator (no signing)
         working-directory: apps/web
