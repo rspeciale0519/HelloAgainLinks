@@ -20,7 +20,7 @@ export default function MobileBookmarksPage() {
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [page, setPage] = useState(0);
+  const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(true);
   const [swipedId, setSwipedId] = useState<string | null>(null);
@@ -42,7 +42,7 @@ export default function MobileBookmarksPage() {
     if (activeTag) params.set('tag', activeTag);
 
     const res = await authFetch(`/api/bookmarks?${params}`);
-    if (!res?.ok) return;
+    if (!res?.ok) { setLoading(false); return; }
     const data = await res.json();
     const items: Bookmark[] = data.data || [];
     setBookmarks(prev => reset ? items : [...prev, ...items]);
@@ -61,9 +61,9 @@ export default function MobileBookmarksPage() {
 
   // Reload on filter change
   useEffect(() => {
-    setPage(0);
+    setPage(1);
     setLoading(true);
-    fetchBookmarks(0, true);
+    fetchBookmarks(1, true);
   }, [fetchBookmarks]);
 
   const deleteBookmark = async (id: string, xPostId: string) => {
