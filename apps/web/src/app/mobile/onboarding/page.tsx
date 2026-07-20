@@ -57,7 +57,8 @@ export default function OnboardingPage() {
 
   return (
     <div style={{
-      minHeight: '100vh', background: '#0a0a0f', padding: '48px 24px 32px',
+      minHeight: '100vh', background: '#0a0a0f',
+      padding: 'calc(48px + env(safe-area-inset-top)) 24px calc(32px + env(safe-area-inset-bottom))',
       display: 'flex', flexDirection: 'column', fontFamily: "'Inter', sans-serif",
     }}>
       {/* Progress dots */}

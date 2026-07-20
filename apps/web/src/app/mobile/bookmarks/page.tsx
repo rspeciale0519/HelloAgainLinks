@@ -32,16 +32,25 @@ export default function MobileBookmarksPage() {
   }, [search]);
 
   const fetchBookmarks = useCallback(async (pageNum: number, reset = false) => {
+    // A non-empty query goes to the ranked full-text search endpoint; the plain
+    // list endpoint ignores `q`. Tag filter uses `tag_id` (the schema's name —
+    // the old `tag` param was silently stripped, so filtering never worked).
+    const query = debouncedSearch.trim();
+    const searching = query.length > 0;
     const params = new URLSearchParams({
       pageSize: String(PAGE_SIZE),
       page: String(pageNum),
-      sort: 'bookmarked_at',
-      order: 'desc',
     });
-    if (debouncedSearch) params.set('q', debouncedSearch);
-    if (activeTag) params.set('tag', activeTag);
+    if (searching) {
+      params.set('q', query);
+    } else {
+      params.set('sort', 'bookmarked_at');
+      params.set('order', 'desc');
+    }
+    if (activeTag) params.set('tag_id', activeTag);
 
-    const res = await authFetch(`/api/bookmarks?${params}`);
+    const endpoint = searching ? '/api/bookmarks/search' : '/api/bookmarks';
+    const res = await authFetch(`${endpoint}?${params}`);
     if (!res?.ok) { setLoading(false); return; }
     const data = await res.json();
     const items: Bookmark[] = data.data || [];
@@ -157,12 +166,16 @@ export default function MobileBookmarksPage() {
                 animate={{ opacity: 1, y: 0, x: swipedId === bm.id ? -72 : 0 }}
                 transition={{ delay: i < 10 ? i * 0.03 : 0 }}
                 className="glass glow-border"
-                style={{ padding: '14px 16px', borderRadius: 12, position: 'relative' }}
+                style={{ padding: '14px 16px', borderRadius: 12, position: 'relative', cursor: 'pointer' }}
                 onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
                 onTouchEnd={(e) => {
                   const dx = touchStartX.current - e.changedTouches[0].clientX;
                   if (dx > 60) setSwipedId(bm.id);
                   else if (dx < -20) setSwipedId(null);
+                }}
+                onClick={() => {
+                  if (swipedId === bm.id) return; // swipe-to-delete is open — ignore the tap
+                  window.open(`https://x.com/${bm.x_author_handle}/status/${bm.x_post_id}`, '_system');
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
