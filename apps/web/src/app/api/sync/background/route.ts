@@ -13,6 +13,7 @@ interface SyncResult {
   imported: number;
   skipped: number;
   stopReason: string | null;
+  xApiError?: { status: number } | null;
 }
 
 async function syncUser(
@@ -57,6 +58,7 @@ async function syncUser(
   let paginationToken: string | undefined;
   let firstPageFirstId: string | null = null;
   let caughtUp = false;
+  let xApiError: { status: number } | null = null;
   const allInsertedRows: { id: string; content_text?: string }[] = [];
 
   do {
@@ -72,6 +74,7 @@ async function syncUser(
     });
     if (!xRes.ok) {
       console.error(`[Sync] X API error ${xRes.status}:`, await xRes.text().catch(() => ''));
+      xApiError = { status: xRes.status };
       break;
     }
 
@@ -152,7 +155,7 @@ async function syncUser(
     }
   }
 
-  return { imported, skipped, stopReason: guards.state.stopReason || (caughtUp ? 'caught_up' : null) };
+  return { imported, skipped, stopReason: guards.state.stopReason || (caughtUp ? 'caught_up' : null), xApiError };
 }
 
 export async function POST(req: NextRequest) {
