@@ -11,6 +11,7 @@ import { ImpactStyle } from '@capacitor/haptics';
 import { HalLogo } from '@helloagain/ui';
 import { triggerHaptic } from '@/lib/mobile';
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { useAutoSync } from '@/lib/use-auto-sync';
 import { MobileShareSheet } from '@/components/MobileShareSheet';
 
 const TABS = [
@@ -38,6 +39,9 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
   const router = useRouter();
   const pathname = usePathname();
   const [appState, setAppState] = useState<AppState>('loading');
+
+  // App-open + resume auto-sync (native only, throttled) — from PR #9.
+  useAutoSync();
 
   // Platform guard + onboarding check + deep-link listener
   useEffect(() => {
