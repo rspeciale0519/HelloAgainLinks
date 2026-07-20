@@ -68,8 +68,8 @@ export default function OnboardingPage() {
             <div key={i} style={{
               height: 5, borderRadius: 3,
               width: isActive ? 20 : 5,
-              background: isActive ? '#00d4ff' : 'rgba(255,255,255,0.1)',
-              boxShadow: isActive ? '0 0 6px rgba(0,212,255,0.5)' : 'none',
+              background: isActive ? 'var(--accent-cyan)' : 'rgba(255,255,255,0.1)',
+              boxShadow: isActive ? '0 0 6px rgba(var(--accent-rgb),0.5)' : 'none',
               transition: 'all 0.3s ease',
             }} />
           );
@@ -118,7 +118,7 @@ function StepSignIn({ onSignIn }: { onSignIn: () => void }) {
       <div style={{ textAlign: 'center', marginBottom: 32 }}>
         <div style={{
           width: 52, height: 52, borderRadius: 12, margin: '0 auto 16px',
-          background: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.2)',
+          background: 'rgba(var(--accent-rgb),0.08)', border: '1px solid rgba(var(--accent-rgb),0.2)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
         }}>𝕏</div>
         <h2 style={{ fontSize: 20, fontWeight: 700, color: '#f0f0f5', marginBottom: 8 }}>Sign in with X</h2>
@@ -127,7 +127,7 @@ function StepSignIn({ onSignIn }: { onSignIn: () => void }) {
         </p>
       </div>
       <div style={{
-        background: 'rgba(0,212,255,0.04)', border: '1px solid rgba(0,212,255,0.1)',
+        background: 'rgba(var(--accent-rgb),0.04)', border: '1px solid rgba(var(--accent-rgb),0.1)',
         borderRadius: 12, padding: '12px 16px', marginBottom: 28,
       }}>
         <div style={{ fontSize: 10, color: '#4a4a5a', marginBottom: 8, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Permissions requested</div>
@@ -145,8 +145,8 @@ function StepSignIn({ onSignIn }: { onSignIn: () => void }) {
       </button>
       <p style={{ textAlign: 'center', fontSize: 10, color: '#4a4a5a', marginTop: 16, lineHeight: 1.6 }}>
         By continuing you agree to HAL&apos;s{' '}
-        <span style={{ color: '#00d4ff' }}>Terms</span> and{' '}
-        <span style={{ color: '#00d4ff' }}>Privacy Policy</span>
+        <span style={{ color: 'var(--accent-cyan)' }}>Terms</span> and{' '}
+        <span style={{ color: 'var(--accent-cyan)' }}>Privacy Policy</span>
       </p>
     </div>
   );
@@ -161,15 +161,15 @@ function StepTwoWays({ onNext }: { onNext: () => void }) {
       </p>
       {[
         { icon: '🔖', title: 'Bookmark in X, sync to HAL', desc: 'Tap X\'s native bookmark button as usual. HAL automatically syncs it in the background — no extra steps.', badge: 'Zero extra taps', badgeColor: '#22c55e' },
-        { icon: '📤', title: 'Share directly to HAL', desc: 'Tap Share on any tweet → select HAL. Saves without adding to X bookmarks. AI tags it instantly.', badge: 'AI-tagged on save', badgeColor: '#00d4ff' },
+        { icon: '📤', title: 'Share directly to HAL', desc: 'Tap Share on any tweet → select HAL. Saves without adding to X bookmarks. AI tags it instantly.', badge: 'AI-tagged on save', badgeColor: 'var(--accent-cyan)' },
       ].map((m) => (
         <div key={m.title} style={{
-          background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(0,212,255,0.1)',
+          background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(var(--accent-rgb),0.1)',
           borderRadius: 14, padding: 16, marginBottom: 14,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
             <div style={{
-              width: 32, height: 32, borderRadius: 8, background: 'rgba(0,212,255,0.1)',
+              width: 32, height: 32, borderRadius: 8, background: 'rgba(var(--accent-rgb),0.1)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15,
             }}>{m.icon}</div>
             <span style={{ fontSize: 13, fontWeight: 600, color: '#f0f0f5' }}>{m.title}</span>
@@ -202,9 +202,9 @@ function StepEnableShare({ onNext, onSkip }: { onNext: () => void; onSkip: () =>
         <div key={s.num} style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
           <div style={{
             width: 24, height: 24, borderRadius: '50%', flexShrink: 0, marginTop: 1,
-            background: 'rgba(0,212,255,0.1)', border: '1px solid rgba(0,212,255,0.25)',
+            background: 'rgba(var(--accent-rgb),0.1)', border: '1px solid rgba(var(--accent-rgb),0.25)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 11, fontWeight: 700, color: '#00d4ff',
+            fontSize: 11, fontWeight: 700, color: 'var(--accent-cyan)',
           }}>{s.num}</div>
           <div>
             <div style={{ fontSize: 13, fontWeight: 600, color: '#f0f0f5', marginBottom: 3 }}>{s.title}</div>
@@ -223,7 +223,7 @@ function StepAllSet({ onDone }: { onDone: () => void }) {
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
       <div style={{
         width: 64, height: 64, borderRadius: '50%', margin: '0 auto 16px',
-        border: '2px solid #00d4ff', boxShadow: '0 0 24px rgba(0,212,255,0.35)',
+        border: '2px solid var(--accent-cyan)', boxShadow: '0 0 24px rgba(var(--accent-rgb),0.35)',
         display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26,
       }}>✓</div>
       <h2 style={{ fontSize: 22, fontWeight: 700, color: '#f0f0f5', marginBottom: 8 }}>You&apos;re all set</h2>
@@ -238,7 +238,7 @@ function StepAllSet({ onDone }: { onDone: () => void }) {
         ].map((f) => (
           <div key={f.icon} style={{
             display: 'flex', alignItems: 'center', gap: 10,
-            background: 'rgba(0,212,255,0.04)', border: '1px solid rgba(0,212,255,0.08)',
+            background: 'rgba(var(--accent-rgb),0.04)', border: '1px solid rgba(var(--accent-rgb),0.08)',
             borderRadius: 10, padding: '10px 14px',
           }}>
             <span style={{ fontSize: 14 }}>{f.icon}</span>
@@ -254,10 +254,10 @@ function StepAllSet({ onDone }: { onDone: () => void }) {
 // Shared button styles
 const primaryBtn: React.CSSProperties = {
   width: '100%', padding: '13px 0', borderRadius: 13, border: 'none',
-  background: 'linear-gradient(135deg, #00d4ff, #0ea5e9)',
+  background: 'linear-gradient(135deg, var(--accent-cyan), var(--accent-cyan))',
   color: '#0a0a0f', fontSize: 14, fontWeight: 600, cursor: 'pointer',
   fontFamily: "'Inter', sans-serif",
-  boxShadow: '0 0 20px rgba(0,212,255,0.2)',
+  boxShadow: '0 0 20px rgba(var(--accent-rgb),0.2)',
 };
 
 const secondaryBtn: React.CSSProperties = {

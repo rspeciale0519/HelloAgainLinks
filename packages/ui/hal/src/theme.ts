@@ -13,10 +13,10 @@ export const halTheme = {
     5: '#292930',
   },
   accent: {
-    hex: '#d4ff3a',
-    rgb: '212, 255, 58',
-    dim: 'rgba(212, 255, 58, 0.15)',
-    glow: 'rgba(212, 255, 58, 0.35)',
+    hex: '#a1fc2a',
+    rgb: '161, 252, 42',
+    dim: 'rgba(161, 252, 42, 0.15)',
+    glow: 'rgba(161, 252, 42, 0.35)',
   },
   text: {
     0: '#f5f5f7',

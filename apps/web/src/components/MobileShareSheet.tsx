@@ -129,7 +129,7 @@ export function MobileShareSheet() {
             width: '100%',
             background: '#13131f',
             borderRadius: '20px 20px 0 0',
-            borderTop: '1px solid rgba(0,212,255,0.2)',
+            borderTop: '1px solid rgba(var(--accent-rgb),0.2)',
             padding: '12px 20px 32px',
           }}
         >
@@ -163,10 +163,10 @@ export function MobileShareSheet() {
           {(state === 'saving' || state === 'saved' || state === 'error') && tweetPreview && (
             <div style={{
               background: 'rgba(255,255,255,0.03)',
-              border: '1px solid rgba(0,212,255,0.08)',
+              border: '1px solid rgba(var(--accent-rgb),0.08)',
               borderRadius: 10, padding: '10px 12px', marginBottom: 12,
             }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: '#00d4ff', marginBottom: 4 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent-cyan)', marginBottom: 4 }}>
                 @{tweetPreview.handle}
               </div>
               <div style={{ fontSize: 10, color: '#8a8a9a', lineHeight: 1.5 }}>
@@ -193,17 +193,17 @@ export function MobileShareSheet() {
             <>
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 8,
-                background: 'rgba(0,212,255,0.06)',
-                border: '1px solid rgba(0,212,255,0.2)',
+                background: 'rgba(var(--accent-rgb),0.06)',
+                border: '1px solid rgba(var(--accent-rgb),0.2)',
                 borderRadius: 10, padding: '8px 12px', marginBottom: 10,
               }}>
                 <div style={{
-                  width: 18, height: 18, borderRadius: '50%', background: '#00d4ff',
+                  width: 18, height: 18, borderRadius: '50%', background: 'var(--accent-cyan)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 9, color: '#0a0a0f', fontWeight: 700,
-                  boxShadow: '0 0 8px rgba(0,212,255,0.4)', flexShrink: 0,
+                  boxShadow: '0 0 8px rgba(var(--accent-rgb),0.4)', flexShrink: 0,
                 }}>✓</div>
-                <span style={{ fontSize: 11, color: '#00d4ff', fontWeight: 500 }}>
+                <span style={{ fontSize: 11, color: 'var(--accent-cyan)', fontWeight: 500 }}>
                   Bookmark saved successfully
                 </span>
               </div>
@@ -255,10 +255,10 @@ export function MobileShareSheet() {
 
 const primaryBtnStyle: React.CSSProperties = {
   width: '100%', padding: 12, borderRadius: 12, border: 'none',
-  background: 'linear-gradient(135deg, #00d4ff, #0ea5e9)',
+  background: 'linear-gradient(135deg, var(--accent-cyan), var(--accent-cyan))',
   color: '#0a0a0f', fontSize: 13, fontWeight: 600, cursor: 'pointer',
   fontFamily: "'Inter', sans-serif",
-  boxShadow: '0 0 20px rgba(0,212,255,0.25)',
+  boxShadow: '0 0 20px rgba(var(--accent-rgb),0.25)',
 };
 
 const secondaryBtnStyle: React.CSSProperties = {

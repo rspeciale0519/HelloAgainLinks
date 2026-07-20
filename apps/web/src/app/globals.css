@@ -4,15 +4,19 @@
   --bg-primary: #0a0a0f;
   --bg-secondary: #0f1019;
   --bg-tertiary: #141420;
-  --accent-cyan: #00d4ff;
-  --accent-blue: #0ea5e9;
+  /* Brand accent — HAL electric-lime green (matches packages/ui/hal --hal-a).
+     Change --accent-cyan + --accent-rgb here to re-tint the mobile app and the
+     landing/login surfaces; change --hal-a in packages/ui/hal for the dashboard. */
+  --accent-cyan: #a1fc2a;
+  --accent-blue: #a1fc2a;
   --accent-hot-blue: #3b82f6;
+  --accent-rgb: 161, 252, 42;
   --text-primary: #f0f0f5;
   --text-secondary: #8a8a9a;
   --text-muted: #4a4a5a;
-  --border-default: rgba(0, 212, 255, 0.1);
-  --border-hover: rgba(0, 212, 255, 0.3);
-  --glow-cyan: 0 0 20px rgba(0, 212, 255, 0.3);
+  --border-default: rgba(var(--accent-rgb), 0.1);
+  --border-hover: rgba(var(--accent-rgb), 0.3);
+  --glow-cyan: 0 0 20px rgba(var(--accent-rgb), 0.3);
 }
 
 * {
@@ -30,7 +34,7 @@ html, body {
 }
 
 ::selection {
-  background: rgba(0, 212, 255, 0.3);
+  background: rgba(var(--accent-rgb), 0.3);
   color: #fff;
 }
 
@@ -41,16 +45,16 @@ html, body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(0, 212, 255, 0.15);
+  background: rgba(var(--accent-rgb), 0.15);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 212, 255, 0.3);
+  background: rgba(var(--accent-rgb), 0.3);
 }
 
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 20px rgba(0, 212, 255, 0.2); }
-  50% { box-shadow: 0 0 40px rgba(0, 212, 255, 0.4); }
+  0%, 100% { box-shadow: 0 0 20px rgba(var(--accent-rgb), 0.2); }
+  50% { box-shadow: 0 0 40px rgba(var(--accent-rgb), 0.4); }
 }
 
 @keyframes float {
@@ -65,16 +69,16 @@ html, body {
   background: rgba(15, 16, 25, 0.6);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(0, 212, 255, 0.1);
+  border: 1px solid rgba(var(--accent-rgb), 0.1);
 }
 
 .glow-border {
-  border: 1px solid rgba(0, 212, 255, 0.15);
+  border: 1px solid rgba(var(--accent-rgb), 0.15);
   transition: all 0.3s ease;
 }
 .glow-border:hover {
-  border-color: rgba(0, 212, 255, 0.4);
-  box-shadow: 0 0 30px rgba(0, 212, 255, 0.15);
+  border-color: rgba(var(--accent-rgb), 0.4);
+  box-shadow: 0 0 30px rgba(var(--accent-rgb), 0.15);
 }
 
 @keyframes shimmer {

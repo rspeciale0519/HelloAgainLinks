@@ -76,7 +76,7 @@ export default function MobileHomePage() {
             >
               <div style={{ fontSize: 11, color: '#4a4a5a', marginBottom: 6 }}>{s.label}</div>
               <div style={{ fontSize: 24, fontWeight: 700, color: '#f0f0f5', lineHeight: 1 }}>{loading ? '…' : s.value}</div>
-              <div style={{ fontSize: 10, color: '#00d4ff', marginTop: 4 }}>{s.sub}</div>
+              <div style={{ fontSize: 10, color: 'var(--accent-cyan)', marginTop: 4 }}>{s.sub}</div>
             </motion.div>
           ))}
         </div>
@@ -105,7 +105,7 @@ export default function MobileHomePage() {
                 style={{ padding: '14px 16px', borderRadius: 12 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: '#00d4ff' }}>@{bm.x_author_handle}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent-cyan)' }}>@{bm.x_author_handle}</span>
                   <span style={{ fontSize: 11, color: '#4a4a5a', marginLeft: 'auto' }}>{timeAgo(bm.bookmarked_at)}</span>
                 </div>
                 <div style={{ fontSize: 13, color: '#8a8a9a', lineHeight: 1.5 }}>

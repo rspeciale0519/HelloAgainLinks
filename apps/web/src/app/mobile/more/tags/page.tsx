@@ -23,7 +23,7 @@ export default function MobileTagsPage() {
   return (
     <div style={{ padding: '20px 16px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-        <button onClick={() => router.back()} style={{ background: 'none', border: 'none', color: '#00d4ff', fontSize: 20, cursor: 'pointer', padding: 0 }}>‹</button>
+        <button onClick={() => router.back()} style={{ background: 'none', border: 'none', color: 'var(--accent-cyan)', fontSize: 20, cursor: 'pointer', padding: 0 }}>‹</button>
         <h1 style={{ fontSize: 20, fontWeight: 600, color: '#f0f0f5' }}>Tags</h1>
       </div>
       {loading ? (

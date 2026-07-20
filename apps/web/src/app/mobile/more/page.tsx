@@ -57,10 +57,10 @@ export default function MobileMorePage() {
         >
           <div style={{
             width: 48, height: 48, borderRadius: '50%', flexShrink: 0,
-            background: user.avatar ? `url(${user.avatar}) center/cover` : 'linear-gradient(135deg, #00d4ff, #0ea5e9)',
+            background: user.avatar ? `url(${user.avatar}) center/cover` : 'linear-gradient(135deg, var(--accent-cyan), var(--accent-cyan))',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 18, fontWeight: 700, color: '#0a0a0f',
-            border: '2px solid rgba(0,212,255,0.2)',
+            border: '2px solid rgba(var(--accent-rgb),0.2)',
           }}>
             {!user.avatar && user.name.charAt(0).toUpperCase()}
           </div>
@@ -70,7 +70,7 @@ export default function MobileMorePage() {
             <span style={{
               display: 'inline-block', marginTop: 4,
               borderRadius: 100, padding: '1px 8px', fontSize: 9, fontWeight: 600,
-              background: 'rgba(0,212,255,0.1)', border: '1px solid rgba(0,212,255,0.2)', color: '#00d4ff',
+              background: 'rgba(var(--accent-rgb),0.1)', border: '1px solid rgba(var(--accent-rgb),0.2)', color: 'var(--accent-cyan)',
             }}>{plan === 'free' ? 'Free' : plan === 'lifetime' ? 'Lifetime' : 'Pro'}</span>
           </div>
         </motion.div>
@@ -89,7 +89,7 @@ export default function MobileMorePage() {
               display: 'flex', alignItems: 'center', gap: 12,
               padding: '14px 16px', borderRadius: 12,
               background: 'rgba(255,255,255,0.025)',
-              border: '1px solid rgba(0,212,255,0.06)',
+              border: '1px solid rgba(var(--accent-rgb),0.06)',
               cursor: 'pointer', textAlign: 'left',
               fontFamily: "'Inter', sans-serif",
             }}
