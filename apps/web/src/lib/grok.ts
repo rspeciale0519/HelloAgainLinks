@@ -4,11 +4,16 @@
 
 import { z } from 'zod';
 import { classifyByRegex } from '@helloagain/shared';
+import { logLlmUsage, type TokenUsage } from '@/lib/llm-usage';
 
 const XAI_API_KEY = process.env.XAI_API_KEY!;
 const BASE_URL = 'https://api.x.ai/v1';
-const MODEL_FAST = process.env.GROK_MODEL_FAST || 'grok-3-mini';
-const MODEL_FULL = process.env.GROK_MODEL_FULL || 'grok-3';
+// grok-3 / grok-3-mini are legacy and no longer listed on xAI's pricing page.
+// grok-3 also cost MORE than the current flagship ($3/$15 per Mtok vs grok-4.5's
+// $2/$6), so these defaults are both cheaper and more capable. Override per
+// environment with GROK_MODEL_FAST / GROK_MODEL_FULL.
+const MODEL_FAST = process.env.GROK_MODEL_FAST || 'grok-4.3';
+const MODEL_FULL = process.env.GROK_MODEL_FULL || 'grok-4.5';
 
 interface Message {
   role: 'system' | 'user' | 'assistant';
@@ -17,10 +22,14 @@ interface Message {
 
 interface ChatResponse {
   choices: { message: { content: string }; finish_reason: string }[];
-  usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
+  usage?: TokenUsage;
 }
 
-async function chat(messages: Message[], model: string = MODEL_FAST): Promise<string> {
+async function chat(
+  messages: Message[],
+  model: string = MODEL_FAST,
+  op = 'chat',
+): Promise<string> {
   const res = await fetch(`${BASE_URL}/chat/completions`, {
     method: 'POST',
     headers: {
@@ -41,6 +50,7 @@ async function chat(messages: Message[], model: string = MODEL_FAST): Promise<st
   }
 
   const data: ChatResponse = await res.json();
+  logLlmUsage(op, model, data.usage);
   return data.choices[0].message.content;
 }
 
@@ -146,6 +156,7 @@ export async function enrichBookmarkLLM(
         { role: 'user', content: safeContent },
       ],
       MODEL_FULL,
+      'classify',
     );
   } catch (err) {
     console.error('[enrichBookmarkLLM] chat() threw:', err instanceof Error ? err.message : err);
@@ -278,7 +289,7 @@ export async function parseSearchIntent(query: string): Promise<ParsedSearchInte
 Return ONLY valid JSON. No explanation.`,
     },
     { role: 'user', content: query },
-  ]);
+  ], MODEL_FAST, 'search-intent');
 
   try {
     return JSON.parse(result.trim());
@@ -296,7 +307,7 @@ export async function summarizeBookmark(content: string): Promise<string> {
       content: 'Summarize this tweet/thread in 1-2 concise sentences. Be direct and informative.',
     },
     { role: 'user', content },
-  ]);
+  ], MODEL_FAST, 'summarize-bookmark');
   return result.trim();
 }
 
@@ -316,7 +327,8 @@ export async function summarizeCollection(
       },
       { role: 'user', content: contents },
     ],
-    MODEL_FULL
+    MODEL_FULL,
+    'summarize-collection',
   );
   return result.trim();
 }
@@ -332,7 +344,9 @@ export async function findRelatedPosts(content: string): Promise<string> {
         content: 'Based on this bookmarked post, suggest 3-5 related topics the user might want to explore. Return as a JSON array of search query strings.',
       },
       { role: 'user', content },
-    ]
+    ],
+    MODEL_FAST,
+    'related-posts',
   );
   return result.trim();
 }
@@ -365,7 +379,7 @@ Be concise, helpful, and conversational. Use the bookmark data to give specific,
     { role: 'user', content: userMessage },
   ];
 
-  const result = await chat(messages, MODEL_FULL);
+  const result = await chat(messages, MODEL_FULL, 'assistant');
   return result.trim();
 }
 
@@ -390,7 +404,7 @@ export async function checkDuplicate(
       content: `Compare the new post with existing bookmarks. If any is essentially the same content (repost, quote tweet of same, near-identical), return JSON: {"isDuplicate": true, "matchId": "<id>", "similarity": "high|medium"}. If no match, return {"isDuplicate": false}. Return ONLY JSON.`,
     },
     { role: 'user', content: `NEW POST:\n${newContent}\n\nEXISTING:\n${existing}` },
-  ]);
+  ], MODEL_FAST, 'duplicate-check');
 
   try {
     return JSON.parse(result.trim());

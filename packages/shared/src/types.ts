@@ -13,7 +13,7 @@ export interface Profile {
   updated_at: string;
 }
 
-export type Plan = 'free' | 'pro' | 'lifetime';
+export type Plan = 'free' | 'pro' | 'max' | 'lifetime';
 
 export interface Bookmark {
   id: string;

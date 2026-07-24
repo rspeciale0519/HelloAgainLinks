@@ -7,7 +7,12 @@ import { isNativeApp } from '@/lib/mobile';
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
 
 const LAST_AUTO_SYNC_KEY = 'last_auto_sync_at';
-const THROTTLE_MS = 2 * 60 * 1000;
+// Each sync is a paid X API call (owned reads bill per resource returned), and
+// this fires on every app open AND every resume. At 2 minutes a normal day's
+// app-switching triggered a sync almost every time the app came forward. New
+// bookmarks don't arrive that fast, and a manual "Sync Now" still exists for
+// the impatient case — so widen the window substantially.
+const THROTTLE_MS = 15 * 60 * 1000;
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://helloagainlinks.com';
 
 async function maybeSync() {
