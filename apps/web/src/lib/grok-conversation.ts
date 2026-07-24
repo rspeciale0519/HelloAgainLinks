@@ -9,10 +9,12 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { sanitizeFtsQuery } from '@/lib/postgrest-search';
+import { logLlmUsage, type TokenUsage } from '@/lib/llm-usage';
 
 const XAI_API_KEY = process.env.XAI_API_KEY ?? '';
 const XAI_BASE_URL = 'https://api.x.ai/v1';
-const MODEL_FULL = process.env.GROK_MODEL_FULL ?? 'grok-3';
+// Keep in step with lib/grok.ts — grok-3 is legacy and cost more than grok-4.5.
+const MODEL_FULL = process.env.GROK_MODEL_FULL ?? 'grok-4.5';
 
 export interface GrokMessage {
   role: 'system' | 'user' | 'assistant';
@@ -330,6 +332,9 @@ export async function streamGrokChat(messages: GrokMessage[]): Promise<Response>
       temperature: 0.4,
       max_tokens: 1024,
       stream: true,
+      // Ask for the usage block on the final chunk so streamed assistant
+      // turns — the most expensive call in the app — are cost-attributable.
+      stream_options: { include_usage: true },
     }),
   });
   if (!res.ok || !res.body) {
@@ -377,7 +382,11 @@ export async function* iterateGrokStream(
         try {
           const parsed = JSON.parse(data) as {
             choices?: { delta?: { content?: string } }[];
+            usage?: TokenUsage;
           };
+          // The final chunk carries `usage` (stream_options.include_usage) and
+          // has an empty choices array — log it, yield nothing.
+          if (parsed.usage) logLlmUsage('assistant-stream', MODEL_FULL, parsed.usage);
           const delta = parsed.choices?.[0]?.delta?.content;
           if (delta) yield delta;
         } catch {

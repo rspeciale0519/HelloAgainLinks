@@ -2,7 +2,7 @@
 kind: knowledge
 slug: orientation
 status: current
-updated: 2026-07-18
+updated: 2026-07-24
 layer: orientation
 sources:
   - README.md
@@ -36,9 +36,13 @@ pnpm + Turborepo monorepo (`packageManager: pnpm@10.28.2`).
 - `packages/ui` / `packages/ui/hal` — component library; the `hal/`
   subpackage is the redesigned dashboard's primitive/component set
   (Palette, Spread, TweaksPanel, SignalRail, etc.).
-- `supabase/migrations` — Postgres schema (9 tracked migrations; the
+- `supabase/migrations` — Postgres schema (10 tracked migrations; the
   pre-existing baseline tables — `bookmarks`, `profiles`, `tags` — predate
-  migration tracking, so their DDL isn't in the repo).
+  migration tracking, so their DDL isn't in the repo, but `bookmarks` and
+  `bookmark_tags` are confirmed RLS-enabled in prod, verified 2026-07-24).
+  Migration 010 is the RPC-authorization hardening — see
+  [[skills/supabase-definer-rpc-authz]] before touching any `SECURITY DEFINER`
+  function.
 
 ## Integrations (all confirmed by direct code inspection — see [[knowledge/features]])
 Supabase (Postgres + Auth + RLS; **no** Storage/Realtime/pgvector wired

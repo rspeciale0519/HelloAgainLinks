@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { safeInternalPath } from '@/lib/safe-redirect';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -37,8 +38,10 @@ export async function GET(req: NextRequest) {
     { onConflict: 'id' }
   );
 
-  // Normal web login — set cookies and redirect
-  const response = NextResponse.redirect(redirect ? `${APP_URL}${redirect}` : `${APP_URL}/dashboard`);
+  // Normal web login — set cookies and redirect. The redirect target is
+  // constrained to a same-origin relative path so a crafted `redirect` param
+  // cannot escape to an attacker-controlled host.
+  const response = NextResponse.redirect(`${APP_URL}${safeInternalPath(redirect)}`);
   response.cookies.set('ha-access-token', data.session.access_token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { safeInternalPath } from '@/lib/safe-redirect';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -12,7 +13,10 @@ export async function GET(req: NextRequest) {
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   const redirectTo = new URL(`${APP_URL}/api/auth/callback`);
-  if (redirect) redirectTo.searchParams.set('redirect', redirect);
+  // Only forward the redirect param when it is a safe same-origin path; drop
+  // host-changing values before they enter the OAuth round-trip.
+  const safeRedirect = safeInternalPath(redirect, '');
+  if (safeRedirect) redirectTo.searchParams.set('redirect', safeRedirect);
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'twitter',

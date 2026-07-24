@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { stripe } from '@/lib/stripe';
+import { stripe, planForPriceId } from '@/lib/stripe';
 import { getServiceClient } from '@/lib/supabase-server';
 
 export async function POST(req: NextRequest) {
@@ -29,7 +29,12 @@ export async function POST(req: NextRequest) {
         if (!userId) break;
 
         const isLifetime = session.mode === 'payment';
-        const plan = isLifetime ? 'lifetime' : 'pro';
+        // Resolve the tier from the price the customer actually bought. The old
+        // `subscription => 'pro'` inference would have granted Pro limits to a
+        // Max subscriber. Fall back to the mode-based guess only if metadata is
+        // missing (e.g. a session created outside this app).
+        const plan =
+          planForPriceId(session.metadata?.price_id) ?? (isLifetime ? 'lifetime' : 'pro');
 
         await serviceClient
           .from('subscriptions')

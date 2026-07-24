@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext, isAuthError } from '@/lib/auth';
 import { parseSearchIntent } from '@/lib/grok';
+import { enforceQuota } from '@/lib/quota';
 
 // AI-powered natural language search
 export async function POST(req: NextRequest) {
@@ -10,6 +11,9 @@ export async function POST(req: NextRequest) {
   if (ctx.plan === 'free') {
     return NextResponse.json({ error: 'AI search requires Pro plan' }, { status: 403 });
   }
+
+  const denied = await enforceQuota(ctx.serviceClient, ctx.userId, ctx.plan, 'ai_op');
+  if (denied) return denied;
 
   try {
     const { query } = await req.json();
