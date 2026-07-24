@@ -11,6 +11,19 @@
 -- Counters are bucketed by a window key (e.g. '2026-07-24T14'), so a new bucket
 -- starts a fresh allowance automatically — no reset cron.
 
+-- ── Allow the new 'max' tier ──────────────────────────────────────
+-- profiles/subscriptions predate this migrations folder and each carries a
+-- CHECK constraint pinned to ('free','pro','lifetime'). Without widening them,
+-- a Max checkout would take the customer's money and then fail on the webhook's
+-- write — paid, but never upgraded. Verified against prod before writing this.
+ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_plan_check;
+ALTER TABLE profiles ADD CONSTRAINT profiles_plan_check
+  CHECK (plan = ANY (ARRAY['free'::text, 'pro'::text, 'max'::text, 'lifetime'::text]));
+
+ALTER TABLE subscriptions DROP CONSTRAINT IF EXISTS subscriptions_plan_check;
+ALTER TABLE subscriptions ADD CONSTRAINT subscriptions_plan_check
+  CHECK (plan = ANY (ARRAY['free'::text, 'pro'::text, 'max'::text, 'lifetime'::text]));
+
 CREATE TABLE IF NOT EXISTS usage_counters (
   -- user uuid as text, or the sentinel '__global__' for the circuit breaker.
   subject_key text        NOT NULL,
