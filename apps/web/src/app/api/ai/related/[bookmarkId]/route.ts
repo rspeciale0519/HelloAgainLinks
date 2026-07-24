@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext, isAuthError } from '@/lib/auth';
 import { findRelatedPosts } from '@/lib/grok';
+import { enforceQuota } from '@/lib/quota';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +15,9 @@ export async function GET(
   if (ctx.plan === 'free') {
     return NextResponse.json({ error: 'Related content requires Pro plan' }, { status: 403 });
   }
+
+  const denied = await enforceQuota(ctx.serviceClient, ctx.userId, ctx.plan, 'ai_op');
+  if (denied) return denied;
 
   try {
     const { bookmarkId } = await params;

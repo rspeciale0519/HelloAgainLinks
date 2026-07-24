@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext, isAuthError } from '@/lib/auth';
 import { classifyBookmark } from '@/lib/grok';
+import { enforceQuota } from '@/lib/quota';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -51,6 +52,17 @@ export async function POST(req: NextRequest) {
   if (!unclassified || unclassified.length === 0) {
     return NextResponse.json({ classified: 0, remaining: 0 });
   }
+
+  // One full-model call per bookmark, and a caller may request up to 200 in a
+  // single request — so charge the batch size, not one unit per request.
+  const denied = await enforceQuota(
+    ctx.serviceClient,
+    ctx.userId,
+    ctx.plan,
+    'classify',
+    unclassified.length,
+  );
+  if (denied) return denied;
 
   // Get total remaining count using the same widened definition.
   const { count: totalRemaining } = await ctx.serviceClient
