@@ -2,7 +2,7 @@
 kind: knowledge
 slug: roadmap
 status: current
-updated: 2026-07-18
+updated: 2026-07-24
 layer: roadmap
 sources:
   - docs/dev-docs/DEVELOPMENT_ROADMAP.md
@@ -24,9 +24,17 @@ a reliable signal on their own.
 ## Mobile delivery track — next steps (`DEVELOPMENT_ROADMAP.md` "🔜 Next")
 Core mobile app is BUILT (see [[knowledge/features]]); these are the documented remaining items:
 - Finalize iOS Share Extension setup/verification in the Xcode release pipeline
-- Add background-sync scheduler wiring (Vercel Cron has no `crons` key configured yet — `apps/web/vercel.json` is hosting-only; GitHub Actions/worker also unstarted)
+- Add background-sync scheduler wiring — **partially addressed 2026-07-19**: a
+  client-side app-open/resume auto-sync now exists (`lib/use-auto-sync.ts`,
+  native-only, 2min throttle). The *server-side* scheduler is still missing —
+  `apps/web/vercel.json` has no `crons` key; GitHub Actions/worker unstarted. So
+  sync only runs while someone opens the app.
 - Add telemetry for share-ingestion success/failure rates
 - Add retry/backoff for sync runs across large user sets
+- **Release CI is now DONE** (was implicit in this track): Codemagic iOS/Android
+  pipelines shipped 2026-07-19 (`c0512ca`), delivering through TestFlight build 15.
+- **Blocked externally:** X developer account is out of API credits (402) — sync
+  imports nothing until billing is resolved. Not a code gap; see [[knowledge/features]].
 
 ## Smaller gaps surfaced during this knowledge-build pass (not previously roadmap-tracked)
 - Extension bookmark export (CSV/JSON) — documented in PRD §3.1, no code exists

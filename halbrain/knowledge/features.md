@@ -2,7 +2,7 @@
 kind: knowledge
 slug: features
 status: current
-updated: 2026-07-18
+updated: 2026-07-24
 layer: reference
 sources:
   - docs/dev-docs/PRD.md
@@ -57,6 +57,9 @@ All three — PLANNED — zero code (grep for "signal board", "scout agent", "ra
 - Pull-to-refresh / haptics — BUILT — `dashboard/bookmarks/page.tsx:430-450`, `@capacitor/haptics`
 - Onboarding (5-screen) — BUILT — `app/mobile/onboarding/page.tsx`
 - `helloagainlinks://` URL scheme — BUILT — `Info.plist` + `AndroidManifest.xml` + `auth/mobile-callback/page.tsx:20`
+- App-open / resume auto-sync — BUILT (added 2026-07-19, commit `3ec14ad`) — `apps/web/src/lib/use-auto-sync.ts`, native-only + throttled 2min, POSTs `/api/sync/background`; wired in `app/layout.tsx`. This is a *client-side* trigger, not the server cron the roadmap still tracks as missing — see [[knowledge/superseded]] #7.
+- iOS TestFlight + Android release CI — BUILT (added 2026-07-19, `c0512ca`) — `codemagic.yaml`, `.github/workflows/{build-ios,release-mobile}.yml`, `scripts/mobile-build.mjs`. Shipped through TestFlight build 15 as of 2026-07-20.
+- **Operational blocker (external, not code):** the X developer account is **out of API credits (402)**, so sync is a no-op regardless of trigger. `api/sync/background/route.ts` now surfaces this honestly instead of returning 200 (`3114da3`). Nothing in the sync path will import until X API billing is resolved.
 
 ## HAL Dashboard Redesign (apps/web/src/app/dashboard/bookmarks, packages/ui/hal)
 BUILT end-to-end, most complete area of the codebase — `dashboard/bookmarks/page.tsx` (657 LOC) wires all of: 3-pane shell, Signal rail (`SignalRail.tsx`, `AskTab.tsx` streaming SSE + citations, `ThreadsTab.tsx`, `RelatedTab.tsx`), ⌘K command palette (`Palette.tsx`), Spread modal (`Spread.tsx`), Tweaks panel (`TweaksPanel.tsx`), bulk selection (`BulkActionBar.tsx` → `POST /api/bookmarks/bulk`).
@@ -70,7 +73,9 @@ Known gap: tag filtering is client-side-only post-filter — no `tag_ids[]` para
 
 ## Payments & Auth
 - Stripe (Checkout, Subscriptions, Customer Portal, signed webhooks) — BUILT — `api/stripe/{checkout,portal,webhook}/route.ts`
-- Supabase Auth + RLS — BUILT — `lib/auth.ts getAuthContext()`, `middleware.ts`; 14 `CREATE POLICY`/`ENABLE ROW LEVEL SECURITY` statements in migration 005 (folders/conversations/messages — pre-existing core tables predate migration tracking, app code double-filters by `user_id` regardless)
+- Supabase Auth + RLS — BUILT — `lib/auth.ts getAuthContext()`, `middleware.ts`; 14 `CREATE POLICY`/`ENABLE ROW LEVEL SECURITY` statements in migration 005 (folders/conversations/messages). The pre-existing core tables predate migration tracking, but `bookmarks` and `bookmark_tags` are **confirmed RLS-enabled** against prod (`relrowsecurity = true`, verified 2026-07-24) — this closes a previously UNVERIFIED item. App code double-filters by `user_id` regardless.
+- RPC authorization hardening — BUILT (2026-07-24, migration 010, PR #16 `a35304e`) — `search_bookmarks` and `get_folders_with_counts` were `SECURITY DEFINER` filtering on a **caller-supplied** `p_user_id` with the default `PUBLIC` execute grant, i.e. anon-reachable IDORs. Now: `search_bookmarks` → `service_role` only; `get_folders_with_counts` → identity bound in-body via `auth.uid()`, PUBLIC/anon revoked; `get_related_bookmarks` → unused `service_role` grant dropped. Live ACLs verified. Method + verification query: [[skills/supabase-definer-rpc-authz]].
+- Open-redirect defense — BUILT (2026-07-24) — `lib/safe-redirect.ts` `safeInternalPath()` gates the post-OAuth `redirect` param to same-origin relative paths; applied in `api/auth/callback/route.ts` and `api/auth/login/route.ts`.
 - Supabase Storage — NOT FOUND — no `.storage.from(` calls; PRD-only mention
 - Supabase Realtime — NOT FOUND — no `.channel(`/`postgres_changes` calls
 - Supabase pgvector — NOT FOUND — search is plain FTS, no vector column/extension

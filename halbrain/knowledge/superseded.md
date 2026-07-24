@@ -2,7 +2,7 @@
 kind: knowledge
 slug: superseded
 status: current
-updated: 2026-07-18
+updated: 2026-07-24
 layer: reference
 sources:
   - docs/dev-docs/DEVELOPMENT_ROADMAP.md
@@ -40,7 +40,9 @@ PRD §3.3 describes a "Shareable Card (1200×630 OG image) optimized for posting
 PRD describes "Related Content" using Grok's `x_search()` tool and PRD's roadmap describes Collections API usage for Community Knowledge Graphs. `findRelatedPosts()` in `grok.ts:324-338` has only a comment referencing `x_search` — no tool params are actually passed. No Collections API usage found anywhere. Related-content still works (BUILT), just via a plain Grok chat call, not the documented tool-use mechanism.
 
 ## 7. Mobile spec claims the sync cron is "already functional" — it is not wired
-`docs/superpowers/specs/2026-03-17-mobile-x-support-design.md` §8 states the native X bookmark mirror "runs via the server-side background sync cron job on mobile. No changes required." No cron exists: `apps/web/vercel.json` has no `crons` entry and nothing calls `/api/sync/background` with the `x-bookmark-sync-secret` header. The only live trigger is a manual button on `apps/web/src/app/mobile/more/settings/page.tsx:22`. The roadmap is honest about this ("Add background sync scheduler wiring" — unchecked); the spec overclaims. Consequence: the shipped onboarding copy (`mobile/onboarding/page.tsx:163,236` — "HAL automatically syncs it in the background — no extra steps") promises behavior that doesn't happen yet. Verified 2026-07-18.
+`docs/superpowers/specs/2026-03-17-mobile-x-support-design.md` §8 states the native X bookmark mirror "runs via the server-side background sync cron job on mobile. No changes required." **No server-side cron exists** — `apps/web/vercel.json` still has no `crons` entry and nothing calls `/api/sync/background` with the `x-bookmark-sync-secret` header. The roadmap is honest about this ("Add background sync scheduler wiring" — unchecked); the spec overclaims.
+
+**Updated 2026-07-24 (partially superseded):** the original claim that "the only live trigger is a manual button" is now stale. Since `3ec14ad` (2026-07-19) a **client-side** app-open/resume auto-sync exists (`apps/web/src/lib/use-auto-sync.ts`, native-only, 2min throttle, wired in `app/layout.tsx`), alongside the manual button (`mobile/more/settings/page.tsx`). So the onboarding copy ("HAL automatically syncs it in the background — no extra steps") is now *approximately* true on mobile — but only while the user opens/resumes the app, never truly in the background, and the spec's specific "server-side cron" mechanism claim remains false. Separately, sync currently imports nothing regardless of trigger because the X developer account is **out of API credits (402)** — an external billing blocker, surfaced honestly since `3114da3`.
 
 ## Operator corrections (re-verified this pass, source: `claude-memory:project_hal_redesign_open_bugs.md`, 2026-04-26)
 Still present, unchanged:
@@ -48,6 +50,7 @@ Still present, unchanged:
 - **`HalMobileBar`/`HalDrawer` dead code** — `apps/web/src/components/hal/{HalMobileBar,HalDrawer}.tsx` still exist, zero references anywhere else, not archived.
 - **`HalSearchBar` never absorbed into ⌘K palette** — still rendered unconditionally (not mobile-gated) in `dashboard/bookmarks/page.tsx:484`, despite Phase 5 (palette) being marked complete.
 - **`.env.local` `NEXT_PUBLIC_APP_URL=http://localhost:3001`** — must be overridden/reverted before prod deploy; prod value present but commented out.
+- **`.env.local` DB credentials are inconsistent (found 2026-07-24)** — `SUPABASE_DB_PASSWORD` is **stale**: it fails authentication against the prod database (`FATAL: password authentication failed`). Only the password embedded in `DIRECT_DATABASE_URL` authenticates — and that URL is itself malformed, because the password contains a literal `%` that is not percent-encoded, so standard URI parsers (libpq included) reject the string outright. Anything reading `DIRECT_DATABASE_URL` as a URI will fail. Likely fallout from the 2026-06-18 key rotation (`claude-memory:reference_credentials`). Fix both: rotate/refresh `SUPABASE_DB_PASSWORD` and percent-encode the URL's password. (Names only here — no values; see [[skills/supabase-definer-rpc-authz]] for the read-only verification path that avoids needing these at all.)
 - **`@helloagain/ui-hal` lint script is a no-op echo** — `packages/ui/hal/package.json`, unchanged.
 - **`apps/extension/{content.ts,background.ts}` exceed the 450-LOC file cap, and grew** — now 580 LOC / 687 LOC respectively (were 541/562 at the 2026-04-26 memory date). Getting worse, not better.
 - **`StatusDot` division-by-zero calc trick** — `packages/ui/hal/src/primitives/StatusDot.tsx:26`, `calc(2s / var(--hal-pulse-on, 1))`, unchanged.
