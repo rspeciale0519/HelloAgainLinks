@@ -26,7 +26,7 @@
 
   --hal-sans: 'Geist', ui-sans-serif, system-ui, sans-serif;
   --hal-mono: 'Geist Mono', ui-monospace, monospace;
-  --hal-serif: 'Instrument Serif', 'Times New Roman', serif;
+  --hal-serif: var(--font-instrument-serif), 'Instrument Serif', 'Times New Roman', serif;
 
   --hal-density: 1;
   --hal-pulse-on: 1;
