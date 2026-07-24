@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getAuthContext, isAuthError } from '@/lib/auth';
+import { enforceQuota } from '@/lib/quota';
 import {
   buildBookmarkContext,
   buildSystemPrompt,
@@ -49,12 +50,12 @@ export async function POST(req: NextRequest, { params }: Params) {
   if (isAuthError(ctx)) return ctx;
   const { id } = await params;
 
-  if (ctx.plan === 'free') {
-    return NextResponse.json(
-      { error: 'AI assistant requires a Pro plan.', code: 'plan_required' },
-      { status: 402 },
-    );
-  }
+  // Free accounts get a bounded lifetime trial of the assistant rather than a
+  // hard paywall; every plan is then metered. The streamed assistant turn is the
+  // single most expensive call in the app (~5.5K input tokens), so this quota
+  // runs before any Grok request is made.
+  const denied = await enforceQuota(ctx.serviceClient, ctx.userId, ctx.plan, 'chat');
+  if (denied) return denied;
 
   let body: unknown;
   try {

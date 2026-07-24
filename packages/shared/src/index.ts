@@ -1,4 +1,5 @@
 export * from './types';
+export * from './plans';
 export * from './supabase';
 export * from './schemas';
 export * from './utils';

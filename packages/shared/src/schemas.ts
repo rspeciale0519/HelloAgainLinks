@@ -103,9 +103,11 @@ export const batchImportSchema = z.object({
 });
 export type BatchImportInput = z.infer<typeof batchImportSchema>;
 
-// Plan limits
+// Storage limits (how much a user may KEEP). Distinct from the metered
+// per-operation quotas in ./plans.ts, which bound what a user may SPEND.
 export const PLAN_LIMITS = {
   free: { bookmarks: 500, folders: 5, tags: 20 },
   pro: { bookmarks: Infinity, folders: Infinity, tags: Infinity },
+  max: { bookmarks: Infinity, folders: Infinity, tags: Infinity },
   lifetime: { bookmarks: Infinity, folders: Infinity, tags: Infinity },
 } as const;

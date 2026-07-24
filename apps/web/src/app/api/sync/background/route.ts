@@ -4,6 +4,7 @@ import { getServiceClient } from '@/lib/supabase-server';
 import { mergeUpsertBookmarks } from '@/lib/bookmark-upsert';
 import { classifyBookmark } from '@/lib/grok';
 import { refreshXToken } from '@/lib/x-auth';
+import { enforceQuota } from '@/lib/quota';
 import { createSyncGuards } from '@helloagain/shared';
 
 const CRON_SECRET = process.env.BOOKMARK_SYNC_SECRET;
@@ -196,6 +197,13 @@ export async function POST(req: NextRequest) {
   // User-triggered mode (sync current authenticated user)
   const ctx = await getAuthContext(req);
   if (isAuthError(ctx)) return ctx;
+
+  // Each sync spends X API credits (owned reads bill per resource returned) and
+  // draws on the shared 2M-reads/month platform cap. The client-side throttle in
+  // use-auto-sync.ts is bypassable by calling this route directly, so the quota
+  // here is the real control.
+  const denied = await enforceQuota(ctx.serviceClient, ctx.userId, ctx.plan, 'sync');
+  if (denied) return denied;
 
   const result = await syncUser(ctx.serviceClient, ctx.userId);
   return NextResponse.json({ mode: 'user', userId: ctx.userId, ...result });
