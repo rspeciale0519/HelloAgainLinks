@@ -9,6 +9,16 @@ import { createSyncGuards } from '@helloagain/shared';
 const CRON_SECRET = process.env.BOOKMARK_SYNC_SECRET;
 const SYNC_TIMEOUT_MS = Number(process.env.SYNC_TIMEOUT_MS) || 55_000;
 
+// X bills owned reads (GET /2/users/{id}/bookmarks) PER RESOURCE RETURNED —
+// $0.001 each — so page size is a direct cost lever, not just a perf knob.
+// A caught-up incremental sync used to pull a full 100 bookmarks just to learn
+// that 0 were new (~$0.10 a run, on a 2-minute auto-sync throttle). Pull a small
+// page instead: the guard loop already paginates when there genuinely IS new
+// data, so a burst of new saves still syncs fully — it just costs in proportion
+// to what actually changed. Backfill (no known cursor) keeps the big page.
+const BACKFILL_PAGE_SIZE = 100;
+const INCREMENTAL_PAGE_SIZE = Number(process.env.SYNC_INCREMENTAL_PAGE_SIZE) || 10;
+
 interface SyncResult {
   imported: number;
   skipped: number;
@@ -53,6 +63,10 @@ async function syncUser(
   const syncState = profile.sync_state as Record<string, unknown> | null;
   const newestKnownId = (syncState?.newestKnownPostId as string) || null;
 
+  // Known cursor => incremental catch-up (cheap pages). No cursor => first-run
+  // backfill, where large pages are the efficient choice.
+  const pageSize = newestKnownId ? INCREMENTAL_PAGE_SIZE : BACKFILL_PAGE_SIZE;
+
   let imported = 0;
   let skipped = 0;
   let paginationToken: string | undefined;
@@ -63,7 +77,7 @@ async function syncUser(
 
   do {
     const url = new URL(`https://api.x.com/2/users/${profile.x_user_id}/bookmarks`);
-    url.searchParams.set('max_results', '100');
+    url.searchParams.set('max_results', String(pageSize));
     url.searchParams.set('tweet.fields', 'created_at,author_id,text');
     url.searchParams.set('expansions', 'author_id');
     url.searchParams.set('user.fields', 'username,name');
