@@ -6,6 +6,12 @@ import { authPost } from '@/lib/auth-fetch';
 
 interface Message { role: 'user' | 'assistant'; content: string; }
 
+/** Composer sizing. Keep LINE_HEIGHT in step with the textarea's lineHeight. */
+const LINE_HEIGHT = 20;
+const MAX_LINES = 5;
+/** Height of the fixed bottom nav in mobile/layout.tsx. */
+const NAV_HEIGHT = 64;
+
 export default function MobileAIPage() {
   const [messages, setMessages] = useState<Message[]>([{
     role: 'assistant',
@@ -14,10 +20,24 @@ export default function MobileAIPage() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Grow the composer with the text up to MAX_LINES, then stop and let it
+  // scroll internally — so a long prompt never pushes the send button or the
+  // conversation off screen.
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    const max = LINE_HEIGHT * MAX_LINES;
+    el.style.height = 'auto'; // measure the natural height first
+    const next = Math.min(el.scrollHeight, max);
+    el.style.height = `${next}px`;
+    el.style.overflowY = el.scrollHeight > max ? 'auto' : 'hidden';
+  }, [input]);
 
   const send = async () => {
     const text = input.trim();
@@ -37,12 +57,15 @@ export default function MobileAIPage() {
     setLoading(false);
   };
 
+  // The page no longer sets height:100%: the composer is fixed and the mobile
+  // layout's main element owns scrolling. paddingBottom on the message list
+  // clears the composer at its tallest (5 lines) so nothing hides behind it.
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '20px 16px 0' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', padding: '20px 16px 0' }}>
       <h1 style={{ fontSize: 20, fontWeight: 600, color: '#f0f0f5', marginBottom: 16 }}>AI Assistant ✨</h1>
 
       {/* Messages */}
-      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 16 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 170 }}>
         {messages.map((msg, i) => (
           <motion.div
             key={i}
@@ -78,22 +101,46 @@ export default function MobileAIPage() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input */}
+      {/* Composer — fixed directly above the bottom nav so it stays reachable
+          regardless of how short the conversation is. */}
       <div style={{
-        display: 'flex', gap: 8, alignItems: 'center',
-        background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(var(--accent-rgb),0.12)',
-        borderRadius: 12, padding: '10px 12px', marginBottom: 16,
+        position: 'fixed',
+        left: 0,
+        right: 0,
+        bottom: `calc(${NAV_HEIGHT}px + env(safe-area-inset-bottom))`,
+        display: 'flex', gap: 8, alignItems: 'flex-end',
+        background: '#0a0a0f',
+        borderTop: '1px solid rgba(255,255,255,0.06)',
+        padding: '10px 16px',
       }}>
-        <input
+        <div style={{
+          flex: 1, display: 'flex', alignItems: 'flex-end',
+          background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(var(--accent-rgb),0.12)',
+          borderRadius: 12, padding: '10px 12px',
+        }}>
+        <textarea
+          ref={inputRef}
+          rows={1}
           value={input}
           onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && send()}
+          // Enter sends; Shift+Enter inserts a newline.
+          onKeyDown={e => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              send();
+            }
+          }}
           placeholder="Ask about your bookmarks..."
           style={{
             flex: 1, background: 'none', border: 'none', outline: 'none',
             color: '#f0f0f5', fontSize: 13, fontFamily: "'Inter', sans-serif",
+            lineHeight: `${LINE_HEIGHT}px`,
+            resize: 'none',
+            maxHeight: LINE_HEIGHT * MAX_LINES,
+            padding: 0,
           }}
         />
+        </div>
         <button
           onClick={send}
           disabled={!input.trim() || loading}

@@ -31,7 +31,10 @@ export default function MobileAuthCallbackPage() {
   return (
     <main
       style={{
-        minHeight: '100vh',
+        // 100dvh, not 100vh: on mobile Safari/Chrome 100vh counts the area
+        // behind the browser chrome, so the box is taller than what you can see
+        // and "centered" content lands visibly below centre.
+        minHeight: '100dvh',
         display: 'grid',
         placeItems: 'center',
         padding: '24px',
