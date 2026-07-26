@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Suspense } from 'react';
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
@@ -87,8 +87,17 @@ async function sendAuthToExtension(
 function SetSessionContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const startedRef = useRef(false);
 
   useEffect(() => {
+    // Run exactly once per mount. clearTokenUrl() wipes the hash, so a second
+    // invocation (StrictMode double-invoke, or any re-render of this effect)
+    // finds no tokens and would bounce a successfully-authenticated user to
+    // /login?error=no_tokens — the "auth flash" that was previously masked
+    // because the extension closed the tab before anyone saw it.
+    if (startedRef.current) return;
+    startedRef.current = true;
+
     const { accessToken, refreshToken } = getTokenParams(searchParams);
 
     if (!accessToken || !refreshToken) {
