@@ -4,7 +4,7 @@
 import { useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from 'react';
 import { Icon } from '../primitives/Icon';
 import { Avatar } from '../primitives/Avatar';
-import { formatDate, formatRelative } from './format-date';
+import { formatPostDate, formatRelative } from './format-date';
 import { CardGridRow } from './Card.grid';
 
 type Density_ = 'comfortable' | 'compact' | 'grid';
@@ -208,7 +208,8 @@ export function Card({
               gap: 8,
             }}
           >
-            {bookmark.post_created_at && <span>Posted {formatDate(bookmark.post_created_at)}</span>}
+            {/* Full timestamp on the roomy desktop list card. */}
+            {bookmark.post_created_at && <span>Posted {formatPostDate(bookmark.post_created_at)}</span>}
             <span>Saved {formatRelative(bookmark.bookmarked_at)}</span>
           </span>
         </div>

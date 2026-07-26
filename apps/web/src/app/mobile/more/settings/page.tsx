@@ -20,7 +20,14 @@ export default function MobileSettingsPage() {
     if (!res) { setSyncStatus('Please sign in again'); setSyncing(false); return; }
     if (!res.ok) { setSyncStatus('Sync failed'); setSyncing(false); return; }
     const data = await res.json().catch(() => null);
-    if (data?.xApiError) {
+    if (data?.blocker) {
+      // The sync could not run at all — never report this as "up to date".
+      setSyncStatus(
+        data.blocker === 'x_not_connected'
+          ? 'No X account connected — sign in with X again'
+          : 'X access expired — sign in with X again to reconnect',
+      );
+    } else if (data?.xApiError) {
       setSyncStatus(
         data.xApiError.status === 402
           ? 'X API quota reached — add credits to your X developer plan'

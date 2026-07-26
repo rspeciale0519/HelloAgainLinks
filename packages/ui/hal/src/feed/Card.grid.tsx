@@ -3,7 +3,7 @@
 
 import { useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from 'react';
 import { Icon } from '../primitives/Icon';
-import { formatRelative } from './format-date';
+import { formatPostDate } from './format-date';
 import type { CardBookmark } from './Card';
 
 export interface CardGridRowProps {
@@ -98,7 +98,9 @@ export function CardGridRow({
           fontSize: 11,
         }}
       >
-        {formatRelative(bookmark.bookmarked_at)}
+        {/* Publication time, compact — grid cells are too narrow for the long
+            form, and bookmarked_at is ingest time (reads "1s ago" post-sync). */}
+        {formatPostDate(bookmark.post_created_at || bookmark.bookmarked_at, { short: true })}
       </span>
       <span
         style={{

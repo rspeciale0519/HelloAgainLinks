@@ -9,6 +9,42 @@ export function formatDate(isoOrDate: string | Date | null | undefined): string 
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+/**
+ * Absolute post timestamp in X's own style.
+ *
+ *   default          "3:04 PM - July 22, 2026"   (roomy layouts — list cards)
+ *   { short: true }  "3:04PM - 7/22/26"          (narrow layouts — grid cards)
+ *
+ * Use this for a post's publication time. A relative count is the wrong unit
+ * for a saved post: "26w" says far less than the date it went up. Mirrors
+ * formatPostDate in @helloagain/shared — duplicated deliberately, since this
+ * package stays decoupled from the web app's helpers.
+ */
+export function formatPostDate(
+  isoOrDate: string | Date | null | undefined,
+  options?: { short?: boolean },
+): string {
+  if (!isoOrDate) return '';
+  const d = new Date(isoOrDate);
+  if (Number.isNaN(d.getTime())) return '';
+
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  if (options?.short) {
+    const date = d.toLocaleDateString('en-US', {
+      month: 'numeric',
+      day: 'numeric',
+      year: '2-digit',
+    });
+    return `${time.replace(/\s/g, '')} - ${date}`;
+  }
+  const date = d.toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+  return `${time} - ${date}`;
+}
+
 /** "Ns/Nm/Nh/Nd ago" — mirror of apps/web/src/lib/relative-time.ts. */
 export function formatRelative(isoOrDate: string | Date | null | undefined): string {
   if (!isoOrDate) return 'never';

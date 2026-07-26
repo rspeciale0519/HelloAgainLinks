@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { authFetch } from '@/lib/auth-fetch';
-import { timeAgo, hexToRgba } from '@helloagain/shared';
+import { formatPostDate, hexToRgba } from '@helloagain/shared';
 
 interface Bookmark {
   id: string;
@@ -110,11 +110,12 @@ export default function MobileHomePage() {
                 onClick={() => window.open(`https://x.com/${bm.x_author_handle}/status/${bm.x_post_id}`, '_system')}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent-cyan)' }}>@{bm.x_author_handle}</span>
-                  {/* When the post was published, not when we imported it —
-                      bookmarked_at is ingest time, so it read "1m" for every
-                      row right after a sync. */}
-                  <span style={{ fontSize: 11, color: '#4a4a5a', marginLeft: 'auto' }}>{timeAgo(bm.post_created_at || bm.bookmarked_at)}</span>
+                  {/* Handle truncates so the date never wraps or gets pushed off. */}
+                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent-cyan)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>@{bm.x_author_handle}</span>
+                  {/* Absolute publication date, not import time and not a relative
+                      count — a saved post is usually old, so "26w" says less than
+                      the date it was actually posted. */}
+                  <span style={{ fontSize: 11, color: '#4a4a5a', marginLeft: 'auto', whiteSpace: 'nowrap', flexShrink: 0 }}>{formatPostDate(bm.post_created_at || bm.bookmarked_at, { short: true })}</span>
                 </div>
                 <div style={{ fontSize: 13, color: '#8a8a9a', lineHeight: 1.5 }}>
                   {bm.content_text.length > 160 ? bm.content_text.slice(0, 160) + '…' : bm.content_text}
