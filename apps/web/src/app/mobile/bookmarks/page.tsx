@@ -9,6 +9,8 @@ interface Tag { id: string; name: string; color: string; }
 interface Bookmark {
   id: string; x_post_id: string; x_author_handle: string;
   content_text: string; bookmarked_at: string;
+  /** Publication time on X — what the card displays. See home/page.tsx. */
+  post_created_at?: string | null;
   bookmark_tags?: Array<{ tag_id: string; tags: Tag }>;
 }
 
@@ -180,7 +182,8 @@ export default function MobileBookmarksPage() {
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
                   <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent-cyan)' }}>@{bm.x_author_handle}</span>
-                  <span style={{ fontSize: 11, color: '#4a4a5a', marginLeft: 'auto' }}>{timeAgo(bm.bookmarked_at, { short: true })}</span>
+                  {/* Post publication time, not import time — see home/page.tsx */}
+                  <span style={{ fontSize: 11, color: '#4a4a5a', marginLeft: 'auto' }}>{timeAgo(bm.post_created_at || bm.bookmarked_at, { short: true })}</span>
                 </div>
                 <div style={{ fontSize: 13, color: '#8a8a9a', lineHeight: 1.5 }}>
                   {bm.content_text.length > 180 ? bm.content_text.slice(0, 180) + '…' : bm.content_text}

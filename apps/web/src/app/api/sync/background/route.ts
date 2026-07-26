@@ -20,6 +20,15 @@ const SYNC_TIMEOUT_MS = Number(process.env.SYNC_TIMEOUT_MS) || 55_000;
 const BACKFILL_PAGE_SIZE = 100;
 const INCREMENTAL_PAGE_SIZE = Number(process.env.SYNC_INCREMENTAL_PAGE_SIZE) || 10;
 
+// Asking X to expand author_id returns a user object per author, which appears
+// to bill separately from the bookmark itself (a 4-request sync cost $0.30 when
+// the bookmarks alone should have been ~$0.04). Set
+// SYNC_INCLUDE_AUTHOR_EXPANSION=false to drop the expansion and compare cost.
+// Safe to leave off: we already store x_author_handle/x_author_name, and any row
+// imported without author data is healed by the merge scoring on a later sync
+// that does include it.
+const INCLUDE_AUTHOR_EXPANSION = process.env.SYNC_INCLUDE_AUTHOR_EXPANSION !== 'false';
+
 interface SyncResult {
   imported: number;
   skipped: number;
@@ -80,8 +89,10 @@ async function syncUser(
     const url = new URL(`https://api.x.com/2/users/${profile.x_user_id}/bookmarks`);
     url.searchParams.set('max_results', String(pageSize));
     url.searchParams.set('tweet.fields', 'created_at,author_id,text');
-    url.searchParams.set('expansions', 'author_id');
-    url.searchParams.set('user.fields', 'username,name');
+    if (INCLUDE_AUTHOR_EXPANSION) {
+      url.searchParams.set('expansions', 'author_id');
+      url.searchParams.set('user.fields', 'username,name');
+    }
     if (paginationToken) url.searchParams.set('pagination_token', paginationToken);
 
     const xRes = await fetch(url.toString(), {

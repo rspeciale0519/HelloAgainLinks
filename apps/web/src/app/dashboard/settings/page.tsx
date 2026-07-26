@@ -13,6 +13,8 @@ import {
   HalPrimaryButton,
   HalGhostButton,
 } from '@/components/hal/PageShell';
+import { PlanLadder, type UsageRow } from '@/components/hal/PlanLadder';
+import type { Plan } from '@helloagain/shared';
 
 interface SettingsUser {
   id: string;
@@ -27,6 +29,8 @@ export default function SettingsPage() {
   const [user, setUser] = useState<SettingsUser | null>(null);
   const plan = usePlan(user?.id);
   const [loading, setLoading] = useState(true);
+  const [usage, setUsage] = useState<UsageRow[] | null>(null);
+  const [busyPlan, setBusyPlan] = useState<Plan | null>(null);
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -45,18 +49,42 @@ export default function SettingsPage() {
     });
   }, []);
 
+  // Usage powers the gauges. A failure here leaves them in the loading state
+  // rather than blocking the rest of settings.
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    authFetch('/api/usage')
+      .then((res) => (res?.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled && data?.usage) setUsage(data.usage as UsageRow[]);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
   const handleLogout = async () => {
     const supabase = getSupabaseBrowserClient();
     await supabase.auth.signOut();
     router.push('/');
   };
 
-  const handleUpgrade = async () => {
-    const res = await authPost('/api/stripe/checkout', { priceId: 'pro_monthly' });
+  const handleChoosePlan = async (target: Plan) => {
+    if (target === 'free' || target === 'lifetime') return;
+    setBusyPlan(target);
+    const priceId = target === 'max' ? 'max_monthly' : 'pro_monthly';
+    const res = await authPost('/api/stripe/checkout', { priceId });
     if (res?.ok) {
       const data = await res.json();
-      if (data.url) window.location.href = data.url;
+      if (data.url) {
+        window.location.href = data.url;
+        return;
+      }
     }
+    // Checkout didn't open — release the button so it can be retried.
+    setBusyPlan(null);
   };
 
   const handleManageBilling = async () => {
@@ -154,51 +182,13 @@ export default function SettingsPage() {
       </HalPanel>
 
       <SectionLabel>SUBSCRIPTION</SectionLabel>
-      <HalPanel accent={plan !== 'free'}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-          <PlanBadge plan={plan} />
-        </div>
-        {plan === 'free' ? (
-          <>
-            <div
-              style={{
-                fontSize: 13,
-                color: 'var(--hal-text-1)',
-                lineHeight: 1.55,
-                marginBottom: 14,
-              }}
-            >
-              Pro unlocks AI auto-tagging, smart search, unlimited Blends, shared
-              lists, and the AI assistant.
-            </div>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <HalPrimaryButton onClick={handleUpgrade}>
-                UPGRADE — $9.99/MO
-              </HalPrimaryButton>
-              <HalGhostButton onClick={handleManageBilling}>
-                MANAGE BILLING
-              </HalGhostButton>
-            </div>
-          </>
-        ) : (
-          <>
-            <div
-              style={{
-                fontSize: 13,
-                color: 'var(--hal-text-1)',
-                lineHeight: 1.55,
-                marginBottom: 14,
-              }}
-            >
-              Full access to all Pro features — AI tagging, smart search, shared
-              lists, AI assistant.
-            </div>
-            <HalGhostButton onClick={handleManageBilling}>
-              MANAGE BILLING
-            </HalGhostButton>
-          </>
-        )}
-      </HalPanel>
+      <PlanLadder
+        plan={plan as Plan}
+        usage={usage}
+        busyPlan={busyPlan}
+        onChoose={handleChoosePlan}
+        onManageBilling={handleManageBilling}
+      />
 
       <ImportSection />
 
@@ -252,28 +242,6 @@ export default function SettingsPage() {
         </HalGhostButton>
       </div>
     </PageShell>
-  );
-}
-
-function PlanBadge({ plan }: { plan: string }) {
-  const label =
-    plan === 'free' ? 'FREE PLAN' : plan === 'lifetime' ? 'LIFETIME' : 'PRO PLAN';
-  const accent = plan !== 'free';
-  return (
-    <span
-      style={{
-        padding: '3px 10px',
-        fontFamily: 'var(--hal-mono)',
-        fontSize: 10,
-        letterSpacing: '0.14em',
-        color: accent ? 'var(--hal-a)' : 'var(--hal-text-2)',
-        background: accent ? 'var(--hal-a-dim)' : 'var(--hal-bg-2)',
-        border: `1px solid ${accent ? 'rgba(var(--hal-a-rgb), 0.3)' : 'var(--hal-line-1)'}`,
-        borderRadius: 2,
-      }}
-    >
-      {label}
-    </span>
   );
 }
 
