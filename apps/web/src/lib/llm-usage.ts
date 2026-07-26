@@ -16,7 +16,18 @@ export interface TokenUsage {
   total_tokens?: number;
   /** xAI reports cached prompt tokens here when prompt caching applies. */
   prompt_tokens_details?: { cached_tokens?: number };
+  /**
+   * xAI's own billed cost for the call, in ticks of 1e-10 USD. Authoritative —
+   * verified against the published rate card on both grok-4.5 and grok-4.3 and
+   * matched exactly. Prefer this over our rate table, which can silently drift
+   * when xAI reprices.
+   */
+  cost_in_usd_ticks?: number;
+  /** Reasoning models bill these as output tokens; they can dominate the cost. */
+  completion_tokens_details?: { reasoning_tokens?: number };
 }
+
+const USD_PER_TICK = 1e-10;
 
 /** USD per 1M tokens. Source: docs.x.ai/developers/pricing (verified 2026-07-24). */
 const PRICING_PER_MTOK: Record<string, { in: number; cachedIn: number; out: number }> = {
@@ -30,8 +41,15 @@ const PRICING_PER_MTOK: Record<string, { in: number; cachedIn: number; out: numb
   'grok-3-mini': { in: 0.3, cachedIn: 0.3, out: 0.5 },
 };
 
-/** Estimated USD for one completion. Returns null for an unpriced model. */
+/**
+ * USD for one completion. Uses xAI's own billed figure when present; otherwise
+ * falls back to the local rate table. Returns null for an unpriced model.
+ */
 export function estimateCostUsd(model: string, usage: TokenUsage): number | null {
+  if (typeof usage.cost_in_usd_ticks === 'number') {
+    return usage.cost_in_usd_ticks * USD_PER_TICK;
+  }
+
   const rate = PRICING_PER_MTOK[model];
   if (!rate) return null;
 
@@ -62,7 +80,11 @@ export function logLlmUsage(op: string, model: string, usage?: TokenUsage | null
           prompt_tokens: usage.prompt_tokens,
           cached_tokens: usage.prompt_tokens_details?.cached_tokens ?? 0,
           completion_tokens: usage.completion_tokens,
-          cost_usd: costUsd === null ? null : Number(costUsd.toFixed(6)),
+          // Reasoning models can spend far more here than the visible reply
+          // implies, so surface it separately when attributing spend.
+          reasoning_tokens: usage.completion_tokens_details?.reasoning_tokens ?? 0,
+          cost_usd: costUsd === null ? null : Number(costUsd.toFixed(8)),
+          cost_source: typeof usage.cost_in_usd_ticks === 'number' ? 'xai' : 'estimated',
         }),
     );
   } catch {
