@@ -61,8 +61,11 @@ export async function mergeUpsertBookmarks(
         );
         // Only keep writable bookmark columns
         const WRITABLE_FIELDS = new Set([
+          // NOT bookmarked_at: it records when HAL first saw the post, and the
+          // incoming value is always "now". Letting a re-sync merge overwrite it
+          // reset every touched row's timestamp to the sync time.
           'x_author_handle', 'x_author_name', 'content_text', 'media_urls',
-          'post_created_at', 'bookmarked_at', 'x_author_avatar_url',
+          'post_created_at', 'x_author_avatar_url',
           'engagement', 'language', 'conversation_id', 'in_reply_to_status_id',
           'quoted_status_id', 'possibly_sensitive', 'ingested_via',
           'primary_category', 'primary_domain',

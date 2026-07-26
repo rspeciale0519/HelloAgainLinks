@@ -73,7 +73,7 @@ export interface QuotaDenial {
 }
 
 /** Seconds until the current window rolls over — drives the Retry-After header. */
-function secondsUntilWindowReset(window: QuotaWindow): number | null {
+export function secondsUntilWindowReset(window: QuotaWindow): number | null {
   const now = new Date();
   switch (window) {
     case 'hour':
