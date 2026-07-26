@@ -12,7 +12,10 @@ interface Bookmark {
   x_author_handle: string;
   x_author_name: string;
   content_text: string;
+  /** When HAL first ingested the post. Not when the user bookmarked it on X. */
   bookmarked_at: string;
+  /** When the post was published on X — what the card should display. */
+  post_created_at?: string | null;
   bookmark_tags?: Array<{ tags: { name: string; color: string } }>;
 }
 
@@ -108,7 +111,10 @@ export default function MobileHomePage() {
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
                   <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent-cyan)' }}>@{bm.x_author_handle}</span>
-                  <span style={{ fontSize: 11, color: '#4a4a5a', marginLeft: 'auto' }}>{timeAgo(bm.bookmarked_at)}</span>
+                  {/* When the post was published, not when we imported it —
+                      bookmarked_at is ingest time, so it read "1m" for every
+                      row right after a sync. */}
+                  <span style={{ fontSize: 11, color: '#4a4a5a', marginLeft: 'auto' }}>{timeAgo(bm.post_created_at || bm.bookmarked_at)}</span>
                 </div>
                 <div style={{ fontSize: 13, color: '#8a8a9a', lineHeight: 1.5 }}>
                   {bm.content_text.length > 160 ? bm.content_text.slice(0, 160) + '…' : bm.content_text}

@@ -27,8 +27,18 @@ export default function MobileSettingsPage() {
           : `X API error (${data.xApiError.status})`
       );
     } else {
+      // Report what the sync actually did. Saying only "no new bookmarks" when
+      // we checked hundreds of already-saved posts reads like a failure, and
+      // hid a real diagnosis once already.
       const n = data?.imported ?? 0;
-      setSyncStatus(n > 0 ? `Synced ${n} new bookmark${n === 1 ? '' : 's'}` : 'Up to date — no new bookmarks');
+      const checked = data?.skipped ?? 0;
+      if (n > 0) {
+        setSyncStatus(`Synced ${n} new bookmark${n === 1 ? '' : 's'}`);
+      } else if (checked > 0) {
+        setSyncStatus(`Up to date — checked ${checked}, all already saved`);
+      } else {
+        setSyncStatus('Up to date — X returned no bookmarks');
+      }
     }
     setSyncing(false);
   };
