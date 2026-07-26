@@ -4,13 +4,13 @@
   --bg-primary: #0a0a0f;
   --bg-secondary: #0f1019;
   --bg-tertiary: #141420;
-  /* Brand accent — HAL electric-lime green (matches packages/ui/hal --hal-a).
+  /* Brand accent — HAL electric blue (matches packages/ui/hal --hal-a).
      Change --accent-cyan + --accent-rgb here to re-tint the mobile app and the
      landing/login surfaces; change --hal-a in packages/ui/hal for the dashboard. */
-  --accent-cyan: #a1fc2a;
-  --accent-blue: #a1fc2a;
+  --accent-cyan: #00d4ff;
+  --accent-blue: #0ea5e9;
   --accent-hot-blue: #3b82f6;
-  --accent-rgb: 161, 252, 42;
+  --accent-rgb: 0, 212, 255;
   --text-primary: #f0f0f5;
   --text-secondary: #8a8a9a;
   --text-muted: #4a4a5a;
