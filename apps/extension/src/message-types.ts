@@ -118,7 +118,11 @@ export type TabMessage =
 
 // Messages sent from the web app (via chrome.runtime.sendMessage with extension ID)
 export type ExternalMessage =
-  | { type: 'AUTH_TOKEN'; data: unknown }
+  // closeTab is set only when the login was started FROM the extension, where
+  // the tab exists purely to complete OAuth. A plain web login also delivers the
+  // token (so the extension stays signed in) but must keep its tab — closing it
+  // used to strand the user before the dashboard.
+  | { type: 'AUTH_TOKEN'; data: unknown; closeTab?: boolean }
   | { type: 'BOOKMARK_DELETED'; postId: string }
   | { type: 'START_BULK_IMPORT' }
   | { type: 'STOP_BULK_IMPORT' };
