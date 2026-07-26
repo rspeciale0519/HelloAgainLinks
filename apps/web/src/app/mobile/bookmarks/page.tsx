@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { authFetch } from '@/lib/auth-fetch';
-import { timeAgo, hexToRgba } from '@helloagain/shared';
+import { formatPostDate, hexToRgba } from '@helloagain/shared';
 
 interface Tag { id: string; name: string; color: string; }
 interface Bookmark {
@@ -181,9 +181,9 @@ export default function MobileBookmarksPage() {
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent-cyan)' }}>@{bm.x_author_handle}</span>
-                  {/* Post publication time, not import time — see home/page.tsx */}
-                  <span style={{ fontSize: 11, color: '#4a4a5a', marginLeft: 'auto' }}>{timeAgo(bm.post_created_at || bm.bookmarked_at, { short: true })}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent-cyan)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>@{bm.x_author_handle}</span>
+                  {/* Absolute publication date — see home/page.tsx */}
+                  <span style={{ fontSize: 11, color: '#4a4a5a', marginLeft: 'auto', whiteSpace: 'nowrap', flexShrink: 0 }}>{formatPostDate(bm.post_created_at || bm.bookmarked_at, { short: true })}</span>
                 </div>
                 <div style={{ fontSize: 13, color: '#8a8a9a', lineHeight: 1.5 }}>
                   {bm.content_text.length > 180 ? bm.content_text.slice(0, 180) + '…' : bm.content_text}
