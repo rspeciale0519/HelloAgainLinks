@@ -440,14 +440,10 @@ chrome.runtime.onMessageExternal.addListener((message: ExternalMessage, sender, 
   if (message.type === 'AUTH_TOKEN' && message.data) {
     setAuth(message.data as AuthData).then(() => {
       sendResponse({ success: true });
-      // Only tear down the tab when the extension itself opened it for OAuth.
-      // Closing on every AUTH_TOKEN also killed ordinary web logins, because the
-      // dashboard content script publishes hal_extension_id on every page, so
-      // set-session always delivered a token and the tab vanished before the
-      // user ever reached /dashboard.
-      if (message.closeTab && sender.tab?.id) {
-        chrome.tabs.remove(sender.tab.id);
-      }
+      // Deliberately never closes the tab. Signing in should leave you in the
+      // web app, signed in — whether the login started here or on the site.
+      // The web page navigates itself to the dashboard once the token lands.
+      void sender;
     });
     return true;
   }
