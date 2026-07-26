@@ -41,7 +41,9 @@ function ExtensionCallbackContent() {
         return;
       }
 
-      rt.sendMessage(extensionId, { type: 'AUTH_TOKEN', data }, (response: unknown) => {
+      // This page exists only to hand the token over, so the tab is always
+      // disposable here — unlike /auth/set-session, which web users land on.
+      rt.sendMessage(extensionId, { type: 'AUTH_TOKEN', data, closeTab: true }, (response: unknown) => {
         const res = response as { success?: boolean } | null;
         if (!res?.success) {
           setStatus('error');

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Suspense } from 'react';
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
@@ -34,7 +34,19 @@ function clearTokenUrl() {
   window.history.replaceState({}, '', '/auth/set-session');
 }
 
-async function sendAuthToExtension(payload: ExtensionAuthPayload): Promise<boolean> {
+/** True when the extension opened this tab solely to complete OAuth. */
+function isExtensionInitiatedLogin(): boolean {
+  try {
+    return sessionStorage.getItem('hal_login_src') === 'extension';
+  } catch {
+    return false;
+  }
+}
+
+async function sendAuthToExtension(
+  payload: ExtensionAuthPayload,
+  closeTab: boolean,
+): Promise<boolean> {
   if (typeof window === 'undefined') return false;
 
   const extensionId = localStorage.getItem('hal_extension_id');
@@ -62,7 +74,7 @@ async function sendAuthToExtension(payload: ExtensionAuthPayload): Promise<boole
       }
     }, 1500);
 
-    sendMessage(extensionId, { type: 'AUTH_TOKEN', data: payload }, (response: unknown) => {
+    sendMessage(extensionId, { type: 'AUTH_TOKEN', data: payload, closeTab }, (response: unknown) => {
       if (settled) return;
       settled = true;
       window.clearTimeout(timeout);
@@ -75,8 +87,17 @@ async function sendAuthToExtension(payload: ExtensionAuthPayload): Promise<boole
 function SetSessionContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const startedRef = useRef(false);
 
   useEffect(() => {
+    // Run exactly once per mount. clearTokenUrl() wipes the hash, so a second
+    // invocation (StrictMode double-invoke, or any re-render of this effect)
+    // finds no tokens and would bounce a successfully-authenticated user to
+    // /login?error=no_tokens — the "auth flash" that was previously masked
+    // because the extension closed the tab before anyone saw it.
+    if (startedRef.current) return;
+    startedRef.current = true;
+
     const { accessToken, refreshToken } = getTokenParams(searchParams);
 
     if (!accessToken || !refreshToken) {
@@ -110,8 +131,21 @@ function SetSessionContent() {
           },
         };
 
-        const delivered = await sendAuthToExtension(tokenData);
-        if (delivered) return;
+        // Always hand the token to the extension when one is installed, so it
+        // stays signed in. But only STOP here when the extension opened this
+        // tab for OAuth — it will close the tab itself. An ordinary web login
+        // must carry on to the dashboard; returning unconditionally is what
+        // stranded web users (the extension closed the tab out from under them).
+        const extensionLogin = isExtensionInitiatedLogin();
+        const delivered = await sendAuthToExtension(tokenData, extensionLogin);
+        if (delivered && extensionLogin) {
+          try {
+            sessionStorage.removeItem('hal_login_src');
+          } catch {
+            // non-fatal — the flag is scoped to this tab anyway
+          }
+          return;
+        }
       }
 
       // Check if first-time user (no bookmarks = new user)
