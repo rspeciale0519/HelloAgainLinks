@@ -29,11 +29,20 @@ const INCREMENTAL_PAGE_SIZE = Number(process.env.SYNC_INCREMENTAL_PAGE_SIZE) || 
 // that does include it.
 const INCLUDE_AUTHOR_EXPANSION = process.env.SYNC_INCLUDE_AUTHOR_EXPANSION !== 'false';
 
+/**
+ * Why a sync could not run at all, as opposed to running and finding nothing.
+ * These used to return imported: 0 silently, which the UI rendered as
+ * "Up to date — no new bookmarks" — i.e. a broken X connection was reported to
+ * the user as success, and nothing was logged server-side either.
+ */
+export type SyncBlocker = 'x_not_connected' | 'x_reauth_required';
+
 interface SyncResult {
   imported: number;
   skipped: number;
   stopReason: string | null;
   xApiError?: { status: number } | null;
+  blocker?: SyncBlocker | null;
 }
 
 async function syncUser(
@@ -47,14 +56,21 @@ async function syncUser(
     .single();
 
   if (!profile?.x_access_token || !profile?.x_user_id) {
-    return { imported: 0, skipped: 0, stopReason: null };
+    console.error(`[Sync] user ${userId}: no X account connected`);
+    return { imported: 0, skipped: 0, stopReason: null, blocker: 'x_not_connected' };
   }
 
   let accessToken = profile.x_access_token;
   if (profile.x_token_expires_at && Date.now() > new Date(profile.x_token_expires_at).getTime() - 60000) {
-    if (!profile.x_refresh_token) return { imported: 0, skipped: 0, stopReason: null };
+    if (!profile.x_refresh_token) {
+      console.error(`[Sync] user ${userId}: X token expired and no refresh token stored`);
+      return { imported: 0, skipped: 0, stopReason: null, blocker: 'x_reauth_required' };
+    }
     const refreshed = await refreshXToken(profile.x_refresh_token);
-    if (!refreshed) return { imported: 0, skipped: 0, stopReason: null };
+    if (!refreshed) {
+      console.error(`[Sync] user ${userId}: X token refresh failed`);
+      return { imported: 0, skipped: 0, stopReason: null, blocker: 'x_reauth_required' };
+    }
     accessToken = refreshed.access_token;
     await serviceClient.from('profiles').update({
       x_access_token: refreshed.access_token,
