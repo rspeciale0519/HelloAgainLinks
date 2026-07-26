@@ -14,6 +14,39 @@ export function timeAgo(dateStr: string, options?: { short?: boolean }): string 
 }
 
 /**
+ * Absolute post timestamp in X's own style.
+ *
+ *   default          "3:04 PM - July 22, 2026"   (roomy layouts — desktop)
+ *   { short: true }  "3:04PM - 7/22/26"          (narrow layouts — mobile cards)
+ *
+ * Preferred over timeAgo() for bookmark cards: a saved post is usually old, and
+ * "26w" tells you far less than the date it was actually published. Rendered in
+ * the viewer's local timezone.
+ */
+export function formatPostDate(dateStr: string, options?: { short?: boolean }): string {
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return '';
+
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  if (options?.short) {
+    const date = d.toLocaleDateString('en-US', {
+      month: 'numeric',
+      day: 'numeric',
+      year: '2-digit',
+    });
+    // "3:04 PM" -> "3:04PM": drop the space to buy room in a one-line card header.
+    return `${time.replace(/\s/g, '')} - ${date}`;
+  }
+
+  const date = d.toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+  return `${time} - ${date}`;
+}
+
+/**
  * Convert a hex color string (#RRGGBB) to an rgba() CSS value.
  */
 export function hexToRgba(hex: string, alpha: number): string {
