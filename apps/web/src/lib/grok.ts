@@ -8,11 +8,19 @@ import { logLlmUsage, type TokenUsage } from '@/lib/llm-usage';
 
 const XAI_API_KEY = process.env.XAI_API_KEY!;
 const BASE_URL = 'https://api.x.ai/v1';
-// grok-3 / grok-3-mini are legacy and no longer listed on xAI's pricing page.
-// grok-3 also cost MORE than the current flagship ($3/$15 per Mtok vs grok-4.5's
-// $2/$6), so these defaults are both cheaper and more capable. Override per
-// environment with GROK_MODEL_FAST / GROK_MODEL_FULL.
-const MODEL_FAST = process.env.GROK_MODEL_FAST || 'grok-4.3';
+// grok-3 / grok-3-mini are gone — confirmed absent from GET /v1/models on this
+// account, so the old defaults would fail outright.
+//
+// Both tiers point at grok-4.5 deliberately. grok-4.3 is cheaper per token but
+// is a reasoning model, so it spends a variable number of hidden reasoning
+// tokens per call; on a measured one-word reply that made it 47% MORE expensive.
+// On larger outputs its cheaper rates may well win — but the whole spread is
+// worth roughly $0.06/user/month, which does not justify running two models.
+// One model means predictable cost and one behaviour to debug, and the flagship
+// is the safer choice for the structured-JSON classification path.
+//
+// The two constants remain separate so a future split needs only an env change.
+const MODEL_FAST = process.env.GROK_MODEL_FAST || 'grok-4.5';
 const MODEL_FULL = process.env.GROK_MODEL_FULL || 'grok-4.5';
 
 interface Message {
