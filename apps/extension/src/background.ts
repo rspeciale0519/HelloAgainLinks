@@ -440,7 +440,12 @@ chrome.runtime.onMessageExternal.addListener((message: ExternalMessage, sender, 
   if (message.type === 'AUTH_TOKEN' && message.data) {
     setAuth(message.data as AuthData).then(() => {
       sendResponse({ success: true });
-      if (sender.tab?.id) {
+      // Only tear down the tab when the extension itself opened it for OAuth.
+      // Closing on every AUTH_TOKEN also killed ordinary web logins, because the
+      // dashboard content script publishes hal_extension_id on every page, so
+      // set-session always delivered a token and the tab vanished before the
+      // user ever reached /dashboard.
+      if (message.closeTab && sender.tab?.id) {
         chrome.tabs.remove(sender.tab.id);
       }
     });
@@ -480,7 +485,9 @@ async function handleMessage(message: ExtensionMessage, sender?: chrome.runtime.
       return getAuthStatus();
 
     case 'LOGIN': {
-      const loginUrl = `${API_BASE}/login`;
+      // Mark the flow so the web app knows this tab exists only to complete
+      // OAuth and may be closed once the token is delivered.
+      const loginUrl = `${API_BASE}/login?src=extension`;
       chrome.tabs.create({ url: loginUrl });
       return { success: true };
     }

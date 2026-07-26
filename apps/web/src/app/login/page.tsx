@@ -12,11 +12,22 @@ function LoginContent() {
 
   useEffect(() => {
     try {
-      setIsExtensionFlow(Boolean(localStorage.getItem('hal_extension_id')));
+      // `?src=extension` means the extension opened this tab purely to complete
+      // OAuth, so it may be closed afterwards. Stash it in sessionStorage: the
+      // OAuth round-trip drops query params, but sessionStorage survives it
+      // because the whole flow returns to this same tab and origin.
+      //
+      // Do NOT infer this from hal_extension_id — the dashboard content script
+      // sets that on every page, so merely having the extension installed would
+      // make an ordinary web login look extension-initiated.
+      if (searchParams.get('src') === 'extension') {
+        sessionStorage.setItem('hal_login_src', 'extension');
+      }
+      setIsExtensionFlow(sessionStorage.getItem('hal_login_src') === 'extension');
     } catch {
       setIsExtensionFlow(false);
     }
-  }, []);
+  }, [searchParams]);
 
   const handleLogin = () => {
     window.location.href = '/api/auth/x-login';
