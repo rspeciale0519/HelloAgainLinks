@@ -20,7 +20,6 @@ type ExtensionAuthPayload = {
 function ExtensionCallbackContent() {
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<'sending' | 'success' | 'error'>('sending');
-  const [cannotClose, setCannotClose] = useState(false);
 
   useEffect(() => {
     const extensionId = localStorage.getItem('hal_extension_id');
@@ -41,9 +40,7 @@ function ExtensionCallbackContent() {
         return;
       }
 
-      // This page exists only to hand the token over, so the tab is always
-      // disposable here — unlike /auth/set-session, which web users land on.
-      rt.sendMessage(extensionId, { type: 'AUTH_TOKEN', data, closeTab: true }, (response: unknown) => {
+      rt.sendMessage(extensionId, { type: 'AUTH_TOKEN', data }, (response: unknown) => {
         const res = response as { success?: boolean } | null;
         if (!res?.success) {
           setStatus('error');
@@ -51,10 +48,11 @@ function ExtensionCallbackContent() {
         }
 
         setStatus('success');
+        // Land the user in the app rather than closing the tab out from under
+        // them — signing in should end with your bookmarks on screen.
         setTimeout(() => {
-          window.close();
-          setTimeout(() => setCannotClose(true), 500);
-        }, 1500);
+          window.location.href = '/dashboard';
+        }, 1200);
       });
     };
 
@@ -116,7 +114,7 @@ function ExtensionCallbackContent() {
           <>
             <div style={{ fontSize: '32px', marginBottom: '16px' }}>✅</div>
             <p style={{ color: '#00d4ff', fontWeight: 600 }}>
-              {cannotClose ? 'Connected! You can close this tab.' : 'Connected! This window will close.'}
+              Connected! Taking you to your bookmarks…
             </p>
           </>
         )}
