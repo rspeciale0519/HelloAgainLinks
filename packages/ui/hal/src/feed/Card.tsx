@@ -201,7 +201,7 @@ export function Card({
           <span
             style={{
               fontFamily: 'var(--hal-mono)',
-              fontSize: 10,
+              fontSize: 11,
               color: 'var(--hal-text-3)',
               letterSpacing: '0.04em',
               display: 'flex',
@@ -244,7 +244,7 @@ export function Card({
               style={{
                 fontFamily: 'var(--hal-mono)',
                 color: 'var(--hal-a)',
-                fontSize: 10,
+                fontSize: 11,
                 letterSpacing: '0.1em',
                 flexShrink: 0,
                 marginTop: 2,
@@ -269,7 +269,7 @@ export function Card({
               }}
               style={{
                 fontFamily: 'var(--hal-mono)',
-                fontSize: 10,
+                fontSize: 11,
                 padding: '2px 7px',
                 color: 'var(--hal-a)',
                 background: 'var(--hal-a-dim)',
@@ -292,7 +292,7 @@ export function Card({
               }}
               style={{
                 fontFamily: 'var(--hal-mono)',
-                fontSize: 10,
+                fontSize: 11,
                 padding: '2px 7px',
                 color: 'var(--hal-text-2)',
                 background: 'transparent',

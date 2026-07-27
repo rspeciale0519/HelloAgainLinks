@@ -217,7 +217,7 @@ function SpreadHeader({
       <span
         style={{
           fontFamily: 'var(--hal-mono)',
-          fontSize: 10,
+          fontSize: 11,
           color: 'var(--hal-a)',
           letterSpacing: '0.1em',
         }}
@@ -229,7 +229,7 @@ function SpreadHeader({
       <span
         style={{
           fontFamily: 'var(--hal-mono)',
-          fontSize: 10,
+          fontSize: 11,
           color: 'var(--hal-text-3)',
         }}
       >
@@ -239,7 +239,7 @@ function SpreadHeader({
       <span
         style={{
           fontFamily: 'var(--hal-mono)',
-          fontSize: 10,
+          fontSize: 11,
           color: 'var(--hal-text-3)',
           display: 'inline-flex',
           alignItems: 'center',

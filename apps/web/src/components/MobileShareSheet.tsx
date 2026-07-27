@@ -150,7 +150,7 @@ export function MobileShareSheet() {
                 {state === 'error' && "Couldn't save"}
                 {state === 'unauthenticated' && 'Sign in to save'}
               </div>
-              <div style={{ fontSize: 10, color: '#4a4a5a' }}>
+              <div style={{ fontSize: 11, color: '#7e7e8c' }}>
                 {state === 'saving' && 'AI tagging your bookmark...'}
                 {state === 'saved' && 'Auto-tagged by AI'}
                 {state === 'error' && errorMessage}
@@ -169,7 +169,7 @@ export function MobileShareSheet() {
               <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent-cyan)', marginBottom: 4 }}>
                 @{tweetPreview.handle}
               </div>
-              <div style={{ fontSize: 10, color: '#8a8a9a', lineHeight: 1.5 }}>
+              <div style={{ fontSize: 11, color: '#8a8a9a', lineHeight: 1.5 }}>
                 {tweetPreview.url.length > 120 ? tweetPreview.url.slice(0, 120) + '...' : tweetPreview.url}
               </div>
             </div>
@@ -200,7 +200,7 @@ export function MobileShareSheet() {
                 <div style={{
                   width: 18, height: 18, borderRadius: '50%', background: 'var(--accent-cyan)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 9, color: '#0a0a0f', fontWeight: 700,
+                  fontSize: 11, color: '#0a0a0f', fontWeight: 700,
                   boxShadow: '0 0 8px rgba(var(--accent-rgb),0.4)', flexShrink: 0,
                 }}>✓</div>
                 <span style={{ fontSize: 11, color: 'var(--accent-cyan)', fontWeight: 500 }}>
@@ -211,7 +211,7 @@ export function MobileShareSheet() {
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
                   {savedBookmark.tags.map((tag) => (
                       <span key={tag.name} style={{
-                        borderRadius: 100, padding: '3px 10px', fontSize: 10, fontWeight: 500,
+                        borderRadius: 100, padding: '3px 10px', fontSize: 11, fontWeight: 500,
                         background: hexToRgba(tag.color, 0.1),
                         border: `1px solid ${hexToRgba(tag.color, 0.25)}`,
                         color: tag.color,

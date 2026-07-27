@@ -61,7 +61,7 @@ export function BookmarkSections(props: BookmarkSectionsProps) {
                   style={importXBtnStyle}
                 >
                   <Icon name="download" size={10} />
-                  <span style={{ fontFamily: 'var(--hal-mono)', fontSize: 9 }}>X</span>
+                  <span style={{ fontFamily: 'var(--hal-mono)', fontSize: 11 }}>X</span>
                 </button>
               )}
               {onCreateFolder && (
@@ -75,7 +75,7 @@ export function BookmarkSections(props: BookmarkSectionsProps) {
                 </button>
               )}
               <span
-                style={{ fontFamily: 'var(--hal-mono)', fontSize: 9, color: 'var(--hal-text-3)' }}
+                style={{ fontFamily: 'var(--hal-mono)', fontSize: 11, color: 'var(--hal-text-3)' }}
               >
                 {folders.length}
               </span>
@@ -104,7 +104,7 @@ export function BookmarkSections(props: BookmarkSectionsProps) {
           label="Subjects"
           right={
             <span
-              style={{ fontFamily: 'var(--hal-mono)', fontSize: 9, color: 'var(--hal-text-3)' }}
+              style={{ fontFamily: 'var(--hal-mono)', fontSize: 11, color: 'var(--hal-text-3)' }}
             >
               {tags.length}
             </span>
@@ -150,7 +150,7 @@ export function BookmarkSections(props: BookmarkSectionsProps) {
               <span
                 style={{
                   fontFamily: 'var(--hal-mono)',
-                  fontSize: 9,
+                  fontSize: 11,
                   color: 'var(--hal-a)',
                   letterSpacing: '0.08em',
                 }}
@@ -179,7 +179,7 @@ export function BookmarkSections(props: BookmarkSectionsProps) {
                 style={{
                   fontFamily: 'var(--hal-mono)',
                   color: 'var(--hal-text-3)',
-                  fontSize: 9,
+                  fontSize: 11,
                   width: 20,
                 }}
               >
@@ -190,7 +190,7 @@ export function BookmarkSections(props: BookmarkSectionsProps) {
                   style={{
                     color: e.a === 'HAL' ? 'var(--hal-a)' : 'var(--hal-text-0)',
                     fontFamily: 'var(--hal-mono)',
-                    fontSize: 10,
+                    fontSize: 11,
                   }}
                 >
                   {e.a}

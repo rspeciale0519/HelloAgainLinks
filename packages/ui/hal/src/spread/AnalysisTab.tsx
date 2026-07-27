@@ -10,7 +10,7 @@ export interface AnalysisTabProps {
 
 const lblStyle: CSSProperties = {
   fontFamily: 'var(--hal-mono)',
-  fontSize: 10,
+  fontSize: 11,
   color: 'var(--hal-text-3)',
   letterSpacing: '0.12em',
   textTransform: 'uppercase',

@@ -88,7 +88,7 @@ export function RelatedSidebar({
         <span
           style={{
             fontFamily: 'var(--hal-mono)',
-            fontSize: 10,
+            fontSize: 11,
             color: 'var(--hal-text-2)',
             letterSpacing: '0.12em',
           }}
@@ -99,7 +99,7 @@ export function RelatedSidebar({
         <span
           style={{
             fontFamily: 'var(--hal-mono)',
-            fontSize: 10,
+            fontSize: 11,
             color: 'var(--hal-a)',
           }}
         >
@@ -181,7 +181,7 @@ export function RelatedSidebar({
               <span
                 style={{
                   fontFamily: 'var(--hal-mono)',
-                  fontSize: 10,
+                  fontSize: 11,
                   color: 'var(--hal-text-3)',
                 }}
               >
@@ -193,7 +193,7 @@ export function RelatedSidebar({
               <span
                 style={{
                   fontFamily: 'var(--hal-mono)',
-                  fontSize: 10,
+                  fontSize: 11,
                   color: 'var(--hal-text-3)',
                 }}
               >
@@ -220,7 +220,7 @@ export function RelatedSidebar({
                     key={`${t.label}-${i}`}
                     style={{
                       fontFamily: 'var(--hal-mono)',
-                      fontSize: 9,
+                      fontSize: 11,
                       padding: '1px 5px',
                       color: 'var(--hal-a)',
                       background: 'var(--hal-a-dim)',

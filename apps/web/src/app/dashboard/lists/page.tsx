@@ -149,7 +149,7 @@ export default function SharedListsPage() {
               <span
                 style={{
                   fontFamily: 'var(--hal-mono)',
-                  fontSize: 10,
+                  fontSize: 11,
                   letterSpacing: '0.12em',
                   color: 'var(--hal-text-3)',
                   marginRight: 6,
@@ -170,7 +170,7 @@ export default function SharedListsPage() {
                       border: `1px solid ${active ? 'var(--hal-a)' : 'var(--hal-line-2)'}`,
                       borderRadius: 2,
                       fontFamily: 'var(--hal-mono)',
-                      fontSize: 10,
+                      fontSize: 11,
                       letterSpacing: '0.08em',
                       color: active ? 'var(--hal-a)' : 'var(--hal-text-2)',
                       cursor: 'pointer',
@@ -207,7 +207,7 @@ export default function SharedListsPage() {
             padding: '36px 0',
             textAlign: 'center',
             fontFamily: 'var(--hal-mono)',
-            fontSize: 10,
+            fontSize: 11,
             letterSpacing: '0.16em',
             color: 'var(--hal-text-3)',
           }}
@@ -282,7 +282,7 @@ function ListRow({
             display: 'flex',
             gap: 18,
             fontFamily: 'var(--hal-mono)',
-            fontSize: 10,
+            fontSize: 11,
             letterSpacing: '0.08em',
             color: 'var(--hal-text-3)',
           }}
@@ -323,7 +323,7 @@ function Badge({
       style={{
         padding: '2px 7px',
         fontFamily: 'var(--hal-mono)',
-        fontSize: 9,
+        fontSize: 11,
         letterSpacing: '0.12em',
         color: fg,
         background: bg,
@@ -342,7 +342,7 @@ function EmptyState() {
       <div
         style={{
           fontFamily: 'var(--hal-mono)',
-          fontSize: 10,
+          fontSize: 11,
           letterSpacing: '0.16em',
           color: 'var(--hal-text-3)',
           marginBottom: 8,

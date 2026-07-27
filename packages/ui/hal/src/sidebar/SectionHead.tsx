@@ -16,7 +16,7 @@ export function SectionHead({ label, right }: SectionHeadProps) {
         alignItems: 'center',
         padding: '6px 10px 6px',
         fontFamily: 'var(--hal-mono)',
-        fontSize: 10,
+        fontSize: 11,
         letterSpacing: '0.12em',
         textTransform: 'uppercase',
         color: 'var(--hal-text-3)',

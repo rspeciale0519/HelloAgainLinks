@@ -177,7 +177,7 @@ export default function WelcomePage() {
             </div>
 
             {progress.status === 'complete' && (
-              <div style={{ fontSize: '13px', color: '#4a4a5a', marginTop: '12px' }}>
+              <div style={{ fontSize: '13px', color: '#7e7e8c', marginTop: '12px' }}>
                 Redirecting to dashboard...
               </div>
             )}
@@ -255,7 +255,7 @@ export default function WelcomePage() {
               Skip for now
             </button>
 
-            <div style={{ fontSize: '12px', color: '#4a4a5a', marginTop: '16px', lineHeight: 1.5 }}>
+            <div style={{ fontSize: '12px', color: '#7e7e8c', marginTop: '16px', lineHeight: 1.5 }}>
               We&apos;ll read your bookmarks from X and save them here.<br />
               This usually takes less than a minute.
             </div>

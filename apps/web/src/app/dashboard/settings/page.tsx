@@ -103,7 +103,7 @@ export default function SettingsPage() {
             padding: '36px 0',
             textAlign: 'center',
             fontFamily: 'var(--hal-mono)',
-            fontSize: 10,
+            fontSize: 11,
             letterSpacing: '0.16em',
             color: 'var(--hal-text-3)',
           }}
@@ -229,7 +229,7 @@ export default function SettingsPage() {
         <div
           style={{
             fontFamily: 'var(--hal-mono)',
-            fontSize: 10,
+            fontSize: 11,
             letterSpacing: '0.16em',
             color: '#ef4444',
             marginBottom: 12,
@@ -464,7 +464,7 @@ function NoticeBox({
       <span
         style={{
           fontFamily: 'var(--hal-mono)',
-          fontSize: 9,
+          fontSize: 11,
           letterSpacing: '0.16em',
           color: p.color,
           marginTop: 2,

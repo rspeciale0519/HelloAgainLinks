@@ -87,7 +87,7 @@ export default function InstallPage() {
           >
             ⬇️ Download Extension v0.1.0
           </a>
-          <div style={{ fontSize: '13px', color: '#4a4a5a', marginTop: '12px' }}>
+          <div style={{ fontSize: '13px', color: '#7e7e8c', marginTop: '12px' }}>
             Chrome Web Store listing coming soon
           </div>
         </motion.div>

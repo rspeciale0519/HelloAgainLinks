@@ -14,18 +14,28 @@
   --hal-a-dim: rgba(0, 212, 255, 0.15);
   --hal-a-glow: rgba(0, 212, 255, 0.35);
 
-  --hal-text-0: #f5f5f7;
-  --hal-text-1: #c9c9d0;
-  --hal-text-2: #7e7e88;
-  --hal-text-3: #50505a;
-  --hal-text-4: #2e2e36;
+  /* Text ramp. Contrast measured against --hal-bg-1 (#0a0a0c); WCAG AA needs
+     4.5:1 for normal text. text-2/3/4 were 4.7 / 2.5 / 1.5 — the 9-11px mono
+     labels that carry timestamps, handles and counts sat at roughly half the
+     readable minimum. Raised so every rank used for real content clears AA;
+     text-4 stays sub-AA by design and is for genuinely inert/disabled marks
+     only, never for text a user has to read. */
+  --hal-text-0: #f5f5f7; /* 18.2:1 */
+  --hal-text-1: #c9c9d0; /* 10.8:1 */
+  --hal-text-2: #9a9aa6; /*  7.1:1 */
+  --hal-text-3: #8a8a96; /*  5.8:1 */
+  /* text-4 is nominally "disabled/decorative", but it is in fact used for real
+     content (e.g. the "/1608" total beside the page count), so it clears AA too
+     rather than relying on that intent holding everywhere. The ramp is flatter
+     at the bottom as a result — a fair trade for text nobody has to squint at. */
+  --hal-text-4: #7e7e8c; /*  4.9:1 */
 
   --hal-line-0: rgba(255, 255, 255, 0.04);
   --hal-line-1: rgba(255, 255, 255, 0.07);
   --hal-line-2: rgba(255, 255, 255, 0.12);
 
-  --hal-sans: 'Geist', ui-sans-serif, system-ui, sans-serif;
-  --hal-mono: 'Geist Mono', ui-monospace, monospace;
+  --hal-sans: var(--font-geist), 'Geist', ui-sans-serif, system-ui, sans-serif;
+  --hal-mono: var(--font-geist-mono), 'Geist Mono', ui-monospace, monospace;
   --hal-serif: var(--font-instrument-serif), 'Instrument Serif', 'Times New Roman', serif;
 
   --hal-density: 1;

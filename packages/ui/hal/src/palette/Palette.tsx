@@ -447,7 +447,7 @@ export function Palette({
                     <span
                       style={{
                         fontFamily: 'var(--hal-mono)',
-                        fontSize: 10,
+                        fontSize: 11,
                         color: 'var(--hal-text-3)',
                         width: 50,
                         flexShrink: 0,
@@ -498,7 +498,7 @@ export function Palette({
             padding: '8px 16px',
             borderTop: '1px solid var(--hal-line-1)',
             background: 'var(--hal-bg-2)',
-            fontSize: 10,
+            fontSize: 11,
             color: 'var(--hal-text-3)',
             fontFamily: 'var(--hal-mono)',
             letterSpacing: '0.05em',
@@ -521,7 +521,7 @@ function Section({ children }: { children: ReactNode }) {
       style={{
         padding: '8px 16px 4px',
         fontFamily: 'var(--hal-mono)',
-        fontSize: 9,
+        fontSize: 11,
         letterSpacing: '0.12em',
         textTransform: 'uppercase',
         color: 'var(--hal-text-3)',
@@ -535,7 +535,7 @@ function Section({ children }: { children: ReactNode }) {
 
 const kbdStyle: CSSProperties = {
   fontFamily: 'var(--hal-mono)',
-  fontSize: 10,
+  fontSize: 11,
   color: 'var(--hal-text-3)',
   border: '1px solid var(--hal-line-1)',
   padding: '2px 6px',
@@ -544,6 +544,6 @@ const kbdStyle: CSSProperties = {
 
 const mutedKbdStyle: CSSProperties = {
   fontFamily: 'var(--hal-mono)',
-  fontSize: 10,
+  fontSize: 11,
   color: 'var(--hal-text-3)',
 };

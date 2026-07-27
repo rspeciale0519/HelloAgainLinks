@@ -145,7 +145,7 @@ export default function DashboardPage() {
             <div
               style={{
                 fontFamily: 'var(--hal-mono)',
-                fontSize: 10,
+                fontSize: 11,
                 letterSpacing: '0.16em',
                 color: 'var(--hal-text-3)',
               }}
@@ -191,7 +191,7 @@ export default function DashboardPage() {
             href="/dashboard/bookmarks"
             style={{
               fontFamily: 'var(--hal-mono)',
-              fontSize: 10,
+              fontSize: 11,
               color: 'var(--hal-text-3)',
               letterSpacing: '0.12em',
               textDecoration: 'none',
@@ -228,7 +228,7 @@ function Stat({ label, value, hint }: { label: string; value: string; hint: stri
       <div
         style={{
           fontFamily: 'var(--hal-mono)',
-          fontSize: 9,
+          fontSize: 11,
           letterSpacing: '0.18em',
           color: 'var(--hal-text-3)',
         }}
@@ -250,7 +250,7 @@ function Stat({ label, value, hint }: { label: string; value: string; hint: stri
       <div
         style={{
           fontFamily: 'var(--hal-mono)',
-          fontSize: 9,
+          fontSize: 11,
           color: 'var(--hal-a)',
           letterSpacing: '0.08em',
           textTransform: 'uppercase',
@@ -309,7 +309,7 @@ function RecentRow({ bookmark, isLast }: { bookmark: Bookmark; isLast: boolean }
           <span
             style={{
               fontFamily: 'var(--hal-mono)',
-              fontSize: 10.5,
+              fontSize: 11.5,
               color: 'var(--hal-text-3)',
             }}
           >
@@ -333,7 +333,7 @@ function RecentRow({ bookmark, isLast }: { bookmark: Bookmark; isLast: boolean }
       <div
         style={{
           fontFamily: 'var(--hal-mono)',
-          fontSize: 10,
+          fontSize: 11,
           color: 'var(--hal-text-3)',
           letterSpacing: '0.04em',
           alignSelf: 'flex-start',
@@ -354,7 +354,7 @@ function LoadingRow({ label }: { label: string }) {
         padding: '24px 16px',
         textAlign: 'center',
         fontFamily: 'var(--hal-mono)',
-        fontSize: 10,
+        fontSize: 11,
         letterSpacing: '0.16em',
         color: 'var(--hal-text-3)',
       }}

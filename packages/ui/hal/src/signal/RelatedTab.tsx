@@ -101,7 +101,7 @@ export function RelatedTab({
       <div
         style={{
           fontFamily: 'var(--hal-mono)',
-          fontSize: 10,
+          fontSize: 11,
           color: 'var(--hal-text-3)',
           letterSpacing: '0.12em',
           textTransform: 'uppercase',
@@ -125,7 +125,7 @@ export function RelatedTab({
             <span
               style={{
                 fontFamily: 'var(--hal-mono)',
-                fontSize: 10,
+                fontSize: 11,
                 color: 'var(--hal-text-3)',
               }}
             >
@@ -135,7 +135,7 @@ export function RelatedTab({
             <span
               style={{
                 fontFamily: 'var(--hal-mono)',
-                fontSize: 10,
+                fontSize: 11,
                 color: 'var(--hal-a)',
               }}
             >
@@ -191,7 +191,7 @@ export function RelatedTab({
                 <span
                   style={{
                     fontFamily: 'var(--hal-mono)',
-                    fontSize: 10,
+                    fontSize: 11,
                     color: 'var(--hal-text-3)',
                     flexShrink: 0,
                   }}

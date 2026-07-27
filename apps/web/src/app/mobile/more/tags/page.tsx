@@ -27,9 +27,9 @@ export default function MobileTagsPage() {
         <h1 style={{ fontSize: 20, fontWeight: 600, color: '#f0f0f5' }}>Tags</h1>
       </div>
       {loading ? (
-        <div style={{ color: '#4a4a5a', textAlign: 'center', padding: 32, fontSize: 13 }}>Loading…</div>
+        <div style={{ color: '#7e7e8c', textAlign: 'center', padding: 32, fontSize: 13 }}>Loading…</div>
       ) : tags.length === 0 ? (
-        <div style={{ color: '#4a4a5a', textAlign: 'center', padding: 32, fontSize: 13 }}>No tags yet. Tags are created automatically when you save bookmarks.</div>
+        <div style={{ color: '#7e7e8c', textAlign: 'center', padding: 32, fontSize: 13 }}>No tags yet. Tags are created automatically when you save bookmarks.</div>
       ) : (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
           {tags.map((tag, i) => (

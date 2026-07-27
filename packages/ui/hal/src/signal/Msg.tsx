@@ -88,7 +88,7 @@ export function Msg({ m, bookmarkLookup, onPinToFeed, style }: MsgProps) {
       <span
         style={{
           fontFamily: 'var(--hal-mono)',
-          fontSize: 10,
+          fontSize: 11,
           color: 'var(--hal-a)',
           letterSpacing: '0.1em',
           paddingTop: 2,
@@ -105,7 +105,7 @@ export function Msg({ m, bookmarkLookup, onPinToFeed, style }: MsgProps) {
               onClick={() => onPinToFeed(pinIds)}
               style={{
                 fontFamily: 'var(--hal-mono)',
-                fontSize: 10,
+                fontSize: 11,
                 letterSpacing: '0.1em',
                 color: 'var(--hal-a)',
                 background: 'transparent',
@@ -172,7 +172,7 @@ function ViewOnXLink({ bookmark }: { bookmark: CitationBookmark }) {
       style={{
         display: 'inline-block',
         fontFamily: 'var(--hal-mono)',
-        fontSize: 10,
+        fontSize: 11,
         letterSpacing: '0.08em',
         textTransform: 'uppercase',
         color: 'var(--hal-text-3)',

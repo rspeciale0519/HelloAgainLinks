@@ -250,7 +250,7 @@ function AssistantPageInner() {
           <div
             style={{
               fontFamily: 'var(--hal-mono)',
-              fontSize: 10,
+              fontSize: 11,
               letterSpacing: '0.18em',
               color: 'var(--hal-text-3)',
               marginBottom: 6,
@@ -302,7 +302,7 @@ function AssistantPageInner() {
           <div
             style={{
               fontFamily: 'var(--hal-mono)',
-              fontSize: 10,
+              fontSize: 11,
               letterSpacing: '0.16em',
               color: 'var(--hal-text-3)',
               padding: '12px 0',
@@ -383,7 +383,7 @@ function MessageRow({ msg }: { msg: AssistantMessage }) {
           <div
             style={{
               fontFamily: 'var(--hal-mono)',
-              fontSize: 9,
+              fontSize: 11,
               letterSpacing: '0.18em',
               color: 'var(--hal-a)',
               marginBottom: 6,
@@ -436,7 +436,7 @@ export default function AssistantPage() {
           style={{
             padding: '32px 28px',
             fontFamily: 'var(--hal-mono)',
-            fontSize: 10,
+            fontSize: 11,
             letterSpacing: '0.16em',
             color: 'var(--hal-text-3)',
           }}

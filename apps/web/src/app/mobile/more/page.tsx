@@ -66,10 +66,10 @@ export default function MobileMorePage() {
           </div>
           <div>
             <div style={{ fontSize: 15, fontWeight: 600, color: '#f0f0f5' }}>{user.name}</div>
-            <div style={{ fontSize: 12, color: '#4a4a5a' }}>@{user.handle}</div>
+            <div style={{ fontSize: 12, color: '#7e7e8c' }}>@{user.handle}</div>
             <span style={{
               display: 'inline-block', marginTop: 4,
-              borderRadius: 100, padding: '1px 8px', fontSize: 9, fontWeight: 600,
+              borderRadius: 100, padding: '1px 8px', fontSize: 11, fontWeight: 600,
               background: 'rgba(var(--accent-rgb),0.1)', border: '1px solid rgba(var(--accent-rgb),0.2)', color: 'var(--accent-cyan)',
             }}>{plan === 'free' ? 'Free' : plan === 'lifetime' ? 'Lifetime' : 'Pro'}</span>
           </div>
@@ -96,7 +96,7 @@ export default function MobileMorePage() {
           >
             <span style={{ fontSize: 16, width: 22, textAlign: 'center' }}>{item.icon}</span>
             <span style={{ fontSize: 14, fontWeight: 500, color: '#f0f0f5', flex: 1 }}>{item.label}</span>
-            <span style={{ fontSize: 16, color: '#4a4a5a' }}>›</span>
+            <span style={{ fontSize: 16, color: '#7e7e8c' }}>›</span>
           </motion.button>
         ))}
 
