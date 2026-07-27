@@ -11,7 +11,22 @@ interface MergeUpsertResult {
   inserted: number;
   updated: number;
   skipped: number;
+  /** Existing rows whose bookmarked_at was rewritten by a reorder pass. */
+  reordered: number;
   insertedRows: { id: string; content_text?: string }[];
+}
+
+export interface MergeUpsertOptions {
+  /**
+   * Rewrite bookmarked_at on existing rows from the incoming values.
+   *
+   * Off by default and deliberately opt-in: bookmarked_at is excluded from
+   * WRITABLE_FIELDS so a routine sync can never reset it. Turn this on only when
+   * replaying a source in its true order (X serves bookmarks newest-saved-first)
+   * to repair ordering for rows imported before that order was preserved.
+   * Nothing else is touched — no folders, notes, tags or AI enrichment.
+   */
+  reorder?: boolean;
 }
 
 /**
@@ -27,9 +42,10 @@ export async function mergeUpsertBookmarks(
   serviceClient: SupabaseClient,
   userId: string,
   rows: BookmarkRow[],
+  { reorder = false }: MergeUpsertOptions = {},
 ): Promise<MergeUpsertResult> {
   if (rows.length === 0) {
-    return { inserted: 0, updated: 0, skipped: 0, insertedRows: [] };
+    return { inserted: 0, updated: 0, skipped: 0, reordered: 0, insertedRows: [] };
   }
 
   const postIds = rows.map((r) => r.x_post_id);
@@ -46,11 +62,24 @@ export async function mergeUpsertBookmarks(
   const toInsert: BookmarkRow[] = [];
   const toUpdate: { id: string; data: Record<string, unknown> }[] = [];
   let skipped = 0;
+  let reordered = 0;
 
   for (const row of rows) {
     const existing = existingMap.get(row.x_post_id);
     if (!existing) {
       toInsert.push(row);
+    } else if (reorder) {
+      // Reorder pass: the caller is replaying the source in its true order, so
+      // adopt the incoming bookmarked_at even though the normal merge refuses to
+      // (it is excluded from WRITABLE_FIELDS precisely so ordinary syncs cannot
+      // clobber it). Only this one column moves — folders, notes, tags and AI
+      // enrichment are left completely alone.
+      if (row.bookmarked_at && row.bookmarked_at !== existing.bookmarked_at) {
+        toUpdate.push({ id: existing.id as string, data: { bookmarked_at: row.bookmarked_at } });
+        reordered++;
+      } else {
+        skipped++;
+      }
     } else {
       const incomingScore = scoreBookmarkRecord(row);
       const existingScore = scoreBookmarkRecord(existing as Record<string, unknown>);
@@ -122,8 +151,11 @@ export async function mergeUpsertBookmarks(
 
   return {
     inserted: insertedRows.length,
-    updated: toUpdate.length,
+    // A reorder pass writes only timestamps; reporting those as "updated" would
+    // overstate what changed, so they are counted separately.
+    updated: toUpdate.length - reordered,
     skipped,
+    reordered,
     insertedRows,
   };
 }
