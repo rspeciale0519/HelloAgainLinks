@@ -119,7 +119,7 @@ export function CardGridRow({
             key={`${t.label}-${i}`}
             style={{
               fontFamily: 'var(--hal-mono)',
-              fontSize: 10,
+              fontSize: 11,
               padding: '1px 6px',
               color: 'var(--hal-a)',
               background: 'var(--hal-a-dim)',

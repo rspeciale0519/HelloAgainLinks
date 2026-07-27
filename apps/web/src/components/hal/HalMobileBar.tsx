@@ -53,7 +53,7 @@ export function HalMobileBar({ syncLabel, onOpenDrawer }: HalMobileBarProps) {
         style={{
           marginLeft: 'auto',
           fontFamily: 'var(--hal-mono)',
-          fontSize: 10,
+          fontSize: 11,
           color: 'var(--hal-text-3)',
           letterSpacing: '0.08em',
         }}

@@ -74,7 +74,7 @@ export default function TagPopover({ allTags, activeTagIds, onToggle, onClose }:
         </div>
 
         {allTags.length === 0 ? (
-          <div style={{ fontSize: '13px', color: '#4a4a5a', padding: '8px 0' }}>
+          <div style={{ fontSize: '13px', color: '#7e7e8c', padding: '8px 0' }}>
             No tags yet.{' '}
             <a
               href="/dashboard/tags"

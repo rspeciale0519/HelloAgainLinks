@@ -20,7 +20,7 @@ export function AskSuggestions({ onPick }: AskSuggestionsProps) {
       <div
         style={{
           fontFamily: 'var(--hal-mono)',
-          fontSize: 10,
+          fontSize: 11,
           color: 'var(--hal-text-3)',
           letterSpacing: '0.12em',
           textTransform: 'uppercase',
@@ -50,7 +50,7 @@ export function AskSuggestions({ onPick }: AskSuggestionsProps) {
                 color: 'var(--hal-text-3)',
                 marginRight: 8,
                 fontFamily: 'var(--hal-mono)',
-                fontSize: 10,
+                fontSize: 11,
               }}
             >
               {'›'}
@@ -79,7 +79,7 @@ export function AskLocked() {
       <div
         style={{
           fontFamily: 'var(--hal-mono)',
-          fontSize: 10,
+          fontSize: 11,
           color: 'var(--hal-text-3)',
           letterSpacing: '0.12em',
           textTransform: 'uppercase',

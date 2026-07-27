@@ -225,7 +225,7 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
               }}
             >
               <span style={{ fontSize: 20, lineHeight: 1 }}>{tab.icon}</span>
-              <span style={{ fontSize: 9, color: isActive ? 'var(--accent-cyan)' : '#4a4a5a' }}>
+              <span style={{ fontSize: 11, color: isActive ? 'var(--accent-cyan)' : '#7e7e8c' }}>
                 {tab.label}
               </span>
               {isActive && (

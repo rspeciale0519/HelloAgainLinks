@@ -88,7 +88,7 @@ export default function BookmarkCard({ bookmark, index, allTags, onTagsChanged, 
           @{bookmark.x_author_handle}
         </span>
         {bookmark.x_author_name && (
-          <span style={{ fontSize: '13px', color: '#4a4a5a' }}>{bookmark.x_author_name}</span>
+          <span style={{ fontSize: '13px', color: '#7e7e8c' }}>{bookmark.x_author_name}</span>
         )}
         <a
           href={`https://x.com/${bookmark.x_author_handle}/status/${bookmark.x_post_id}`}
@@ -98,11 +98,11 @@ export default function BookmarkCard({ bookmark, index, allTags, onTagsChanged, 
           style={{
             display: 'inline-flex',
             alignItems: 'center',
-            color: '#4a4a5a',
+            color: '#7e7e8c',
             transition: 'color 0.15s ease',
           }}
           onMouseEnter={(e) => { e.currentTarget.style.color = '#00d4ff'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.color = '#4a4a5a'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = '#7e7e8c'; }}
           title="View on X"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -111,7 +111,7 @@ export default function BookmarkCard({ bookmark, index, allTags, onTagsChanged, 
             <line x1="10" y1="14" x2="21" y2="3" />
           </svg>
         </a>
-        <span style={{ fontSize: '12px', color: '#4a4a5a', marginLeft: 'auto', display: 'flex', gap: '10px' }}>
+        <span style={{ fontSize: '12px', color: '#7e7e8c', marginLeft: 'auto', display: 'flex', gap: '10px' }}>
           {bookmark.post_created_at && (
             <span>Posted {formatDate(bookmark.post_created_at)}</span>
           )}
@@ -123,11 +123,11 @@ export default function BookmarkCard({ bookmark, index, allTags, onTagsChanged, 
             title="Remove bookmark"
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
-              color: '#4a4a5a', padding: '2px', display: 'flex', alignItems: 'center',
+              color: '#7e7e8c', padding: '2px', display: 'flex', alignItems: 'center',
               transition: 'color 0.15s ease',
             }}
             onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = '#4a4a5a'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = '#7e7e8c'; }}
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="3 6 5 6 21 6" />
@@ -226,7 +226,7 @@ export default function BookmarkCard({ bookmark, index, allTags, onTagsChanged, 
             border: 'none',
             borderRadius: '6px',
             cursor: 'pointer',
-            color: popoverOpen ? '#00d4ff' : '#4a4a5a',
+            color: popoverOpen ? '#00d4ff' : '#7e7e8c',
             transition: 'all 0.15s ease',
           }}
           onMouseEnter={(e) => {
@@ -238,7 +238,7 @@ export default function BookmarkCard({ bookmark, index, allTags, onTagsChanged, 
           onMouseLeave={(e) => {
             if (!popoverOpen) {
               e.currentTarget.style.background = 'transparent';
-              e.currentTarget.style.color = '#4a4a5a';
+              e.currentTarget.style.color = '#7e7e8c';
             }
           }}
           title="Manage tags"

@@ -60,7 +60,7 @@ export default function MobileSettingsPage() {
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
         {/* Sync section */}
         <div style={{ marginBottom: 24 }}>
-          <div style={{ fontSize: 11, color: '#4a4a5a', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>
+          <div style={{ fontSize: 11, color: '#7e7e8c', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>
             Bookmark Sync
           </div>
           <div className="glass glow-border" style={{ padding: '16px', borderRadius: 12 }}>
@@ -80,7 +80,7 @@ export default function MobileSettingsPage() {
 
         {/* App info */}
         <div>
-          <div style={{ fontSize: 11, color: '#4a4a5a', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>
+          <div style={{ fontSize: 11, color: '#7e7e8c', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>
             About
           </div>
           <div className="glass glow-border" style={{ padding: '16px', borderRadius: 12 }}>

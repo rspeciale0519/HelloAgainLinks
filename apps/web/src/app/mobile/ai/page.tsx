@@ -95,7 +95,7 @@ export default function MobileAIPage() {
             alignSelf: 'flex-start',
             background: 'rgba(var(--accent-rgb),0.07)', border: '1px solid rgba(var(--accent-rgb),0.15)',
             borderRadius: '12px 12px 12px 3px', padding: '10px 14px',
-            fontSize: 13, color: '#4a4a5a',
+            fontSize: 13, color: '#7e7e8c',
           }}>Thinking…</div>
         )}
         <div ref={bottomRef} />

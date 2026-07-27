@@ -140,7 +140,7 @@ function LoginContent() {
           Continue with X
         </motion.button>
 
-        <div style={{ marginTop: '24px', fontSize: '12px', color: '#4a4a5a', lineHeight: 1.6 }}>
+        <div style={{ marginTop: '24px', fontSize: '12px', color: '#7e7e8c', lineHeight: 1.6 }}>
           By continuing, you agree to our{' '}
           <span style={{ color: '#00d4ff', cursor: 'pointer' }}>Terms</span> and{' '}
           <span style={{ color: '#00d4ff', cursor: 'pointer' }}>Privacy Policy</span>

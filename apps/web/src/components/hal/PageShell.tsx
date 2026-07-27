@@ -49,7 +49,7 @@ export function PageShell({ eyebrow, title, subtitle, action, children }: PageSh
             <div
               style={{
                 fontFamily: 'var(--hal-mono)',
-                fontSize: 10,
+                fontSize: 11,
                 letterSpacing: '0.18em',
                 color: 'var(--hal-text-3)',
                 marginBottom: 8,
@@ -109,7 +109,7 @@ export function SectionLabel({
         alignItems: 'center',
         gap: 10,
         fontFamily: 'var(--hal-mono)',
-        fontSize: 10,
+        fontSize: 11,
         letterSpacing: '0.16em',
         color: 'var(--hal-text-3)',
         margin: '24px 0 12px',

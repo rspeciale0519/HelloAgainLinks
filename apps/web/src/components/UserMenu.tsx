@@ -155,7 +155,7 @@ export default function UserMenu({
               <span
                 style={{
                   fontFamily: 'var(--hal-mono)',
-                  fontSize: 9,
+                  fontSize: 11,
                   letterSpacing: '0.12em',
                   color: 'var(--hal-text-3)',
                   textTransform: 'uppercase',
@@ -166,7 +166,7 @@ export default function UserMenu({
               <span
                 style={{
                   fontFamily: 'var(--hal-mono)',
-                  fontSize: 10,
+                  fontSize: 11,
                   letterSpacing: '0.1em',
                   padding: '2px 6px',
                   borderRadius: 2,
@@ -288,7 +288,7 @@ export default function UserMenu({
           <div
             style={{
               fontFamily: 'var(--hal-mono)',
-              fontSize: 9.5,
+              fontSize: 11.5,
               letterSpacing: '0.1em',
               color: isPaid ? 'var(--hal-a)' : 'var(--hal-text-3)',
               marginTop: 2,
@@ -303,7 +303,7 @@ export default function UserMenu({
           transition={{ duration: 0.12 }}
           style={{
             fontFamily: 'var(--hal-mono)',
-            fontSize: 9,
+            fontSize: 11,
             color: 'var(--hal-text-3)',
             lineHeight: 1,
           }}

@@ -72,7 +72,7 @@ export default function BlendPage() {
           <div
             style={{
               fontFamily: 'var(--hal-mono)',
-              fontSize: 10,
+              fontSize: 11,
               letterSpacing: '0.16em',
               color: 'var(--hal-text-3)',
               marginBottom: 10,
@@ -121,7 +121,7 @@ export default function BlendPage() {
             padding: '36px 0',
             textAlign: 'center',
             fontFamily: 'var(--hal-mono)',
-            fontSize: 10,
+            fontSize: 11,
             letterSpacing: '0.16em',
             color: 'var(--hal-text-3)',
           }}
@@ -169,7 +169,7 @@ function BlendRow({ blend }: { blend: Blend }) {
           <div
             style={{
               fontFamily: 'var(--hal-mono)',
-              fontSize: 9,
+              fontSize: 11,
               letterSpacing: '0.16em',
               color: 'var(--hal-text-3)',
               marginBottom: 3,
@@ -227,7 +227,7 @@ function BlendRow({ blend }: { blend: Blend }) {
               style={{
                 padding: '3px 8px',
                 fontFamily: 'var(--hal-mono)',
-                fontSize: 10,
+                fontSize: 11,
                 color: 'var(--hal-a)',
                 background: 'var(--hal-a-dim)',
                 border: '1px solid rgba(var(--hal-a-rgb), 0.25)',
@@ -246,7 +246,7 @@ function BlendRow({ blend }: { blend: Blend }) {
           style={{
             marginTop: 10,
             fontFamily: 'var(--hal-mono)',
-            fontSize: 10,
+            fontSize: 11,
             letterSpacing: '0.12em',
             color: 'var(--hal-text-3)',
           }}
@@ -264,7 +264,7 @@ function EmptyState() {
       <div
         style={{
           fontFamily: 'var(--hal-mono)',
-          fontSize: 10,
+          fontSize: 11,
           letterSpacing: '0.16em',
           color: 'var(--hal-text-3)',
           marginBottom: 8,

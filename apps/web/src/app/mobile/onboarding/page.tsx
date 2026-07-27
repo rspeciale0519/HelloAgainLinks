@@ -104,7 +104,7 @@ function StepWelcome({ onGetStarted, onReturning }: { onGetStarted: () => void; 
       <h1 style={{ fontSize: 26, fontWeight: 700, color: '#f0f0f5', marginBottom: 8, lineHeight: 1.2 }}>
         Hello Again Links
       </h1>
-      <p style={{ color: '#4a4a5a', fontSize: 14, lineHeight: 1.6, marginBottom: 48, maxWidth: 260 }}>
+      <p style={{ color: '#7e7e8c', fontSize: 14, lineHeight: 1.6, marginBottom: 48, maxWidth: 260 }}>
         Your AI-powered bookmark manager for X — everywhere.
       </p>
       <button onClick={onGetStarted} style={primaryBtn}>Get Started</button>
@@ -123,7 +123,7 @@ function StepSignIn({ onSignIn }: { onSignIn: () => void }) {
           display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
         }}>𝕏</div>
         <h2 style={{ fontSize: 20, fontWeight: 700, color: '#f0f0f5', marginBottom: 8 }}>Sign in with X</h2>
-        <p style={{ color: '#4a4a5a', fontSize: 13, lineHeight: 1.6 }}>
+        <p style={{ color: '#7e7e8c', fontSize: 13, lineHeight: 1.6 }}>
           HAL uses your X account to sync bookmarks and personalise your AI experience.
         </p>
       </div>
@@ -131,9 +131,9 @@ function StepSignIn({ onSignIn }: { onSignIn: () => void }) {
         background: 'rgba(var(--accent-rgb),0.04)', border: '1px solid rgba(var(--accent-rgb),0.1)',
         borderRadius: 12, padding: '12px 16px', marginBottom: 28,
       }}>
-        <div style={{ fontSize: 10, color: '#4a4a5a', marginBottom: 8, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Permissions requested</div>
+        <div style={{ fontSize: 11, color: '#7e7e8c', marginBottom: 8, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Permissions requested</div>
         {['✓  Read your profile', '✓  Read your bookmarks', '✗  Post on your behalf'].map((p, i) => (
-          <div key={i} style={{ fontSize: 12, color: p.startsWith('✗') ? '#4a4a5a' : '#8a8a9a', lineHeight: 1.8 }}>{p}</div>
+          <div key={i} style={{ fontSize: 12, color: p.startsWith('✗') ? '#7e7e8c' : '#8a8a9a', lineHeight: 1.8 }}>{p}</div>
         ))}
       </div>
       <button onClick={onSignIn} style={{
@@ -144,7 +144,7 @@ function StepSignIn({ onSignIn }: { onSignIn: () => void }) {
         <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.73-8.835L1.254 2.25H8.08l4.253 5.622L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z"/></svg>
         Continue with X
       </button>
-      <p style={{ textAlign: 'center', fontSize: 10, color: '#4a4a5a', marginTop: 16, lineHeight: 1.6 }}>
+      <p style={{ textAlign: 'center', fontSize: 11, color: '#7e7e8c', marginTop: 16, lineHeight: 1.6 }}>
         By continuing you agree to HAL&apos;s{' '}
         <span style={{ color: 'var(--accent-cyan)' }}>Terms</span> and{' '}
         <span style={{ color: 'var(--accent-cyan)' }}>Privacy Policy</span>
@@ -157,7 +157,7 @@ function StepTwoWays({ onNext }: { onNext: () => void }) {
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
       <h2 style={{ fontSize: 20, fontWeight: 700, color: '#f0f0f5', marginBottom: 6 }}>Two ways to save</h2>
-      <p style={{ color: '#4a4a5a', fontSize: 13, marginBottom: 24, lineHeight: 1.5 }}>
+      <p style={{ color: '#7e7e8c', fontSize: 13, marginBottom: 24, lineHeight: 1.5 }}>
         HAL works with how you already use X — no changes needed.
       </p>
       {[
@@ -175,9 +175,9 @@ function StepTwoWays({ onNext }: { onNext: () => void }) {
             }}>{m.icon}</div>
             <span style={{ fontSize: 13, fontWeight: 600, color: '#f0f0f5' }}>{m.title}</span>
           </div>
-          <p style={{ fontSize: 11, color: '#4a4a5a', lineHeight: 1.5, marginBottom: 8 }}>{m.desc}</p>
+          <p style={{ fontSize: 11, color: '#7e7e8c', lineHeight: 1.5, marginBottom: 8 }}>{m.desc}</p>
           <span style={{
-            borderRadius: 100, padding: '2px 10px', fontSize: 9, fontWeight: 600,
+            borderRadius: 100, padding: '2px 10px', fontSize: 11, fontWeight: 600,
             background: hexToRgba(m.badgeColor, 0.1),
             border: `1px solid ${m.badgeColor}40`, color: m.badgeColor,
           }}>{m.badge}</span>
@@ -192,7 +192,7 @@ function StepEnableShare({ onNext, onSkip }: { onNext: () => void; onSkip: () =>
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
       <h2 style={{ fontSize: 20, fontWeight: 700, color: '#f0f0f5', marginBottom: 6 }}>Enable HAL in X</h2>
-      <p style={{ color: '#4a4a5a', fontSize: 13, marginBottom: 24, lineHeight: 1.5 }}>
+      <p style={{ color: '#7e7e8c', fontSize: 13, marginBottom: 24, lineHeight: 1.5 }}>
         One-time setup so HAL appears in X&apos;s share menu.
       </p>
       {[
@@ -209,7 +209,7 @@ function StepEnableShare({ onNext, onSkip }: { onNext: () => void; onSkip: () =>
           }}>{s.num}</div>
           <div>
             <div style={{ fontSize: 13, fontWeight: 600, color: '#f0f0f5', marginBottom: 3 }}>{s.title}</div>
-            <div style={{ fontSize: 11, color: '#4a4a5a', lineHeight: 1.4 }}>{s.desc}</div>
+            <div style={{ fontSize: 11, color: '#7e7e8c', lineHeight: 1.4 }}>{s.desc}</div>
           </div>
         </div>
       ))}
@@ -228,7 +228,7 @@ function StepAllSet({ onDone }: { onDone: () => void }) {
         display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26,
       }}>✓</div>
       <h2 style={{ fontSize: 22, fontWeight: 700, color: '#f0f0f5', marginBottom: 8 }}>You&apos;re all set</h2>
-      <p style={{ color: '#4a4a5a', fontSize: 13, lineHeight: 1.6, marginBottom: 32, maxWidth: 260 }}>
+      <p style={{ color: '#7e7e8c', fontSize: 13, lineHeight: 1.6, marginBottom: 32, maxWidth: 260 }}>
         HAL is ready. Start saving bookmarks from X anytime.
       </p>
       <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 32 }}>

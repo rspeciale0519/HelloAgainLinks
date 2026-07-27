@@ -102,7 +102,7 @@ export function FeedHeader({
             onClick={onClearFilters}
             style={{
               fontFamily: 'var(--hal-mono)',
-              fontSize: 10,
+              fontSize: 11,
               color: 'var(--hal-a)',
               padding: '2px 6px',
               background: 'var(--hal-a-dim)',
@@ -122,7 +122,7 @@ export function FeedHeader({
             title="Return to your normal feed"
             style={{
               fontFamily: 'var(--hal-mono)',
-              fontSize: 10,
+              fontSize: 11,
               color: 'var(--hal-bg-0)',
               padding: '2px 6px',
               background: 'var(--hal-a)',
@@ -150,7 +150,7 @@ export function FeedHeader({
           border: '1px solid var(--hal-line-1)',
           borderRadius: 3,
           fontFamily: 'var(--hal-mono)',
-          fontSize: 10,
+          fontSize: 11,
           color: 'var(--hal-text-2)',
           letterSpacing: '0.08em',
         }}

@@ -41,7 +41,7 @@ export function ClassificationBanner({
         style={{
           color: 'var(--hal-a)',
           fontFamily: 'var(--hal-mono)',
-          fontSize: 10,
+          fontSize: 11,
           letterSpacing: '0.1em',
         }}
       >

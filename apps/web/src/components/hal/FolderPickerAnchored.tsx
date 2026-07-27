@@ -78,7 +78,7 @@ export function FolderPickerAnchored({
           padding: '8px 12px',
           borderBottom: '1px solid var(--hal-line-1)',
           fontFamily: 'var(--hal-mono)',
-          fontSize: 10,
+          fontSize: 11,
           letterSpacing: '0.12em',
           color: 'var(--hal-text-3)',
           textTransform: 'uppercase',
