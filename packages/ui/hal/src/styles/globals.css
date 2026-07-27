@@ -24,11 +24,13 @@
   --hal-text-1: #c9c9d0; /* 10.8:1 */
   --hal-text-2: #9a9aa6; /*  7.1:1 */
   --hal-text-3: #8a8a96; /*  5.8:1 */
-  /* text-4 is nominally "disabled/decorative", but it is in fact used for real
-     content (e.g. the "/1608" total beside the page count), so it clears AA too
-     rather than relying on that intent holding everywhere. The ramp is flatter
-     at the bottom as a result — a fair trade for text nobody has to squint at. */
-  --hal-text-4: #7e7e8c; /*  4.9:1 */
+  /* text-4 is for DISABLED CONTROLS and non-text marks only — never for content
+     a user has to read. WCAG exempts disabled controls entirely, but exempt is
+     not the same as good, so this sits at 4.0:1: unmistakably inactive next to
+     the accent, still comfortable to look at. What signals "disabled" is the gap
+     to the enabled colour, not absolute dimness. If you reach for this rank to
+     style readable text, use text-3 instead. */
+  --hal-text-4: #6f6f7d; /*  4.0:1 — disabled controls / non-text only */
 
   --hal-line-0: rgba(255, 255, 255, 0.04);
   --hal-line-1: rgba(255, 255, 255, 0.07);
