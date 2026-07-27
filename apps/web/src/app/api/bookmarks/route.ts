@@ -120,6 +120,15 @@ export async function GET(req: NextRequest) {
     .select('*, bookmark_tags(tag_id, tags(*))', { count: 'exact' })
     .eq('user_id', ctx.userId)
     .order(sort, { ascending: order === 'asc' })
+    // Tiebreaker. Bulk ingest stamps every row in a batch with the same
+    // bookmarked_at (296 rows share one timestamp today), so sorting on it alone
+    // leaves a huge arbitrary tie and "Recent" returns effectively random rows.
+    // Falling back to publication time makes the order deterministic and
+    // meaningful. Skipped when it IS the sort key, to avoid a redundant clause.
+    .order(sort === 'post_created_at' ? 'id' : 'post_created_at', {
+      ascending: order === 'asc',
+      nullsFirst: false,
+    })
     .range(from, to);
 
   if (author) query = query.eq('x_author_handle', author);

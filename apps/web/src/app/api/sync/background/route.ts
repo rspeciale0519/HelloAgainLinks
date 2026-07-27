@@ -101,6 +101,14 @@ async function syncUser(
   let xApiError: { status: number } | null = null;
   const allInsertedRows: { id: string; content_text?: string }[] = [];
 
+  // X returns bookmarks newest-saved-first, and that ordering is the ONLY signal
+  // of when the user saved something — the API never reports a bookmark time.
+  // Stamping every row with new Date() threw it away and tied whole batches to a
+  // single timestamp (296 rows share one today), which is why "Recent" showed
+  // arbitrary posts. Walking a cursor backwards preserves the received order.
+  const syncStartedMs = Date.now();
+  let ingestOffset = 0;
+
   do {
     const url = new URL(`https://api.x.com/2/users/${profile.x_user_id}/bookmarks`);
     url.searchParams.set('max_results', String(pageSize));
@@ -144,7 +152,8 @@ async function syncUser(
         content_text: tweet.text || '',
         media_urls: [] as string[],
         post_created_at: tweet.created_at || new Date().toISOString(),
-        bookmarked_at: new Date().toISOString(),
+        // Descending by position, so the first item X returned stays the newest.
+        bookmarked_at: new Date(syncStartedMs - ingestOffset++ * 1000).toISOString(),
         ingested_via: 'api' as const,
       };
     });
