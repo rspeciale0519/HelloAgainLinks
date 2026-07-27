@@ -22,6 +22,10 @@ export async function POST(req: NextRequest) {
     }
 
     const { bookmarks } = parsed.data;
+    // Opt-in maintenance pass: replay the source in its true order and rewrite
+    // only bookmarked_at on rows we already have. Read straight off the body
+    // rather than the schema so a stray value can never enable it implicitly.
+    const reorder = (body as { reorder?: unknown }).reorder === true;
     const limit = PLAN_LIMITS[ctx.plan].bookmarks;
 
     const { count: currentCount } = await ctx.serviceClient
@@ -63,7 +67,7 @@ export async function POST(req: NextRequest) {
       ingested_via: b.ingested_via || 'extension',
     }));
 
-    const result = await mergeUpsertBookmarks(ctx.serviceClient, ctx.userId, rows);
+    const result = await mergeUpsertBookmarks(ctx.serviceClient, ctx.userId, rows, { reorder });
 
     const totalProcessed = result.inserted + result.updated;
     const limitReached = remaining !== Infinity && (totalProcessed >= remaining || droppedByLimit > 0);
@@ -73,6 +77,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       imported: result.inserted,
       updated: result.updated,
+      reordered: result.reordered,
       skipped: result.skipped + droppedByLimit,
       limitReached,
       remaining: newRemaining === Infinity ? -1 : Math.max(0, newRemaining),

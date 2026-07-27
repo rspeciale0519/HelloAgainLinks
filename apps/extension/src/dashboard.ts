@@ -41,7 +41,9 @@ window.addEventListener('message', (event) => {
   if (event.data?.source !== 'hal-dashboard') return;
 
   if (event.data.type === 'START_BULK_IMPORT') {
-    chrome.runtime.sendMessage({ type: 'START_BULK_IMPORT' });
+    // Forward the maintenance flag so the dashboard can request an
+    // order-repair pass rather than a plain import.
+    chrome.runtime.sendMessage({ type: 'START_BULK_IMPORT', reorder: event.data.reorder === true });
   } else if (event.data.type === 'STOP_BULK_IMPORT') {
     chrome.runtime.sendMessage({ type: 'BULK_IMPORT_STOP' });
   }

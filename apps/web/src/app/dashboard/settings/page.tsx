@@ -286,13 +286,21 @@ function ImportSection() {
     return () => window.removeEventListener('message', handleMessage);
   }, []);
 
-  const handleExtensionImport = () => {
+  const startExtensionImport = (reorder: boolean) => {
     setImportState('running');
     setImported(0);
     setSkipped(0);
     setLimitReached(false);
-    window.postMessage({ source: 'hal-dashboard', type: 'START_BULK_IMPORT' }, '*');
+    window.postMessage({ source: 'hal-dashboard', type: 'START_BULK_IMPORT', reorder }, '*');
   };
+
+  const handleExtensionImport = () => startExtensionImport(false);
+
+  // Maintenance pass. Bookmarks imported before save-order was preserved all
+  // share one timestamp, so "Recent" can't order them. This replays X in its
+  // true order and rewrites ONLY the saved-at time — folders, notes, tags and
+  // AI analysis are untouched, and nothing is deleted.
+  const handleRebuildOrder = () => startExtensionImport(true);
 
   const handleStopImport = () => {
     window.postMessage({ source: 'hal-dashboard', type: 'STOP_BULK_IMPORT' }, '*');
@@ -334,9 +342,14 @@ function ImportSection() {
             bookmarks page directly — no API fees required.
           </NoticeBox>
         ) : importState === 'idle' ? (
-          <HalPrimaryButton onClick={handleExtensionImport}>
-            IMPORT FROM X
-          </HalPrimaryButton>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <HalPrimaryButton onClick={handleExtensionImport}>
+              IMPORT FROM X
+            </HalPrimaryButton>
+            <HalGhostButton onClick={handleRebuildOrder}>
+              REBUILD ORDER
+            </HalGhostButton>
+          </div>
         ) : importState === 'running' ? (
           <div>
             <div
