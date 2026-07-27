@@ -30,6 +30,17 @@ export interface FeedHeaderProps {
   onToggleSignal: () => void;
   /** Pre-formatted sync label, e.g. "SYNCED 2s ago" */
   syncLabel: string;
+  /**
+   * Sort choices, passed in rather than imported: this package stays
+   * presentational and has no dependency on @helloagain/shared, where the
+   * canonical list lives.
+   */
+  sortOptions: ReadonlyArray<{ id: string; label: string }>;
+  sortId: string;
+  onSortChange: (id: string) => void;
+  /** Show only bookmarks the AI hasn't enriched yet. */
+  unclassifiedOnly: boolean;
+  onToggleUnclassified: () => void;
 }
 
 const DENSITY_OPTS: ReadonlyArray<{ v: Density_; icon: IconName; label: string }> = [
@@ -54,6 +65,11 @@ export function FeedHeader({
   signalOpen,
   onToggleSignal,
   syncLabel,
+  sortOptions,
+  sortId,
+  onSortChange,
+  unclassifiedOnly,
+  onToggleUnclassified,
 }: FeedHeaderProps) {
   const segBtn = (active: boolean, leading: boolean): CSSProperties => ({
     padding: '6px 8px',
@@ -177,6 +193,64 @@ export function FeedHeader({
           </button>
         ))}
       </div>
+
+      {/* Sort. A native select rather than a segmented control: three labels of
+          this length would crowd the header, and a select is keyboard- and
+          screen-reader-friendly for free. */}
+      <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span
+          style={{
+            fontFamily: 'var(--hal-mono)',
+            fontSize: 11,
+            letterSpacing: '0.12em',
+            color: 'var(--hal-text-3)',
+            textTransform: 'uppercase',
+          }}
+        >
+          Sort
+        </span>
+        <select
+          value={sortId}
+          onChange={(e) => onSortChange(e.target.value)}
+          style={{
+            fontFamily: 'var(--hal-mono)',
+            fontSize: 11,
+            color: 'var(--hal-text-1)',
+            background: 'var(--hal-bg-2)',
+            border: '1px solid var(--hal-line-1)',
+            borderRadius: 3,
+            padding: '5px 8px',
+            cursor: 'pointer',
+          }}
+        >
+          {sortOptions.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <button
+        type="button"
+        onClick={onToggleUnclassified}
+        title="Show only bookmarks HAL hasn't analysed yet"
+        aria-pressed={unclassifiedOnly}
+        style={{
+          padding: '6px 10px',
+          fontFamily: 'var(--hal-mono)',
+          fontSize: 11,
+          letterSpacing: '0.1em',
+          textTransform: 'uppercase',
+          color: unclassifiedOnly ? 'var(--hal-a)' : 'var(--hal-text-2)',
+          background: unclassifiedOnly ? 'var(--hal-a-dim)' : 'transparent',
+          border: '1px solid var(--hal-line-1)',
+          borderRadius: 3,
+          cursor: 'pointer',
+        }}
+      >
+        Unclassified
+      </button>
 
       <button
         type="button"

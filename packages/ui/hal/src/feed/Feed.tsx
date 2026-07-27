@@ -27,6 +27,12 @@ export interface FeedProps {
   signalOpen: boolean;
   onToggleSignal: () => void;
   syncLabel: string;
+  /** Sort choices come from the app; this package stays presentational. */
+  sortOptions: ReadonlyArray<{ id: string; label: string }>;
+  sortId: string;
+  onSortChange: (id: string) => void;
+  unclassifiedOnly: boolean;
+  onToggleUnclassified: () => void;
   // Card callbacks
   onSelect: (id: string) => void;
   onOpen: (id: string) => void;
@@ -60,6 +66,11 @@ export function Feed(props: FeedProps) {
     signalOpen,
     onToggleSignal,
     syncLabel,
+    sortOptions,
+    sortId,
+    onSortChange,
+    unclassifiedOnly,
+    onToggleUnclassified,
     onSelect,
     onOpen,
     onTagClick,
@@ -102,6 +113,11 @@ export function Feed(props: FeedProps) {
         signalOpen={signalOpen}
         onToggleSignal={onToggleSignal}
         syncLabel={syncLabel}
+        sortOptions={sortOptions}
+        sortId={sortId}
+        onSortChange={onSortChange}
+        unclassifiedOnly={unclassifiedOnly}
+        onToggleUnclassified={onToggleUnclassified}
       />
 
       {classificationBanner && (

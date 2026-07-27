@@ -78,7 +78,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Validation error', details: parsed.error.issues }, { status: 400 });
   }
 
-  const { page, pageSize, sort, order, author, folder_id, tag_id, ids } = parsed.data;
+  const { page, pageSize, sort, order, author, folder_id, tag_id, ids, unclassified } =
+    parsed.data;
 
   // "Pin to feed" mode: when ids are provided, ignore pagination/folder/tag
   // filters and just hydrate the requested rows. Used by the chat surface to
@@ -132,6 +133,9 @@ export async function GET(req: NextRequest) {
     .range(from, to);
 
   if (author) query = query.eq('x_author_handle', author);
+  // Same predicate the Classify banner and /api/bookmarks/classify use, so the
+  // filter and the "N can be AI-classified" count can never disagree.
+  if (unclassified) query = query.or('primary_category.is.null,ai_summary.is.null');
   if (tag_id) query = query.eq('bookmark_tags.tag_id', tag_id);
   // Phase 3: single-folder semantics — bookmarks.folder_id is the source of truth
   if (folder_id) query = query.eq('folder_id', folder_id);
