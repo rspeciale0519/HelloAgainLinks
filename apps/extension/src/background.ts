@@ -115,6 +115,17 @@ interface ImportSession {
   skipped: number;      // API `skipped` — existing row, no change needed
   errored: number;      // batches the API rejected (validation, network, etc.)
   limitReached: boolean;
+  /**
+   * Base time for this import, plus a running row counter. X's bookmarks page
+   * is walked newest-saved-first, and that order is the only save-time signal
+   * available — the page never exposes a bookmark timestamp. Stamping every row
+   * with new Date() threw it away and tied a whole import to one instant (89
+   * rows shared a single timestamp), which made "Recent" show arbitrary posts.
+   * The counter spans batches so ordering holds across the entire import, not
+   * just within one page.
+   */
+  startedMs: number;
+  ingestOffset: number;
 }
 
 let currentImport: ImportSession | null = null;
@@ -123,7 +134,7 @@ let currentImport: ImportSession | null = null;
 
 async function handleStartBulkImport() {
   setImportTiming('connecting', null, Date.now());
-  currentImport = { tabId: -1, imported: 0, updated: 0, skipped: 0, errored: 0, limitReached: false };
+  currentImport = { tabId: -1, imported: 0, updated: 0, skipped: 0, errored: 0, limitReached: false, startedMs: Date.now(), ingestOffset: 0 };
   broadcastExtendedProgress(getImportProgress, 'connecting', 'Connecting to X...');
 
   const runDirectImport = async (tabId: number) => {
@@ -210,7 +221,7 @@ async function handleBulkImportBatch(tweets: TweetData[]) {
   // background-managed tab" — chrome.tabs.sendMessage on it will fail
   // silently via the existing .catch() guards on call sites.
   if (!currentImport) {
-    currentImport = { tabId: -1, imported: 0, updated: 0, skipped: 0, errored: 0, limitReached: false };
+    currentImport = { tabId: -1, imported: 0, updated: 0, skipped: 0, errored: 0, limitReached: false, startedMs: Date.now(), ingestOffset: 0 };
   }
   // Capture reference — currentImport can be nulled by DONE/STOP during our awaits
   const session = currentImport;
@@ -228,7 +239,9 @@ async function handleBulkImportBatch(tweets: TweetData[]) {
       content_text: t.content,
       media_urls: t.mediaUrls,
       post_created_at: t.timestamp || new Date().toISOString(),
-      bookmarked_at: new Date().toISOString(),
+      // Descending cursor, not new Date(): keeps the newest-saved-first order X
+      // gave us. See ImportSession.ingestOffset.
+      bookmarked_at: new Date(session.startedMs - session.ingestOffset++ * 1000).toISOString(),
       possibly_sensitive: t.possiblySensitive ?? false,
       ingested_via: 'extension' as const,
     };
