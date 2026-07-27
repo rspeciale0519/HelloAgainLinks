@@ -115,7 +115,7 @@ export function NotesTab({ bookmark, authFetch, onNotesSaved }: NotesTabProps) {
         style={{
           marginTop: 10,
           fontFamily: 'var(--hal-mono)',
-          fontSize: 10,
+          fontSize: 11,
           letterSpacing: '0.08em',
           color: status === 'error' ? '#ef4444' : 'var(--hal-text-3)',
         }}

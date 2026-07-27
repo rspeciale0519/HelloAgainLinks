@@ -108,7 +108,7 @@ export default function JoinListPage() {
               </div>
             )}
             {preview.owner && (
-              <div style={{ fontSize: '13px', color: '#4a4a5a', marginBottom: '16px' }}>
+              <div style={{ fontSize: '13px', color: '#7e7e8c', marginBottom: '16px' }}>
                 Created by <span style={{ color: '#00d4ff' }}>@{preview.owner.handle}</span>
               </div>
             )}

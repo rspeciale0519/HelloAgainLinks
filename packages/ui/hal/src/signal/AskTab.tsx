@@ -366,7 +366,7 @@ const inputStyle: CSSProperties = {
 
 const kbdStyle: CSSProperties = {
   fontFamily: 'var(--hal-mono)',
-  fontSize: 10,
+  fontSize: 11,
   color: 'var(--hal-text-3)',
   border: '1px solid var(--hal-line-1)',
   padding: '1px 5px',

@@ -254,7 +254,7 @@ export function Index(props: IndexProps) {
           <div
             style={{
               fontFamily: 'var(--hal-mono)',
-              fontSize: 9,
+              fontSize: 11,
               color: 'var(--hal-text-3)',
               letterSpacing: '0.04em',
               marginTop: 2,
@@ -317,7 +317,7 @@ export function Index(props: IndexProps) {
             style={{
               flexShrink: 0,
               fontFamily: 'var(--hal-mono)',
-              fontSize: 10,
+              fontSize: 11,
               color: 'var(--hal-text-3)',
               letterSpacing: '0.05em',
               border: '1px solid var(--hal-line-1)',

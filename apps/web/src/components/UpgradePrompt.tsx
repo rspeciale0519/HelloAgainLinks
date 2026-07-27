@@ -32,7 +32,7 @@ export function UpgradePrompt({ feature, currentUsage, limit, onUpgrade, onDismi
             right: '12px',
             background: 'none',
             border: 'none',
-            color: '#4a4a5a',
+            color: '#7e7e8c',
             cursor: 'pointer',
             fontSize: '18px',
           }}

@@ -83,7 +83,7 @@ export function TweaksPanel({ open, onClose, value, onChange }: TweaksPanelProps
         <span
           style={{
             fontFamily: 'var(--hal-mono)',
-            fontSize: 10,
+            fontSize: 11,
             letterSpacing: '0.12em',
             color: 'var(--hal-text-1)',
           }}
@@ -173,7 +173,7 @@ export function TweaksPanel({ open, onClose, value, onChange }: TweaksPanelProps
         <span
           style={{
             fontFamily: 'var(--hal-mono)',
-            fontSize: 10,
+            fontSize: 11,
             color: 'var(--hal-text-2)',
             letterSpacing: '0.08em',
           }}
@@ -191,7 +191,7 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
       <div
         style={{
           fontFamily: 'var(--hal-mono)',
-          fontSize: 10,
+          fontSize: 11,
           letterSpacing: '0.12em',
           textTransform: 'uppercase',
           color: 'var(--hal-text-3)',

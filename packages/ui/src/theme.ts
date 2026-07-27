@@ -20,7 +20,7 @@ export const theme = {
     text: {
       primary: '#f0f0f5',
       secondary: '#8a8a9a',
-      muted: '#4a4a5a',
+      muted: '#7e7e8c',
     },
     border: {
       default: 'rgba(0, 212, 255, 0.1)',

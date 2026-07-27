@@ -57,7 +57,7 @@ export function NavItem({ icon, label, count, active, onClick, pulse }: NavItemP
         <span
           style={{
             fontFamily: 'var(--hal-mono)',
-            fontSize: 10,
+            fontSize: 11,
             color: active ? 'var(--hal-text-1)' : 'var(--hal-text-3)',
           }}
         >

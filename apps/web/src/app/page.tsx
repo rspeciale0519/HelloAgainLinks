@@ -305,7 +305,7 @@ export default function LandingPage() {
           textAlign: 'center',
           padding: '40px 24px',
           borderTop: '1px solid rgba(0,212,255,0.06)',
-          color: '#4a4a5a',
+          color: '#7e7e8c',
           fontSize: '13px',
         }}
       >

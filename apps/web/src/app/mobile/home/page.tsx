@@ -58,7 +58,7 @@ export default function MobileHomePage() {
         <h1 style={{ fontSize: 22, fontWeight: 600, color: '#f0f0f5', marginBottom: 2 }}>
           {user ? `Hey, ${user.name || '@' + user.handle} ⬡` : 'Dashboard'}
         </h1>
-        <p style={{ color: '#4a4a5a', fontSize: 13, marginBottom: 20 }}>
+        <p style={{ color: '#7e7e8c', fontSize: 13, marginBottom: 20 }}>
           {bookmarkCount > 0 ? `${bookmarkCount} bookmarks saved` : 'No bookmarks yet'}
         </p>
 
@@ -78,9 +78,9 @@ export default function MobileHomePage() {
               className="glass glow-border"
               style={{ padding: '16px 14px', borderRadius: 14 }}
             >
-              <div style={{ fontSize: 11, color: '#4a4a5a', marginBottom: 6 }}>{s.label}</div>
+              <div style={{ fontSize: 11, color: '#7e7e8c', marginBottom: 6 }}>{s.label}</div>
               <div style={{ fontSize: 24, fontWeight: 700, color: '#f0f0f5', lineHeight: 1 }}>{loading ? '…' : s.value}</div>
-              <div style={{ fontSize: 10, color: 'var(--accent-cyan)', marginTop: 4 }}>{s.sub}</div>
+              <div style={{ fontSize: 11, color: 'var(--accent-cyan)', marginTop: 4 }}>{s.sub}</div>
             </motion.div>
           ))}
         </div>
@@ -88,12 +88,12 @@ export default function MobileHomePage() {
         {/* Recent bookmarks */}
         <h2 style={{ fontSize: 15, fontWeight: 600, color: '#f0f0f5', marginBottom: 12 }}>Recent</h2>
         {loading ? (
-          <div style={{ color: '#4a4a5a', textAlign: 'center', padding: 24, fontSize: 13 }}>Loading…</div>
+          <div style={{ color: '#7e7e8c', textAlign: 'center', padding: 24, fontSize: 13 }}>Loading…</div>
         ) : recent.length === 0 ? (
           <div className="glass glow-border" style={{ padding: 28, borderRadius: 14, textAlign: 'center' }}>
             <div style={{ fontSize: 32, marginBottom: 12 }}>📚</div>
             <div style={{ fontSize: 14, color: '#f0f0f5', fontWeight: 600, marginBottom: 6 }}>No bookmarks yet</div>
-            <div style={{ fontSize: 12, color: '#4a4a5a', lineHeight: 1.6 }}>
+            <div style={{ fontSize: 12, color: '#7e7e8c', lineHeight: 1.6 }}>
               Share a tweet from X to save your first bookmark.
             </div>
           </div>
@@ -115,7 +115,7 @@ export default function MobileHomePage() {
                   {/* Absolute publication date, not import time and not a relative
                       count — a saved post is usually old, so "26w" says less than
                       the date it was actually posted. */}
-                  <span style={{ fontSize: 11, color: '#4a4a5a', marginLeft: 'auto', whiteSpace: 'nowrap', flexShrink: 0 }}>{formatPostDate(bm.post_created_at || bm.bookmarked_at, { short: true })}</span>
+                  <span style={{ fontSize: 11, color: '#7e7e8c', marginLeft: 'auto', whiteSpace: 'nowrap', flexShrink: 0 }}>{formatPostDate(bm.post_created_at || bm.bookmarked_at, { short: true })}</span>
                 </div>
                 <div style={{ fontSize: 13, color: '#8a8a9a', lineHeight: 1.5 }}>
                   {bm.content_text.length > 160 ? bm.content_text.slice(0, 160) + '…' : bm.content_text}
@@ -126,7 +126,7 @@ export default function MobileHomePage() {
                       const c = bt.tags.color;
                       return (
                         <span key={bt.tags.name} style={{
-                          borderRadius: 100, padding: '2px 9px', fontSize: 10, fontWeight: 500,
+                          borderRadius: 100, padding: '2px 9px', fontSize: 11, fontWeight: 500,
                           background: hexToRgba(c, 0.1), border: `1px solid ${hexToRgba(c, 0.22)}`, color: c,
                         }}>{bt.tags.name}</span>
                       );

@@ -55,7 +55,7 @@ export default function MobileBlendPage() {
   return (
     <div style={{ padding: '20px 16px' }}>
       <h1 style={{ fontSize: 20, fontWeight: 600, color: '#f0f0f5', marginBottom: 6 }}>Blend 🔗</h1>
-      <p style={{ color: '#4a4a5a', fontSize: 13, marginBottom: 20 }}>Compare bookmark taste with friends.</p>
+      <p style={{ color: '#7e7e8c', fontSize: 13, marginBottom: 20 }}>Compare bookmark taste with friends.</p>
 
       {/* Score ring — shows best blend score */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 28 }}>
@@ -76,7 +76,7 @@ export default function MobileBlendPage() {
             </span>
           </div>
         </div>
-        <div style={{ fontSize: 11, color: '#4a4a5a', marginTop: 8 }}>Best Blend Score</div>
+        <div style={{ fontSize: 11, color: '#7e7e8c', marginTop: 8 }}>Best Blend Score</div>
         {bestBlend?.analysis_json?.tier && (
           <div style={{ fontSize: 12, color: ringColor, fontWeight: 500, marginTop: 2 }}>
             {bestBlend.analysis_json.tier}
@@ -107,7 +107,7 @@ export default function MobileBlendPage() {
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 32, marginBottom: 10 }}>🔗</div>
             <div style={{ fontSize: 14, fontWeight: 600, color: '#f0f0f5', marginBottom: 6 }}>Start a Blend</div>
-            <div style={{ fontSize: 12, color: '#4a4a5a', lineHeight: 1.5, marginBottom: 16 }}>
+            <div style={{ fontSize: 12, color: '#7e7e8c', lineHeight: 1.5, marginBottom: 16 }}>
               Generate an invite link and share it with a friend. AI will analyze your compatibility.
             </div>
             <button onClick={createInvite} disabled={creating} style={{
@@ -123,9 +123,9 @@ export default function MobileBlendPage() {
       {/* Existing blends */}
       <h2 style={{ fontSize: 15, fontWeight: 600, color: '#f0f0f5', marginBottom: 12 }}>Your Blends</h2>
       {loading ? (
-        <div style={{ color: '#4a4a5a', textAlign: 'center', padding: 24, fontSize: 13 }}>Loading…</div>
+        <div style={{ color: '#7e7e8c', textAlign: 'center', padding: 24, fontSize: 13 }}>Loading…</div>
       ) : blends.length === 0 ? (
-        <div style={{ color: '#4a4a5a', textAlign: 'center', padding: 24, fontSize: 13 }}>No blends yet. Create an invite!</div>
+        <div style={{ color: '#7e7e8c', textAlign: 'center', padding: 24, fontSize: 13 }}>No blends yet. Create an invite!</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {blends.map((blend, i) => {

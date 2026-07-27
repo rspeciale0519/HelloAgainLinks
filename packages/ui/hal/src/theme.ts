@@ -18,12 +18,15 @@ export const halTheme = {
     dim: 'rgba(0, 212, 255, 0.15)',
     glow: 'rgba(0, 212, 255, 0.35)',
   },
+  // Keep in step with --hal-text-* in styles/globals.css. Contrast against
+  // bg-1; 2/3 raised to clear WCAG AA (were 4.7:1 and 2.5:1), 4 is
+  // decorative/disabled only.
   text: {
     0: '#f5f5f7',
     1: '#c9c9d0',
-    2: '#7e7e88',
-    3: '#50505a',
-    4: '#2e2e36',
+    2: '#9a9aa6',
+    3: '#8a8a96',
+    4: '#7e7e8c',
   },
   line: {
     0: 'rgba(255, 255, 255, 0.04)',

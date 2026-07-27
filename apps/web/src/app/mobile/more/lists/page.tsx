@@ -26,12 +26,12 @@ export default function MobileListsPage() {
         <h1 style={{ fontSize: 20, fontWeight: 600, color: '#f0f0f5' }}>Shared Lists</h1>
       </div>
       {loading ? (
-        <div style={{ color: '#4a4a5a', textAlign: 'center', padding: 32, fontSize: 13 }}>Loading…</div>
+        <div style={{ color: '#7e7e8c', textAlign: 'center', padding: 32, fontSize: 13 }}>Loading…</div>
       ) : lists.length === 0 ? (
         <div className="glass glow-border" style={{ padding: 28, borderRadius: 14, textAlign: 'center' }}>
           <div style={{ fontSize: 32, marginBottom: 12 }}>📋</div>
           <div style={{ fontSize: 14, color: '#f0f0f5', fontWeight: 600, marginBottom: 6 }}>No shared lists yet</div>
-          <div style={{ fontSize: 12, color: '#4a4a5a', lineHeight: 1.6 }}>Create lists and share them with others from the web app.</div>
+          <div style={{ fontSize: 12, color: '#7e7e8c', lineHeight: 1.6 }}>Create lists and share them with others from the web app.</div>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -45,7 +45,7 @@ export default function MobileListsPage() {
               style={{ padding: '16px', borderRadius: 12 }}
             >
               <div style={{ fontSize: 14, fontWeight: 600, color: '#f0f0f5', marginBottom: 4 }}>{list.name}</div>
-              {list.description && <div style={{ fontSize: 12, color: '#4a4a5a', lineHeight: 1.5 }}>{list.description}</div>}
+              {list.description && <div style={{ fontSize: 12, color: '#7e7e8c', lineHeight: 1.5 }}>{list.description}</div>}
             </motion.div>
           ))}
         </div>

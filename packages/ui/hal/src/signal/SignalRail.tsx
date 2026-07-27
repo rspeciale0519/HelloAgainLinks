@@ -107,7 +107,7 @@ export function SignalRail({
           <div
             style={{
               fontFamily: 'var(--hal-mono)',
-              fontSize: 9,
+              fontSize: 11,
               color: 'var(--hal-a)',
               letterSpacing: '0.1em',
             }}

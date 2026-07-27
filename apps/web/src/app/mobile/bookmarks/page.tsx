@@ -97,7 +97,7 @@ export default function MobileBookmarksPage() {
         background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(var(--accent-rgb),0.1)',
         borderRadius: 12, padding: '10px 14px', marginBottom: 12,
       }}>
-        <span style={{ fontSize: 14, color: '#4a4a5a' }}>🔍</span>
+        <span style={{ fontSize: 14, color: '#7e7e8c' }}>🔍</span>
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
@@ -108,7 +108,7 @@ export default function MobileBookmarksPage() {
           }}
         />
         {search && (
-          <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', color: '#4a4a5a', cursor: 'pointer', fontSize: 16 }}>×</button>
+          <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', color: '#7e7e8c', cursor: 'pointer', fontSize: 16 }}>×</button>
         )}
       </div>
 
@@ -120,7 +120,7 @@ export default function MobileBookmarksPage() {
             borderRadius: 100, padding: '5px 12px', fontSize: 11, fontWeight: 500,
             border: `1px solid ${!activeTag ? 'rgba(var(--accent-rgb),0.4)' : 'rgba(255,255,255,0.08)'}`,
             background: !activeTag ? 'rgba(var(--accent-rgb),0.1)' : 'rgba(255,255,255,0.03)',
-            color: !activeTag ? 'var(--accent-cyan)' : '#4a4a5a',
+            color: !activeTag ? 'var(--accent-cyan)' : '#7e7e8c',
             cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: "'Inter', sans-serif",
           }}
         >All</button>
@@ -134,7 +134,7 @@ export default function MobileBookmarksPage() {
                 borderRadius: 100, padding: '5px 12px', fontSize: 11, fontWeight: 500,
                 border: `1px solid ${hexToRgba(tag.color, isActive ? 0.4 : 0.15)}`,
                 background: isActive ? hexToRgba(tag.color, 0.1) : 'rgba(255,255,255,0.03)',
-                color: isActive ? tag.color : '#4a4a5a',
+                color: isActive ? tag.color : '#7e7e8c',
                 cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: "'Inter', sans-serif",
               }}
             >{tag.name}</button>
@@ -144,9 +144,9 @@ export default function MobileBookmarksPage() {
 
       {/* Bookmark list */}
       {loading ? (
-        <div style={{ color: '#4a4a5a', textAlign: 'center', padding: 32, fontSize: 13 }}>Loading…</div>
+        <div style={{ color: '#7e7e8c', textAlign: 'center', padding: 32, fontSize: 13 }}>Loading…</div>
       ) : bookmarks.length === 0 ? (
-        <div style={{ color: '#4a4a5a', textAlign: 'center', padding: 32, fontSize: 13 }}>No bookmarks found</div>
+        <div style={{ color: '#7e7e8c', textAlign: 'center', padding: 32, fontSize: 13 }}>No bookmarks found</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {bookmarks.map((bm, i) => (
@@ -183,7 +183,7 @@ export default function MobileBookmarksPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
                   <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent-cyan)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>@{bm.x_author_handle}</span>
                   {/* Absolute publication date — see home/page.tsx */}
-                  <span style={{ fontSize: 11, color: '#4a4a5a', marginLeft: 'auto', whiteSpace: 'nowrap', flexShrink: 0 }}>{formatPostDate(bm.post_created_at || bm.bookmarked_at, { short: true })}</span>
+                  <span style={{ fontSize: 11, color: '#7e7e8c', marginLeft: 'auto', whiteSpace: 'nowrap', flexShrink: 0 }}>{formatPostDate(bm.post_created_at || bm.bookmarked_at, { short: true })}</span>
                 </div>
                 <div style={{ fontSize: 13, color: '#8a8a9a', lineHeight: 1.5 }}>
                   {bm.content_text.length > 180 ? bm.content_text.slice(0, 180) + '…' : bm.content_text}
@@ -194,7 +194,7 @@ export default function MobileBookmarksPage() {
                       const c = bt.tags.color;
                       return (
                         <span key={bt.tag_id} style={{
-                          borderRadius: 100, padding: '2px 9px', fontSize: 10, fontWeight: 500,
+                          borderRadius: 100, padding: '2px 9px', fontSize: 11, fontWeight: 500,
                           background: hexToRgba(c, 0.1), border: `1px solid ${hexToRgba(c, 0.22)}`, color: c,
                         }}>{bt.tags.name}</span>
                       );

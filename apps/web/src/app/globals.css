@@ -11,9 +11,13 @@
   --accent-blue: #0ea5e9;
   --accent-hot-blue: #3b82f6;
   --accent-rgb: 0, 212, 255;
-  --text-primary: #f0f0f5;
-  --text-secondary: #8a8a9a;
-  --text-muted: #4a4a5a;
+  /* Contrast against --bg-primary; WCAG AA needs 4.5:1 for normal text.
+     --text-muted was #4a4a5a = 2.3:1 — half the readable minimum — and it
+     carries the mobile card timestamps and meta lines. Raised to clear AA while
+     staying dimmer than --text-secondary so the hierarchy still reads. */
+  --text-primary: #f0f0f5; /* 17.4:1 */
+  --text-secondary: #8a8a9a; /*  5.8:1 */
+  --text-muted: #7e7e8c; /*  4.9:1 */
   --border-default: rgba(var(--accent-rgb), 0.1);
   --border-hover: rgba(var(--accent-rgb), 0.3);
   --glow-cyan: 0 0 20px rgba(var(--accent-rgb), 0.3);
