@@ -3,7 +3,13 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { authFetch } from '@/lib/auth-fetch';
-import { formatPostDate, hexToRgba } from '@helloagain/shared';
+import {
+  formatPostDate,
+  hexToRgba,
+  BOOKMARK_SORT_OPTIONS,
+  DEFAULT_BOOKMARK_SORT,
+  bookmarkSortById,
+} from '@helloagain/shared';
 
 interface Tag { id: string; name: string; color: string; }
 interface Bookmark {
@@ -20,6 +26,7 @@ export default function MobileBookmarksPage() {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [sortId, setSortId] = useState(DEFAULT_BOOKMARK_SORT.id);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -46,8 +53,11 @@ export default function MobileBookmarksPage() {
     if (searching) {
       params.set('q', query);
     } else {
-      params.set('sort', 'bookmarked_at');
-      params.set('order', 'desc');
+      // Search results come back ranked by relevance, so the sort choice only
+      // applies to the plain list.
+      const chosen = bookmarkSortById(sortId);
+      params.set('sort', chosen.sort);
+      params.set('order', chosen.order);
     }
     if (activeTag) params.set('tag_id', activeTag);
 
@@ -59,7 +69,7 @@ export default function MobileBookmarksPage() {
     setBookmarks(prev => reset ? items : [...prev, ...items]);
     setHasMore(items.length === PAGE_SIZE);
     setLoading(false);
-  }, [debouncedSearch, activeTag]);
+  }, [debouncedSearch, activeTag, sortId]);
 
   // Initial load of tags
   useEffect(() => {
@@ -110,6 +120,29 @@ export default function MobileBookmarksPage() {
         {search && (
           <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', color: '#7e7e8c', cursor: 'pointer', fontSize: 16 }}>×</button>
         )}
+      </div>
+
+      {/* Sort. A native select keeps the tap target and the accessibility
+          behaviour that iOS gives for free. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Sort</span>
+        <select
+          value={sortId}
+          onChange={(e) => setSortId(e.target.value)}
+          style={{
+            flex: 1,
+            fontSize: 12,
+            color: 'var(--text-primary)',
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: 8,
+            padding: '7px 10px',
+          }}
+        >
+          {BOOKMARK_SORT_OPTIONS.map((o) => (
+            <option key={o.id} value={o.id}>{o.label}</option>
+          ))}
+        </select>
       </div>
 
       {/* Tag filter chips */}

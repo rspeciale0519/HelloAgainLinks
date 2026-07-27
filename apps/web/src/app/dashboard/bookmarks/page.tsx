@@ -18,6 +18,11 @@ import {
 } from '@helloagain/ui-hal';
 
 import { isNativeApp, triggerHaptic } from '@/lib/mobile';
+import {
+  BOOKMARK_SORT_OPTIONS,
+  DEFAULT_BOOKMARK_SORT,
+  bookmarkSortById,
+} from '@helloagain/shared';
 import { useSyncTime } from '@/lib/use-sync-time';
 import { useTweaks } from '@/lib/use-tweaks';
 import { useKeyboardShortcuts } from '@/lib/use-keyboard-shortcuts';
@@ -80,12 +85,19 @@ export default function BookmarksPage() {
   const folderFilter =
     sidebar.activeFolder && sidebar.activeFolder !== ALL_FOLDER_ID ? sidebar.activeFolder : undefined;
 
+  const [sortId, setSortId] = useState(DEFAULT_BOOKMARK_SORT.id);
+  const [unclassifiedOnly, setUnclassifiedOnly] = useState(false);
+  const activeSort = bookmarkSortById(sortId);
+
   const data = useBookmarksData({
     page,
     pageSize: PAGE_SIZE,
     search: debouncedSearch,
     folderId: folderFilter,
     idsFilter: pinnedIds,
+    sort: activeSort.sort,
+    order: activeSort.order,
+    unclassifiedOnly,
   });
   const {
     rawBookmarks,
@@ -510,6 +522,17 @@ export default function BookmarksPage() {
           onClearPinned={handleClearPinned}
           density={tweaks.density}
           onDensityChange={(d) => setTweaks((prev) => ({ ...prev, density: d }))}
+          sortOptions={BOOKMARK_SORT_OPTIONS}
+          sortId={sortId}
+          onSortChange={(id) => {
+            setSortId(id);
+            setPage(1); // a new order makes the current page meaningless
+          }}
+          unclassifiedOnly={unclassifiedOnly}
+          onToggleUnclassified={() => {
+            setUnclassifiedOnly((v) => !v);
+            setPage(1);
+          }}
           selectionMode={selectionMode}
           onToggleSelectionMode={() => {
             setSelectionMode((v) => !v);

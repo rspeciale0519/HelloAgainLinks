@@ -42,6 +42,12 @@ export const listBookmarksSchema = z.object({
   sort: z.enum(['bookmarked_at', 'post_created_at', 'created_at']).default('bookmarked_at'),
   order: z.enum(['asc', 'desc']).default('desc'),
   author: z.string().optional(),
+  /**
+   * Only bookmarks the AI hasn't enriched yet. Uses the same definition as the
+   * Classify banner and /api/bookmarks/classify (no primary_category OR no
+   * ai_summary) so the filter and the count can never disagree.
+   */
+  unclassified: z.coerce.boolean().optional(),
   folder_id: z.string().uuid().optional(),
   tag_id: z.string().uuid().optional(),
   /**
