@@ -88,7 +88,7 @@ export type ExtensionMessage =
   | { type: 'GET_FOLDERS' }
   | { type: 'GET_BOOKMARK_COUNT' }
   | { type: 'GET_BOOKMARKED_POST_IDS' }
-  | { type: 'START_BULK_IMPORT' }
+  | { type: 'START_BULK_IMPORT'; reorder?: boolean }
   | { type: 'BULK_IMPORT_BATCH'; tweets: TweetData[] }
   | { type: 'BULK_IMPORT_DONE' }
   | { type: 'BULK_IMPORT_ERROR'; error: string }
@@ -122,5 +122,5 @@ export type ExternalMessage =
   // the user in the web app, signed in, whichever surface started the login.
   | { type: 'AUTH_TOKEN'; data: unknown }
   | { type: 'BOOKMARK_DELETED'; postId: string }
-  | { type: 'START_BULK_IMPORT' }
+  | { type: 'START_BULK_IMPORT'; reorder?: boolean }
   | { type: 'STOP_BULK_IMPORT' };

@@ -126,15 +126,21 @@ interface ImportSession {
    */
   startedMs: number;
   ingestOffset: number;
+  /**
+   * Maintenance pass: rewrite bookmarked_at on rows we already have, so an
+   * import done before save-order was preserved can be repaired without
+   * deleting anything. Never set for a normal import.
+   */
+  reorder: boolean;
 }
 
 let currentImport: ImportSession | null = null;
 
 
 
-async function handleStartBulkImport() {
+async function handleStartBulkImport(reorder = false) {
   setImportTiming('connecting', null, Date.now());
-  currentImport = { tabId: -1, imported: 0, updated: 0, skipped: 0, errored: 0, limitReached: false, startedMs: Date.now(), ingestOffset: 0 };
+  currentImport = { tabId: -1, imported: 0, updated: 0, skipped: 0, errored: 0, limitReached: false, startedMs: Date.now(), ingestOffset: 0, reorder };
   broadcastExtendedProgress(getImportProgress, 'connecting', 'Connecting to X...');
 
   const runDirectImport = async (tabId: number) => {
@@ -221,7 +227,7 @@ async function handleBulkImportBatch(tweets: TweetData[]) {
   // background-managed tab" — chrome.tabs.sendMessage on it will fail
   // silently via the existing .catch() guards on call sites.
   if (!currentImport) {
-    currentImport = { tabId: -1, imported: 0, updated: 0, skipped: 0, errored: 0, limitReached: false, startedMs: Date.now(), ingestOffset: 0 };
+    currentImport = { tabId: -1, imported: 0, updated: 0, skipped: 0, errored: 0, limitReached: false, startedMs: Date.now(), ingestOffset: 0, reorder: false };
   }
   // Capture reference — currentImport can be nulled by DONE/STOP during our awaits
   const session = currentImport;
@@ -256,7 +262,7 @@ async function handleBulkImportBatch(tweets: TweetData[]) {
 
   const result = await apiCall('/api/bookmarks/batch', {
     method: 'POST',
-    body: JSON.stringify({ bookmarks }),
+    body: JSON.stringify({ bookmarks, reorder: session.reorder }),
   });
 
   if (result.error) {
@@ -468,7 +474,7 @@ chrome.runtime.onMessageExternal.addListener((message: ExternalMessage, sender, 
   }
 
   if (message.type === 'START_BULK_IMPORT') {
-    handleStartBulkImport().then(sendResponse);
+    handleStartBulkImport(message.reorder === true).then(sendResponse);
     return true;
   }
 
@@ -536,7 +542,7 @@ async function handleMessage(message: ExtensionMessage, sender?: chrome.runtime.
       return apiCall('/api/bookmarks/post-ids');
 
     case 'START_BULK_IMPORT':
-      return handleStartBulkImport();
+      return handleStartBulkImport(message.reorder === true);
 
     case 'BULK_IMPORT_BATCH':
       return handleBulkImportBatch(message.tweets);
