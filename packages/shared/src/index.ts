@@ -1,5 +1,6 @@
 export * from './types';
 export * from './plans';
+export * from './sort-options';
 export * from './supabase';
 export * from './schemas';
 export * from './utils';

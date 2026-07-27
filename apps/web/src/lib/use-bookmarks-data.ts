@@ -37,6 +37,11 @@ export interface UseBookmarksDataOptions {
    * Used by the chat surface to pin cited bookmarks into the feed.
    */
   idsFilter?: string[] | null;
+  /** Column the list endpoint sorts on. Defaults to most-recently-saved. */
+  sort?: string;
+  order?: string;
+  /** Restrict to bookmarks HAL hasn't analysed yet. */
+  unclassifiedOnly?: boolean;
 }
 
 export interface UseBookmarksDataState {
@@ -59,7 +64,7 @@ export interface UseBookmarksDataState {
  * within the 450 LOC budget.
  */
 export function useBookmarksData(opts: UseBookmarksDataOptions): UseBookmarksDataState {
-  const { page, pageSize, search, folderId, idsFilter } = opts;
+  const { page, pageSize, search, folderId, idsFilter, sort, order, unclassifiedOnly } = opts;
   // Stable key for idsFilter so the refetch callback doesn't recreate when an
   // array with identical contents is passed in.
   const idsKey = idsFilter ? idsFilter.join(',') : '';
@@ -90,10 +95,11 @@ export function useBookmarksData(opts: UseBookmarksDataOptions): UseBookmarksDat
       const params = new URLSearchParams({
         page: page.toString(),
         pageSize: pageSize.toString(),
-        sort: 'bookmarked_at',
-        order: 'desc',
+        sort: sort ?? 'bookmarked_at',
+        order: order ?? 'desc',
       });
       if (folderId) params.set('folder_id', folderId);
+      if (unclassifiedOnly) params.set('unclassified', 'true');
       res = await authFetch(`/api/bookmarks?${params}`);
     }
     if (res?.ok) {
@@ -102,7 +108,7 @@ export function useBookmarksData(opts: UseBookmarksDataOptions): UseBookmarksDat
       setTotal(data.count ?? 0);
     }
     setLoading(false);
-  }, [page, pageSize, search, folderId, idsKey]);
+  }, [page, pageSize, search, folderId, idsKey, sort, order, unclassifiedOnly]);
 
   const refetchTags = useCallback(async () => {
     const res = await authFetch('/api/tags');
