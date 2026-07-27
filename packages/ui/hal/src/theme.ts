@@ -26,7 +26,7 @@ export const halTheme = {
     1: '#c9c9d0',
     2: '#9a9aa6',
     3: '#8a8a96',
-    4: '#7e7e8c',
+    4: '#6f6f7d',
   },
   line: {
     0: 'rgba(255, 255, 255, 0.04)',
