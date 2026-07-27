@@ -94,7 +94,9 @@ export function FeedHeader({
         </h1>
         <span style={{ fontFamily: 'var(--hal-mono)', fontSize: 11, color: 'var(--hal-text-3)' }}>
           {filteredCount}
-          <span style={{ color: 'var(--hal-text-4)' }}>/{totalCount}</span>
+          {/* The total is information, not decoration — text-3, not the
+              disabled rank. */}
+          <span style={{ color: 'var(--hal-text-3)' }}>/{totalCount}</span>
         </span>
         {filterCount > 0 && (
           <button
