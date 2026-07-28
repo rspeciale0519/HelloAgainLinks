@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { authFetch } from '@/lib/auth-fetch';
-import { timeAgo } from '@helloagain/shared';
+import { formatPostDate, timeAgo } from '@helloagain/shared';
 import { Avatar } from '@helloagain/ui-hal';
 import { PageShell, SectionLabel, HalPanel } from '@/components/hal/PageShell';
 
@@ -16,6 +16,7 @@ interface Bookmark {
   x_author_avatar_url?: string | null;
   content_text: string;
   bookmarked_at: string;
+  post_created_at?: string | null;
 }
 
 interface Tag {
@@ -331,6 +332,7 @@ function RecentRow({ bookmark, isLast }: { bookmark: Bookmark; isLast: boolean }
         </div>
       </div>
       <div
+        title={`Saved ${timeAgo(bookmark.bookmarked_at)}`}
         style={{
           fontFamily: 'var(--hal-mono)',
           fontSize: 11,
@@ -341,7 +343,10 @@ function RecentRow({ bookmark, isLast }: { bookmark: Bookmark; isLast: boolean }
           whiteSpace: 'nowrap',
         }}
       >
-        {timeAgo(bookmark.bookmarked_at)}
+        {/* When the post went up, not when we ingested it. bookmarked_at reads
+            "2m ago" straight after an import, which says nothing about the post.
+            Saved time moves to the tooltip. */}
+        {formatPostDate(bookmark.post_created_at || bookmark.bookmarked_at, { short: true })}
       </div>
     </Link>
   );
