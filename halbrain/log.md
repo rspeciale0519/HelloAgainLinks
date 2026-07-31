@@ -21,3 +21,9 @@ Append-only timeline. Entry format: `## [YYYY-MM-DD] <op> | <title>`.
   correction). All 4 remain `status: current` — no `needs-reconcile`.
 - STATE trimmed and re-sectioned (external vs product threads); index refreshed.
 
+
+## [2026-07-31] audit | full codebase-vs-docs audit + doc reconciliation
+- 5 parallel verification passes over develop @ 8ac341f; build + lint green.
+- DEVELOPMENT_ROADMAP.md checkboxes audited (13-defect list added); PRD.md
+  gained an Implementation Status Addendum; features/superseded/roadmap
+  knowledge docs refreshed to 2026-07-31. See [[journal/2026-07-31]].
