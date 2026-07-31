@@ -241,6 +241,25 @@ function BlendRow({ blend }: { blend: Blend }) {
         </div>
       )}
 
+      {!isPending && (
+        <div style={{ marginTop: 12 }}>
+          <a
+            href={`/blend/${blend.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              fontFamily: 'var(--hal-mono)',
+              fontSize: 11,
+              letterSpacing: '0.12em',
+              color: 'var(--hal-a)',
+              textDecoration: 'none',
+            }}
+          >
+            VIEW SHARE PAGE →
+          </a>
+        </div>
+      )}
+
       {isPending && (
         <div
           style={{
