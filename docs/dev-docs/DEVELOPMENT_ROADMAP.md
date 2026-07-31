@@ -422,9 +422,9 @@ Evidence-gated detail lives in `halbrain/knowledge/features.md`.
 
 ### 3.3 Shareable Blend Card
 
-- [ ] **Design Blend card visual** — **NOT BUILT.** *Zero matches for `ImageResponse`/`opengraph-image`/`satori`/`next/og`/`/api/og` anywhere; no OG/twitter-card meta tags exist in the app at all. (PRD §3.3 overclaims this.)*
+- [x] **Design Blend card visual** — **BUILT 2026-07-31** — `GET /api/blends/[id]/card` renders a 1200×630 PNG via `next/og` `ImageResponse`: score scan-line joining both avatars (filled length = score), tier label, top-3 common-ground chips, Geist Mono (fetched TTF with graceful fallback), four tier-keyed accent themes. Public by capability URL, active blends only.
 
-- [ ] **Build Blend public page** — **NOT BUILT.** *No `/blend/**` page routes exist (also the cause of defect #1); there is no per-blend detail page even behind auth — `GET /api/blends/[id]` has no page consumer.*
+- [x] **Build Blend public page** — **BUILT 2026-07-31** — `/blend/[id]` (public, active blends only): score + tier, common ground, per-user signatures/unique topics, hidden connections, "Share on X" intent link with pre-filled text, "Download card", "Create your own Blend" CTA; `generateMetadata` emits og:image → the card route + `twitter:card = summary_large_image`. Aggregate themes only, never bookmark contents. Linked from `/dashboard/blend` rows ("VIEW SHARE PAGE →").
 
 ### 3.4 Blend UI in Extension & Dashboard
 
@@ -635,8 +635,8 @@ Evidence-gated detail lives in `halbrain/knowledge/features.md`.
 
 - [ ] **Prepare for Chrome Web Store submission** — **NOT STARTED, and blocked by missing legal pages**
   - [ ] Extension description, screenshots, promotional images
-  - [ ] Create privacy policy page — *no `privacy`/`terms`/`legal` routes exist; the login page renders dead "Terms"/"Privacy Policy" spans with no target*
-  - [ ] Create terms of service page — *same*
+  - [x] Create privacy policy page — **BUILT 2026-07-31** — `/privacy`, linked from the login consent line
+  - [x] Create terms of service page — **BUILT 2026-07-31** — `/terms`, same
   - [ ] Permission justifications / review submission / Product Hunt assets
 
 ---
