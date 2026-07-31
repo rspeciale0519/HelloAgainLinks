@@ -15,13 +15,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Validation error', details: parsed.error.issues }, { status: 400 });
   }
 
-  const { q, page, pageSize, author, date_from, date_to } = parsed.data;
+  const { q, page, pageSize, author, folder_id, tag_ids, date_from, date_to } = parsed.data;
   const safeQuery = sanitizeFtsQuery(q);
   if (!safeQuery) {
     return NextResponse.json({ error: 'Search query contains no searchable text' }, { status: 400 });
   }
 
   const from = (page - 1) * pageSize;
+  const tagIdList = tag_ids
+    ? tag_ids.split(',').map((s) => s.trim()).filter(Boolean)
+    : null;
 
   // Step 1: Ranked search via RPC (SECURITY DEFINER — bypasses RLS, filters by user_id)
   const { data: ranked, error: rpcError } = await ctx.serviceClient.rpc('search_bookmarks', {
@@ -32,6 +35,8 @@ export async function GET(req: NextRequest) {
     p_author: author || null,
     p_date_from: date_from || null,
     p_date_to: date_to || null,
+    p_folder_id: folder_id || null,
+    p_tag_ids: tagIdList && tagIdList.length > 0 ? tagIdList : null,
   });
 
   if (rpcError) return NextResponse.json({ error: rpcError.message }, { status: 500 });

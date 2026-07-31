@@ -1,19 +1,23 @@
 # hal brain — STATE
-Updated: 2026-07-28
+Updated: 2026-07-31
 
 ## Current focus
-None active. Bookmark time/ordering work closed out and released; prod at
-`551e021`, `main`/`develop` at parity.
+None active. Full codebase-vs-docs audit completed 2026-07-31; docs and the
+knowledge layer are reconciled. Prod at `551e021`, `main`/`develop` at parity.
 
 ## Latest synopsis
-Timestamps and save-ordering, fixed end to end across four releases. The
-underlying confusion was one field doing two jobs: `bookmarked_at` is INGEST
-time, not save time, and bulk paths stamped whole batches with a single instant.
-Fixed at ingest (descending cursor on all three paths), at query time
-(deterministic tiebreaker), in the UI (`formatPostDate(post_created_at)` on every
-surface — last one closed today, PR #45), and retroactively via the opt-in
-non-destructive **REBUILD ORDER** pass (PR #43, extension 0.5.4). See
-[[journal/2026-07-26]], [[journal/2026-07-27]], [[journal/2026-07-28]].
+Comprehensive audit (5 parallel verification passes over `develop` @ `8ac341f`;
+`turbo build` + lint green). Every `DEVELOPMENT_ROADMAP.md` Phase 1-3 checkbox
+now reflects audited reality, with a dated audit summary + 13-defect list at the
+top of that file; `PRD.md` gained an Implementation Status Addendum. Knowledge
+layer refreshed the same day ([[knowledge/features]], [[knowledge/superseded]],
+[[knowledge/roadmap]] all `updated: 2026-07-31`). Headline finds: **Blend invite
+links 404** (no `/blend/**` page — viral loop broken), `/api/bookmarks/search`
+ignores `folder_id`, extension side panel unreachable from the toolbar, iOS Share
+Extension missing though config+onboarding reference it, mobile share response
+contract mismatch, four orphaned `/api/ai/*` routes, three unmetered Grok paths,
+quota + LLM cost tracking exist (docs said they didn't), set-session StrictMode
+flash was FIXED in PR #32 (old memory stale), zero automated tests anywhere.
 
 ## Open threads
 **Awaiting the user (only they can do these)**
@@ -21,36 +25,34 @@ non-destructive **REBUILD ORDER** pass (PR #43, extension 0.5.4). See
   `bookmarked_at` on the ~1,600 pre-fix rows.
 - Start a **Codemagic build off `develop`** — the native bundle predates the
   legibility, timestamp, sort-control and blue-accent releases.
-
-**NOTE:** the Open-threads list below is stale as of 2026-07-24 and needs
-reconciling against journals 07-26 → 07-28 at the next consolidation.
+- Decide priorities among the audit's 13 defects — top candidates: Blend invite
+  404 (product-breaking), folder-scoped search bug, mobile share contract, iOS
+  Share Extension.
 
 **External / operational**
 - X developer account out of API credits (402) → sync imports nothing regardless
-  of trigger. Not a code gap — `knowledge/features.md`.
-- `.env.local`: `SUPABASE_DB_PASSWORD` is stale (fails auth) and
-  `DIRECT_DATABASE_URL`'s password isn't percent-encoded (URI parsers reject it)
-  — `knowledge/superseded.md` operator corrections.
+  of trigger — [[knowledge/features]].
+- `.env.local`: stale `SUPABASE_DB_PASSWORD`; `DIRECT_DATABASE_URL` password not
+  percent-encoded — [[knowledge/superseded]] operator corrections.
 
-**Product / code**
-- Server-side sync cron still missing; only client-side app-open/resume auto-sync
-  exists — `knowledge/roadmap.md`.
-- Tag filtering is client-side-only (cross-page filtering broken) — `knowledge/superseded.md`
-- StrictMode auth-flash on `/auth/set-session` redirect — `knowledge/superseded.md`
-- `apps/extension/{content.ts,background.ts}` over the 450-LOC cap and growing (580/687 LOC)
-- 6 PLANNED-but-documented gaps worth a product decision: CSV/JSON export, Blend
-  OG share card, Grok real function calling — `knowledge/roadmap.md`
+**Product / code** — see [[knowledge/roadmap]] "Defects worth fixing first"
+(10-item triage) and the gap list. Notables: server-side sync cron still missing;
+zero tests; LOC-cap refactors owed (background.ts 709, page.tsx 680); dead-code
+sweep owed.
 
 ## Active skills in play
 - [[skills/supabase-definer-rpc-authz]] — read before touching any `SECURITY DEFINER` function or RPC grant.
 - [[skills/auth-stale-shell-retest]] — read before diagnosing "the fix didn't work" on an already-logged-in shell.
+- [[skills/build-stale-artifact-traps]] — read before claiming any change "done" or debugging a fix that "didn't take".
+- [[skills/integrations-x-api-cost-model]] — read before any X API cost estimate or billing experiment.
 
 ## Notes
-- dev docs are a baseline; on conflict prefer [[knowledge/superseded]].
-- `docs/dev-docs/DEVELOPMENT_ROADMAP.md`'s Phase 1-3 MVP checkboxes are stale/unreliable — always check [[knowledge/features]] instead.
-- Brain-root gotcha: the repo root `.brain.json` sets `vaultDir: halbrain`. A hook
-  rooted at `apps/web` instead defaults to `brain/` — that's the origin of the
-  stray empty untracked `apps/web/brain/`. Journal to `halbrain/`.
+- dev docs reconciled 2026-07-31; on conflict prefer the newer audit date, then [[knowledge/superseded]].
+- `DEVELOPMENT_ROADMAP.md` checkboxes are now trustworthy (audited); the pre-07-31
+  warning about stale Phase 1-3 checkboxes is historical.
+- Brain-root gotcha: repo root `.brain.json` sets `vaultDir: halbrain`; journal to
+  `halbrain/`, never `apps/web/brain/`.
 - The Stop-hook gate matches the **literal** labels `**What did NOT work:**` and
-  `Evidence:` — a variant like "What did NOT work / caveats:" fails the regex and
-  re-blocks.
+  `Evidence:` — variants fail the regex and re-block.
+- Second consolidation completed 2026-07-31 (2 new skills distilled; journal
+  gap for PRs #36/#38/#39/#41/#43 recorded in log.md, not backfilled).

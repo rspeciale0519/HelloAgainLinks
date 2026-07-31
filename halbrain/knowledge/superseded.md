@@ -2,7 +2,7 @@
 kind: knowledge
 slug: superseded
 status: current
-updated: 2026-07-24
+updated: 2026-07-31
 layer: reference
 sources:
   - docs/dev-docs/DEVELOPMENT_ROADMAP.md
@@ -15,47 +15,108 @@ sources:
 
 # Superseded — doc-vs-truth deltas
 
-Genuine discrepancies only, each with both sides cited. This is not "no
-deltas found" — real gaps exist below — but Signal Boards/Pulse/CKG being
-absent from code is **not** a delta; PRD explicitly lists those as
-post-MVP-out-of-scope and the code agrees. See [[knowledge/features]] for
-the full evidence-gated build status.
+Genuine discrepancies only, each with both sides cited. Signal Boards/Pulse/CKG
+being absent from code is **not** a delta — PRD lists those as post-MVP and the
+code agrees. See [[knowledge/features]] for full evidence-gated build status.
 
-## 1. `DEVELOPMENT_ROADMAP.md` Phase 1-3 MVP checkboxes are stale, not a build-status signal
-The doc's original Feb-7 "Phase 1/2/3: Foundation, AI Integration, Bookmark Blend" section (lines ~92-254) shows every item as `- [ ]` unchecked — extension scaffold, Stripe, Grok client, auto-tag, Blend infra, etc. All of it is actually BUILT (verified directly in code, see [[knowledge/features]]). Only the later "Active Initiative: HAL Dashboard Redesign" section at the top of the file was kept up to date with checkmarks. **Do not use the Phase 1-3 checkbox state as evidence of what's built** — always check code directly or consult [[knowledge/features]].
+**2026-07-31: the dev docs themselves were reconciled** — `DEVELOPMENT_ROADMAP.md`
+checkboxes now reflect audited reality (with a dated audit section + defect list at
+the top) and `PRD.md` carries an Implementation Status Addendum. Items 1-3 below are
+therefore *historical* (the docs no longer mislead); kept for context on why older
+journal entries distrust doc checkboxes.
 
-## 2. PRD self-contradicts on mobile-app scope
-`docs/dev-docs/PRD.md` §10 "Out of Scope (Post-MVP)" lists "Mobile app (iOS/Android)" — but the same file's later appended section "Mobile App Support (Capacitor) — Added" describes it as shipped, and it is BUILT in code (`apps/web/capacitor.config.ts`, `apps/web/ios/`, `apps/web/android/`). The PRD is dated 2026-02-07 and predates the mobile work; the out-of-scope line is stale. Firefox extension, listed in the same out-of-scope bullet, remains genuinely unbuilt — that half of the line is still accurate.
+## 1. [RESOLVED in docs 2026-07-31] Roadmap Phase 1-3 checkboxes were stale
+The Feb-7 Phase 1-3 sections showed everything `- [ ]` unchecked while nearly all
+of it was built. Fixed: every checkbox audited against code and annotated.
 
-## 3. Package-manager version mismatch
-`DEVELOPMENT_ROADMAP.md` Tech Stack table states pnpm "9.x". Root `package.json` declares `"packageManager": "pnpm@10.28.2"`. Trust `package.json`.
+## 2. [RESOLVED in docs 2026-07-31] PRD self-contradicted on mobile scope
+§10 "Out of Scope" listed the mobile app that a later section described as shipped.
+Fixed: line struck through with pointer. Firefox extension remains genuinely unbuilt.
+
+## 3. [RESOLVED in docs 2026-07-31] pnpm version mismatch
+Tech-stack tables said 9.x; `package.json` says `pnpm@10.28.2`. Tables corrected.
 
 ## 4. AI Assistant "function calling" is documented but not implemented
-PRD §3.2 describes the AI Assistant using "Grok function calling" for bookmark CRUD/discovery. Actual code (`apps/web/src/lib/grok.ts`, `apps/web/src/lib/grok-conversation.ts`) sends plain chat completions with no `tools`/`tool_choice`/`function_call` parameter anywhere (confirmed by direct grep, independently re-verified). Citations use a `[bm:<uuid>]` text-marker convention parsed client-side. The chat UI itself (`packages/ui/hal/src/signal/AskTab.tsx`) is real and streaming — only the "function calling" mechanism claim is inaccurate.
+PRD §3.2 describes Grok function calling for bookmark CRUD/discovery. Zero
+`tools`/`tool_choice`/`function_call` params exist anywhere (re-confirmed
+2026-07-31; only two comment lines `grok.ts:344,347`). Citations are a
+`[bm:<uuid>]` prompt contract resolved **server-side** (`extractCitations`,
+`grok-conversation.ts:284-312`) — the earlier note saying "parsed client-side"
+was itself slightly off. PRD addendum now records this.
 
-## 5. Blend shareable OG card is documented but not implemented
-PRD §3.3 describes a "Shareable Card (1200×630 OG image) optimized for posting to X." No `/api/og`, `ImageResponse`, or `opengraph-image` route exists anywhere in `apps/web` (confirmed by direct grep, independently re-verified). Blend invite/analysis/score/feed are otherwise BUILT.
+## 5. Blend shareable OG card documented, not implemented — AND the invite loop is broken
+PRD §3.3 describes a 1200×630 shareable card; no OG-image code exists (re-confirmed).
+**Worse (found 2026-07-31):** `POST /api/blends` returns `inviteUrl` pointing at
+`/blend/invite/[code]` but no `/blend/**` page route exists — every invite link
+404s (`api/blends/route.ts:57`). BL-01's "send a Blend invite via shareable link"
+is only half-true. Also unbuilt: decline route, Blend detail/public page, Blend
+Feed, privacy controls (BL-04/BL-05/AC-04).
 
 ## 6. Grok `x_search()` / Collections API documented, not wired
-PRD describes "Related Content" using Grok's `x_search()` tool and PRD's roadmap describes Collections API usage for Community Knowledge Graphs. `findRelatedPosts()` in `grok.ts:324-338` has only a comment referencing `x_search` — no tool params are actually passed. No Collections API usage found anywhere. Related-content still works (BUILT), just via a plain Grok chat call, not the documented tool-use mechanism.
+Unchanged (re-confirmed 2026-07-31). Related content works via SQL RPC
+(category + tag-Jaccard), not the documented tool use.
 
 ## 7. Mobile spec claims the sync cron is "already functional" — it is not wired
-`docs/superpowers/specs/2026-03-17-mobile-x-support-design.md` §8 states the native X bookmark mirror "runs via the server-side background sync cron job on mobile. No changes required." **No server-side cron exists** — `apps/web/vercel.json` still has no `crons` entry and nothing calls `/api/sync/background` with the `x-bookmark-sync-secret` header. The roadmap is honest about this ("Add background sync scheduler wiring" — unchecked); the spec overclaims.
+`2026-03-17-mobile-x-support-design.md` §8 claims server-side cron sync. No cron
+exists anywhere (vercel.json has no `crons`; no scheduled workflow — re-confirmed
+2026-07-31). Client-side app-open/resume auto-sync exists (`use-auto-sync.ts`) —
+**note: 15-min throttle now, not 2-min** (widened for X API cost; comment in file),
+wired in `mobile/layout.tsx`, not the root layout. X-402 credit exhaustion is
+surfaced via an `xApiError` field on an HTTP **200** body — only the mobile
+settings page decodes it; any `res.ok` check reads exhaustion as success.
 
-**Updated 2026-07-24 (partially superseded):** the original claim that "the only live trigger is a manual button" is now stale. Since `3ec14ad` (2026-07-19) a **client-side** app-open/resume auto-sync exists (`apps/web/src/lib/use-auto-sync.ts`, native-only, 2min throttle, wired in `app/layout.tsx`), alongside the manual button (`mobile/more/settings/page.tsx`). So the onboarding copy ("HAL automatically syncs it in the background — no extra steps") is now *approximately* true on mobile — but only while the user opens/resumes the app, never truly in the background, and the spec's specific "server-side cron" mechanism claim remains false. Separately, sync currently imports nothing regardless of trigger because the X developer account is **out of API credits (402)** — an external billing blocker, surfaced honestly since `3114da3`.
+## 8. Mobile share pipeline: docs say shipped; two pieces are broken (found 2026-07-31)
+- **iOS Share Extension does not exist** — no app-extension target in the Xcode
+  project, yet `capacitor.config.ts:12` names `ShareExtension` and iOS onboarding
+  step 4 teaches users to enable it. PRD "save from mobile Share Sheet" is
+  Android-only in practice.
+- **`/api/mobile/share` ↔ `MobileShareSheet` contract mismatch** — sheet reads
+  `data.bookmark.*` and expects HTTP 409 for duplicates; route returns
+  `{status,id,tags}` and 200 for duplicates. Tags never display; dupes render as
+  saves. `MobileShareListener.tsx` is dead code.
 
-## Operator corrections (re-verified this pass, source: `claude-memory:project_hal_redesign_open_bugs.md`, 2026-04-26)
-Still present, unchanged:
-- **set-session StrictMode auth flash** — `apps/web/src/app/auth/set-session/page.tsx:83` unconditionally `router.push('/login?error=no_tokens')` inside a `useEffect` with no guard against StrictMode double-invocation. Cosmetic (~1s red flash) but user still lands authenticated.
-- **`HalMobileBar`/`HalDrawer` dead code** — `apps/web/src/components/hal/{HalMobileBar,HalDrawer}.tsx` still exist, zero references anywhere else, not archived.
-- **`HalSearchBar` never absorbed into ⌘K palette** — still rendered unconditionally (not mobile-gated) in `dashboard/bookmarks/page.tsx:484`, despite Phase 5 (palette) being marked complete.
-- **`.env.local` `NEXT_PUBLIC_APP_URL=http://localhost:3001`** — must be overridden/reverted before prod deploy; prod value present but commented out.
-- **`.env.local` DB credentials are inconsistent (found 2026-07-24)** — `SUPABASE_DB_PASSWORD` is **stale**: it fails authentication against the prod database (`FATAL: password authentication failed`). Only the password embedded in `DIRECT_DATABASE_URL` authenticates — and that URL is itself malformed, because the password contains a literal `%` that is not percent-encoded, so standard URI parsers (libpq included) reject the string outright. Anything reading `DIRECT_DATABASE_URL` as a URI will fail. Likely fallout from the 2026-06-18 key rotation (`claude-memory:reference_credentials`). Fix both: rotate/refresh `SUPABASE_DB_PASSWORD` and percent-encode the URL's password. (Names only here — no values; see [[skills/supabase-definer-rpc-authz]] for the read-only verification path that avoids needing these at all.)
-- **`@helloagain/ui-hal` lint script is a no-op echo** — `packages/ui/hal/package.json`, unchanged.
-- **`apps/extension/{content.ts,background.ts}` exceed the 450-LOC file cap, and grew** — now 580 LOC / 687 LOC respectively (were 541/562 at the 2026-04-26 memory date). Getting worse, not better.
-- **`StatusDot` division-by-zero calc trick** — `packages/ui/hal/src/primitives/StatusDot.tsx:26`, `calc(2s / var(--hal-pulse-on, 1))`, unchanged.
-- **Tag filtering is client-side-only** — `dashboard/bookmarks/page.tsx` filters `rawBookmarks` in a `useMemo` post-fetch; `use-bookmarks-data.ts` only sends `folder_id`, never `tag_ids[]`. Cross-page filtering and pagination math are still broken as originally flagged.
+## 9. Roadmap said "no rate limiting / no cost tracking" — both exist now (found 2026-07-31)
+Quota metering (`lib/quota.ts` + `consume_quota`, migration 011; per-plan windows,
+global circuit breaker, fails closed) and per-call LLM cost logging
+(`lib/llm-usage.ts`) are BUILT. Still absent: retry/backoff, response caching.
+Three paths bypass metering: `/api/ai/assistant`, `/api/ai/duplicate-check`,
+`blend-engine.ts`.
 
-Resolved since 2026-04-26 (no longer applicable):
-- **`SignalPlaceholder`** — moved to `archive/phase2-signal-placeholder/SignalPlaceholder.tsx` as planned, matches `DEVELOPMENT_ROADMAP.md` note. Confirmed archived, not just claimed.
-- **`@helloagain/ui-hal` React peerDependency** — now `^19.0.0` (was pinned `^18.0.0`), matches the monorepo's React 19. Confirmed fixed in `packages/ui/hal/package.json`.
+## 10. Four `/api/ai/*` routes are orphaned (found 2026-07-31)
+`search`, `summarize`, `related/[bookmarkId]`, `duplicate-check` all compile and
+hold `XAI_API_KEY` but have zero callers. Live equivalents: `/api/bookmarks/search`
+(FTS), enrichment `ai_summary`, `/api/bookmarks/[id]/related` (RPC). The docs'
+"AI features BUILT" claims were citing the orphaned routes.
+
+## 11. Auth docs vs live flow (found 2026-07-31)
+Docs/roadmap describe Supabase X OAuth. Live flow is a hand-rolled X OAuth 2.0
+PKCE pair (`/api/auth/x-login` → `/api/auth/x-callback`) minting sessions via the
+Supabase **admin** API; `/api/auth/login` (`signInWithOAuth`) is dead code;
+`middleware.ts` enforces nothing (CORS + mobile redirect only). PRD "OAuth tokens
+stored encrypted" — raw X tokens sit in `profiles` columns.
+
+## Operator corrections (status as of 2026-07-31)
+Resolved since the 2026-04-26 memory:
+- **set-session StrictMode auth flash — FIXED** (PR #32 `42492a7`): `startedRef`
+  guard at `set-session/page.tsx:86-87`. (Auto-memory `project_hal_redesign_open_bugs`
+  is stale on this item.)
+- **`SignalPlaceholder`** — archived (confirmed earlier).
+- **ui-hal React peerDependency** — fixed at `^19.0.0` (confirmed earlier).
+
+Still present, re-verified:
+- **`HalMobileBar`/`HalDrawer` dead code** — still zero references (PR #34 touched
+  them only in the blanket font sweep).
+- **`HalSearchBar` never absorbed into ⌘K palette** — still unconditional at
+  `dashboard/bookmarks/page.tsx:496`.
+- **Tag filtering client-side-only** — unchanged; pagination math still broken.
+  **Plus (new): `/api/bookmarks/search` ignores `folder_id`** — accepted by schema,
+  sent by client, never applied → in-folder search searches everything.
+- **`.env.local` issues** — `NEXT_PUBLIC_APP_URL` localhost value; stale
+  `SUPABASE_DB_PASSWORD`; `DIRECT_DATABASE_URL` password not percent-encoded
+  (names only, no values — see [[skills/supabase-definer-rpc-authz]]).
+- **`@helloagain/ui-hal` lint script no-op echo** — unchanged.
+- **LOC cap violations, worse again** — `background.ts` 709, `content.ts` 580
+  (was 687/580 on 07-28, 562/541 on 04-26); plus `dashboard/bookmarks/page.tsx`
+  680 and `Popup.tsx` 579.
+- **`StatusDot` division-by-zero calc trick** — unchanged (deliberate
+  reduced-motion freeze; documented, arguably fine).

@@ -2,7 +2,7 @@
 kind: knowledge
 slug: roadmap
 status: current
-updated: 2026-07-24
+updated: 2026-07-31
 layer: roadmap
 sources:
   - docs/dev-docs/DEVELOPMENT_ROADMAP.md
@@ -13,43 +13,50 @@ sources:
 # Roadmap
 
 Genuinely unbuilt work only — see [[knowledge/features]] for build-status
-evidence and [[knowledge/superseded]] for why the doc's own checkboxes aren't
-a reliable signal on their own.
+evidence. As of 2026-07-31 `DEVELOPMENT_ROADMAP.md` itself is reconciled
+(audited checkboxes + defect list), so it and this file should agree; on
+conflict trust whichever has the newer audit date.
 
-## Not started (Phases 4-6, PRD "out of scope for MVP" — consistent, no code)
-- **Signal Boards** (Month 2 target) — collaborative boards, Grok Scout Agent, Radar tab. `DEVELOPMENT_ROADMAP.md` Phase 4.
-- **The Pulse** (Month 3 target) — anonymous aggregate signals, "Also Bookmarked," Pulse Trends dashboard, save-velocity indicators. Phase 5.
-- **Community Knowledge Graphs** (Month 4+ target) — multi-user communities, auto-assembled topic graph, weekly Grok Community Digest (would need an email provider — none integrated; Resend/SendGrid only mentioned, not installed). Phase 6.
+## Audit defect triage — status after `bugfix/audit-defects` (2026-07-31)
+Fixed on the branch (see DEVELOPMENT_ROADMAP.md audit header for per-item
+detail): Blend invite 404, folder/tag search filters (**migration 012 must be
+applied to prod before deploy**), extension side panel (0.5.5), mobile share
+contract, sync enrichment write, unmetered Grok paths + `grok-3` default,
+Stripe plan re-sync on `subscription.updated`, leaky Blend cap, dashboard
+Recent sort, assistant count bug.
 
-## Mobile delivery track — next steps (`DEVELOPMENT_ROADMAP.md` "🔜 Next")
-Core mobile app is BUILT (see [[knowledge/features]]); these are the documented remaining items:
-- Finalize iOS Share Extension setup/verification in the Xcode release pipeline
-- Add background-sync scheduler wiring — **partially addressed 2026-07-19**: a
-  client-side app-open/resume auto-sync now exists (`lib/use-auto-sync.ts`,
-  native-only, 2min throttle). The *server-side* scheduler is still missing —
-  `apps/web/vercel.json` has no `crons` key; GitHub Actions/worker unstarted. So
-  sync only runs while someone opens the app.
-- Add telemetry for share-ingestion success/failure rates
-- Add retry/backoff for sync runs across large user sets
-- **Release CI is now DONE** (was implicit in this track): Codemagic iOS/Android
-  pipelines shipped 2026-07-19 (`c0512ca`), delivering through TestFlight build 15.
-- **Blocked externally:** X developer account is out of API credits (402) — sync
-  imports nothing until billing is resolved. Not a code gap; see [[knowledge/features]].
+Still open / deferred:
+- **iOS Share Extension missing** — needs a new native Xcode target + Apple
+  provisioning decisions (user).
+- **AskTab lock vs 25-msg free trial** — product decision.
+- **Stripe webhook idempotency store** — needs a table; low current risk.
 
-## Smaller gaps surfaced during this knowledge-build pass (not previously roadmap-tracked)
-- Extension bookmark export (CSV/JSON) — documented in PRD §3.1, no code exists
-- Blend shareable OG card (1200×630 image) — documented in PRD §3.3, no `/api/og` route exists
-- Grok real function calling / `x_search()` tool / Collections API — documented, chat calls pass no `tools` param (plain completions only)
-- `/api/bookmarks/batch` (extension bulk-import path) doesn't auto-trigger two-tier classification — only the background X-API sync path and a manual banner click do
+## Not started (Phases 4-6 — consistent, no code)
+- **Signal Boards**, **The Pulse**, **Community Knowledge Graphs** (CKG would need an email provider — none integrated).
 
-## Fieldtheory-inspired backend upgrades — status: all four shipped
-Design doc (`fieldtheory-inspired-upgrades.md`) proposed 4 upgrades in order (merge scoring → FTS → multi-stop sync → two-tier classification); all 4 are BUILT per [[knowledge/features]]. The doc itself carries no roadmap checkboxes and is never cross-referenced from `DEVELOPMENT_ROADMAP.md` as adopted — treat it as historical design rationale, not a live roadmap source.
+## Product gaps (documented, no code — re-confirmed 2026-07-31)
+- Bookmark export (CSV/JSON) — anywhere (extension, web, API)
+- Blend: OG share card, public page, Blend Feed, decline route, detail view, privacy controls, signup-then-accept flow
+- Grok function calling / `x_search()` / Collections (blocks chat-based actions + discovery)
+- Embeddings/pgvector (semantic/hybrid search, real duplicate detection)
+- Account self-deletion (PRD AC-03)
+- Privacy policy + Terms pages (login-page links are dead spans; blocks Chrome Web Store)
+- Settings toggle for auto-tagging; custom-tag taxonomy; accept/reject UI for AI tags
+- Nested folders + drag-and-drop; search highlighting; recent-searches history; offline save queue; Save+Tag
+- Extension bulk-import path still has no automatic Tier-2 enrichment (manual banner only) — deliberate cost choice, revisit
 
-## Cross-cutting, still unchecked in `DEVELOPMENT_ROADMAP.md`
-- Formal test suite (unit/integration/E2E) — not verified either way in this pass, scope was feature build-status not test coverage
-- Monitoring: Sentry — NOT FOUND anywhere in the repo (no package, no init code, no doc beyond the roadmap's own unchecked line)
-- Analytics: PostHog or Plausible — NOT FOUND, PRD lists as an unresolved "or" choice, neither is installed
-- Chrome Web Store launch prep — not verified in this pass
+## Mobile delivery track — next steps
+- Create the iOS Share Extension target (defect 6) and fix the share response contract (defect 5)
+- Server-side sync scheduler — still missing (no `crons`, no scheduled workflow); only client app-open/resume auto-sync (15-min throttle)
+- Telemetry for share ingestion; retry/backoff for cross-user sync runs
+- **Blocked externally:** X developer account out of API credits (402)
 
-## Known operator-flagged tech debt still open
-See [[knowledge/superseded]] "Operator corrections" section — these are concrete, previously-flagged items (StrictMode auth flash, dead components, LOC-cap violations, client-side-only tag filtering, etc.), re-verified as still present as of this pass.
+## Cross-cutting
+- **Zero automated tests** (confirmed exhaustively: no configs/files/scripts/deps) — worth at least API-route smoke tests before feature work resumes
+- No error tracking (Sentry) / product analytics — only `[llm-usage]` cost lines
+- No lint/type-check CI on PRs (only mobile build workflows); `ui-hal` lint is a no-op
+- LOC-cap refactors owed: `background.ts` 709, `page.tsx` 680, `content.ts` 580, `Popup.tsx` 579
+- Dead-code sweep owed: 4 orphaned `/api/ai/*` routes, `/api/auth/login`, `/api/bookmarks/[id]/folder`, `/api/bookmarks/bulk-delete`, `MobileShareListener`, `HalMobileBar`/`HalDrawer`, extension `HAL_FOLDERS_IMPORT_X` + `fetchServerQueryId`
+
+## Fieldtheory-inspired backend upgrades — all four shipped (unchanged)
+Historical design rationale only; see [[knowledge/features]].

@@ -30,7 +30,13 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (existing) {
-      return NextResponse.json({ status: 'exists', id: existing.id });
+      // 409 — the shipped MobileShareSheet binary distinguishes duplicates by
+      // HTTP status (a 200 body rendered as a fresh save; 2026-07-31 audit
+      // defect #5). `status: 'exists'` kept for any body-reading consumer.
+      return NextResponse.json(
+        { status: 'exists', id: existing.id, error: 'duplicate' },
+        { status: 409 },
+      );
     }
 
     const { data: created, error } = await ctx.serviceClient
@@ -44,7 +50,7 @@ export async function POST(req: NextRequest) {
         media_urls: [],
         bookmarked_at: new Date().toISOString(),
       })
-      .select('id, content_text')
+      .select('id, content_text, x_author_handle')
       .single();
 
     if (error || !created) {
@@ -53,21 +59,35 @@ export async function POST(req: NextRequest) {
 
     // Trigger AI auto-tag immediately using existing tagging stack
     const tags = await autoTagBookmark(created.content_text || url);
+    const appliedTags: { name: string; color: string }[] = [];
     for (const tagName of tags) {
       const { data: tag } = await ctx.serviceClient
         .from('tags')
         .upsert({ user_id: ctx.userId, name: tagName, color: '#00d4ff' }, { onConflict: 'user_id,name' })
-        .select('id')
+        .select('id, name, color')
         .single();
 
       if (tag) {
         await ctx.serviceClient
           .from('bookmark_tags')
           .upsert({ bookmark_id: created.id, tag_id: tag.id }, { onConflict: 'bookmark_id,tag_id' });
+        appliedTags.push({ name: tag.name, color: tag.color });
       }
     }
 
-    return NextResponse.json({ status: 'saved', id: created.id, tags });
+    // `bookmark` is the shape the shipped MobileShareSheet reads (it was
+    // previously absent, so shared saves always rendered without tags).
+    return NextResponse.json({
+      status: 'saved',
+      id: created.id,
+      tags,
+      bookmark: {
+        id: created.id,
+        content_text: created.content_text,
+        x_author_handle: created.x_author_handle,
+        bookmark_tags: appliedTags.map((t) => ({ tags: t })),
+      },
+    });
   } catch {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }

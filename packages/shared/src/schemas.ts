@@ -36,6 +36,16 @@ export const updateBookmarkSchema = z.object({
   media_urls: z.array(z.string()).optional(),
 });
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Optional "uuid,uuid,…" query param. Routes split on ','. */
+const commaSeparatedUuids = z
+  .string()
+  .optional()
+  .refine((v) => v === undefined || v.split(',').every((s) => UUID_RE.test(s.trim())), {
+    message: 'Expected comma-separated UUIDs',
+  });
+
 export const listBookmarksSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
@@ -50,6 +60,12 @@ export const listBookmarksSchema = z.object({
   unclassified: z.coerce.boolean().optional(),
   folder_id: z.string().uuid().optional(),
   tag_id: z.string().uuid().optional(),
+  /**
+   * Comma-separated tag UUIDs. Bookmarks matching ANY of the tags are
+   * returned (OR-semantics, mirroring the sidebar's multi-select). Filters
+   * on real bookmark_tags rows server-side so pagination stays honest.
+   */
+  tag_ids: commaSeparatedUuids,
   /**
    * Comma-separated bookmark UUIDs. When present, the route returns ONLY the
    * matching bookmarks (capped at 100) and ignores pagination, folder, and
@@ -66,6 +82,8 @@ export const searchBookmarksSchema = z.object({
   author: z.string().optional(),
   folder_id: z.string().uuid().optional(),
   tag_id: z.string().uuid().optional(),
+  /** Comma-separated tag UUIDs, OR-semantics — see listBookmarksSchema. */
+  tag_ids: commaSeparatedUuids,
   date_from: z.string().optional(),
   date_to: z.string().optional(),
 });

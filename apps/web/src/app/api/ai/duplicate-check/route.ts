@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext, isAuthError } from '@/lib/auth';
 import { checkDuplicate } from '@/lib/grok';
+import { enforceQuota } from '@/lib/quota';
 
 export async function POST(req: NextRequest) {
   const ctx = await getAuthContext(req);
   if (isAuthError(ctx)) return ctx;
+
+  const denied = await enforceQuota(ctx.serviceClient, ctx.userId, ctx.plan, 'ai_op');
+  if (denied) return denied;
 
   try {
     const { content } = await req.json();
