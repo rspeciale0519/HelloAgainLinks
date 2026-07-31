@@ -312,6 +312,19 @@ export function Popup() {
     chrome.tabs.create({ url: 'https://helloagainlinks.com/dashboard' });
   }, []);
 
+  // sidePanel.open must run inside a user gesture; the callback form of
+  // windows.getCurrent keeps the gesture context (an awaited promise can lose
+  // it). The toolbar click can't open the panel — it shows this popup — so
+  // this button is the panel's entry point.
+  const handleOpenSidePanel = useCallback(() => {
+    chrome.windows.getCurrent((win) => {
+      if (win.id !== undefined) {
+        chrome.sidePanel.open({ windowId: win.id });
+        window.close();
+      }
+    });
+  }, []);
+
 
   const openBookmark = (bm: BookmarkItem) => {
     const url = `https://x.com/${bm.x_author_handle}/status/${bm.x_post_id}`;
@@ -561,6 +574,15 @@ export function Popup() {
               }}
             >
               Open Dashboard →
+            </button>
+            <button
+              onClick={handleOpenSidePanel}
+              style={{
+                background: 'none', border: 'none', color: '#00d4ff',
+                fontSize: '12px', cursor: 'pointer', fontFamily: "'Inter', sans-serif",
+              }}
+            >
+              Side panel
             </button>
             <button
               onClick={() => setConfirmSignOut(true)}
