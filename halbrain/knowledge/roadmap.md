@@ -36,11 +36,11 @@ Still open / deferred:
 
 ## Product gaps (documented, no code — re-confirmed 2026-07-31)
 - Bookmark export (CSV/JSON) — anywhere (extension, web, API)
-- Blend: OG share card, public page, Blend Feed, decline route, detail view, privacy controls, signup-then-accept flow
+- Blend: ~~OG share card, public page~~ (BUILT 2026-07-31, `feature/blend-share-card`); still missing: Blend Feed, decline route, privacy controls, signup-then-accept flow
 - Grok function calling / `x_search()` / Collections (blocks chat-based actions + discovery)
 - Embeddings/pgvector (semantic/hybrid search, real duplicate detection)
 - Account self-deletion (PRD AC-03)
-- Privacy policy + Terms pages (login-page links are dead spans; blocks Chrome Web Store)
+- ~~Privacy policy + Terms pages~~ (BUILT 2026-07-31 — `/privacy` + `/terms`, login consent line linked; CWS content prep itself still open)
 - Settings toggle for auto-tagging; custom-tag taxonomy; accept/reject UI for AI tags
 - Nested folders + drag-and-drop; search highlighting; recent-searches history; offline save queue; Save+Tag
 - Extension bulk-import path still has no automatic Tier-2 enrichment (manual banner only) — deliberate cost choice, revisit

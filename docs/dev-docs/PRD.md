@@ -379,10 +379,11 @@ matter when reading this PRD:
 - **§3.2 Related Content via `x_search()`** — related content ships via a SQL RPC
   (category + tag-Jaccard similarity), not Grok tool use. `x_search()` and the
   Collections API are wired nowhere.
-- **§3.3 Shareable Blend Card (BL-03)** — no OG-image generation, no card, and **no
-  Blend public page**. Worse, the invite links the API generates point to
-  `/blend/invite/[code]`, a route with no page — **every Blend invite link 404s**
-  (BL-01 is only half-true: links generate but don't resolve).
+- ~~**§3.3 Shareable Blend Card (BL-03)** — no OG-image generation, no card, no
+  Blend public page, and every invite link 404s.~~ **RESOLVED 2026-07-31:** the
+  invite landing page (`/blend/invite/[code]`), OG share card
+  (`/api/blends/[id]/card`), and public page (`/blend/[id]` with OG/twitter
+  meta + Share-on-X + create-your-own CTA) are all built. BL-01/BL-03 now hold.
 - **§3.3 Blend Feed (BL-04)** and **Blend privacy controls (BL-05, AC-04)** — unbuilt.
 - **Tech stack table:** Supabase **Storage** (no usage), **pgvector/embeddings** (never
   enabled; search is tsvector FTS), real-time subscriptions (no usage), and **PostHog/
