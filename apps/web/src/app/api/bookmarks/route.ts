@@ -78,7 +78,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Validation error', details: parsed.error.issues }, { status: 400 });
   }
 
-  const { page, pageSize, sort, order, author, folder_id, tag_id, ids, unclassified } =
+  const { page, pageSize, sort, order, author, folder_id, tag_id, tag_ids, ids, unclassified } =
     parsed.data;
 
   // "Pin to feed" mode: when ids are provided, ignore pagination/folder/tag
@@ -116,9 +116,21 @@ export async function GET(req: NextRequest) {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
+  const tagIdList = tag_ids
+    ? tag_ids.split(',').map((s) => s.trim()).filter(Boolean)
+    : [];
+
+  // When tag-filtering, add a second aliased embed with !inner so the filter
+  // actually constrains parent rows (a filter on a plain embed only prunes the
+  // embedded array — the long-standing tag_id bug). The unaliased embed keeps
+  // carrying the full tag list for the cards.
+  const selectCols = tagIdList.length > 0
+    ? '*, bookmark_tags(tag_id, tags(*)), tag_filter:bookmark_tags!inner(tag_id)'
+    : '*, bookmark_tags(tag_id, tags(*))';
+
   let query = ctx.serviceClient
     .from('bookmarks')
-    .select('*, bookmark_tags(tag_id, tags(*))', { count: 'exact' })
+    .select(selectCols, { count: 'exact' })
     .eq('user_id', ctx.userId)
     .order(sort, { ascending: order === 'asc' })
     // Tiebreaker. Bulk ingest stamps every row in a batch with the same
@@ -136,7 +148,13 @@ export async function GET(req: NextRequest) {
   // Same predicate the Classify banner and /api/bookmarks/classify use, so the
   // filter and the "N can be AI-classified" count can never disagree.
   if (unclassified) query = query.or('primary_category.is.null,ai_summary.is.null');
-  if (tag_id) query = query.eq('bookmark_tags.tag_id', tag_id);
+  if (tagIdList.length > 0) {
+    query = query.in('tag_filter.tag_id', tagIdList);
+  } else if (tag_id) {
+    // Legacy single-tag param, kept for compatibility (same aliasing fix would
+    // apply, but no live caller sends it).
+    query = query.eq('bookmark_tags.tag_id', tag_id);
+  }
   // Phase 3: single-folder semantics — bookmarks.folder_id is the source of truth
   if (folder_id) query = query.eq('folder_id', folder_id);
 

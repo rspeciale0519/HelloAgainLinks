@@ -98,7 +98,19 @@ export default function BookmarksPage() {
     sort: activeSort.sort,
     order: activeSort.order,
     unclassifiedOnly,
+    tagIds: sidebar.activeTags,
   });
+
+  // Server-side tag filtering means a tag change is a new result set — reset
+  // paging so the user never lands on a page that no longer exists. Skip the
+  // mount run so the initial page isn't clobbered.
+  const tagsKey = sidebar.activeTags.join(',');
+  const tagsKeyRef = useRef(tagsKey);
+  useEffect(() => {
+    if (tagsKeyRef.current === tagsKey) return;
+    tagsKeyRef.current = tagsKey;
+    setPage(1);
+  }, [tagsKey]);
   const {
     rawBookmarks,
     setRawBookmarks,
@@ -381,20 +393,10 @@ export default function BookmarksPage() {
     [sidebar],
   );
 
-  // ---- Filtering (client-side tag filter for Phase 2) ----
-  const filtered = useMemo(() => {
-    if (sidebar.activeTags.length === 0) return rawBookmarks;
-    const tagNames = new Set(
-      sidebar.activeTags.map((id) => allTags.find((t) => t.id === id)?.name).filter(Boolean) as string[],
-    );
-    return rawBookmarks.filter((bm) => {
-      const own = (bm.bookmark_tags ?? []).map((bt) => bt.tags.name);
-      const ai = (bm.ai_tags ?? []).map((t) => t.label);
-      return own.some((n) => tagNames.has(n)) || ai.some((n) => tagNames.has(n));
-    });
-  }, [rawBookmarks, sidebar.activeTags, allTags]);
-
-  const cardBookmarks = useMemo(() => filtered.map(toCardBookmark), [filtered]);
+  // Tag filtering is applied server-side (tag_ids on /api/bookmarks and
+  // /api/bookmarks/search) so pagination and totals stay honest — the old
+  // client-side post-filter only saw the current page.
+  const cardBookmarks = useMemo(() => rawBookmarks.map(toCardBookmark), [rawBookmarks]);
   // Lookup map for citation chips and Related-tab rows. Citation chips only
   // render for ids the page actually knows about, so missing entries are
   // silently dropped rather than shown as a broken link.

@@ -42,6 +42,11 @@ export interface UseBookmarksDataOptions {
   order?: string;
   /** Restrict to bookmarks HAL hasn't analysed yet. */
   unclassifiedOnly?: boolean;
+  /**
+   * Optional tag filter (OR-semantics across the ids). Applied server-side on
+   * both the list and search endpoints so pagination counts stay honest.
+   */
+  tagIds?: string[];
 }
 
 export interface UseBookmarksDataState {
@@ -64,10 +69,11 @@ export interface UseBookmarksDataState {
  * within the 450 LOC budget.
  */
 export function useBookmarksData(opts: UseBookmarksDataOptions): UseBookmarksDataState {
-  const { page, pageSize, search, folderId, idsFilter, sort, order, unclassifiedOnly } = opts;
-  // Stable key for idsFilter so the refetch callback doesn't recreate when an
-  // array with identical contents is passed in.
+  const { page, pageSize, search, folderId, idsFilter, sort, order, unclassifiedOnly, tagIds } = opts;
+  // Stable keys for array options so the refetch callback doesn't recreate
+  // when an array with identical contents is passed in.
   const idsKey = idsFilter ? idsFilter.join(',') : '';
+  const tagIdsKey = tagIds && tagIds.length > 0 ? tagIds.join(',') : '';
 
   const [rawBookmarks, setRawBookmarks] = useState<RawBookmark[]>([]);
   const [allTags, setAllTags] = useState<TagInfo[]>([]);
@@ -90,6 +96,7 @@ export function useBookmarksData(opts: UseBookmarksDataOptions): UseBookmarksDat
         pageSize: pageSize.toString(),
       });
       if (folderId) params.set('folder_id', folderId);
+      if (tagIdsKey) params.set('tag_ids', tagIdsKey);
       res = await authFetch(`/api/bookmarks/search?${params}`);
     } else {
       const params = new URLSearchParams({
@@ -99,6 +106,7 @@ export function useBookmarksData(opts: UseBookmarksDataOptions): UseBookmarksDat
         order: order ?? 'desc',
       });
       if (folderId) params.set('folder_id', folderId);
+      if (tagIdsKey) params.set('tag_ids', tagIdsKey);
       if (unclassifiedOnly) params.set('unclassified', 'true');
       res = await authFetch(`/api/bookmarks?${params}`);
     }
@@ -108,7 +116,7 @@ export function useBookmarksData(opts: UseBookmarksDataOptions): UseBookmarksDat
       setTotal(data.count ?? 0);
     }
     setLoading(false);
-  }, [page, pageSize, search, folderId, idsKey, sort, order, unclassifiedOnly]);
+  }, [page, pageSize, search, folderId, idsKey, tagIdsKey, sort, order, unclassifiedOnly]);
 
   const refetchTags = useCallback(async () => {
     const res = await authFetch('/api/tags');

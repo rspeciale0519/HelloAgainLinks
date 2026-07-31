@@ -24,18 +24,18 @@ Evidence-gated detail lives in `halbrain/knowledge/features.md`.
 
 **Defects found by this audit (open):**
 1. **[FIXED 2026-07-31]** ~~Blend invite links 404~~ — `/blend/invite/[code]` landing page added (inviter preview, accept CTA, login redirect for signed-out users).
-2. **`/api/bookmarks/search` ignores `folder_id`** — the client sends it, the Zod schema accepts it, the route never applies it: searching inside a folder silently searches the whole archive (`api/bookmarks/search/route.ts:18-35`).
-3. **Tag filtering is client-side-only** — filters the current 20-row page while `total` stays server-side; paging + tag filter disagree (`dashboard/bookmarks/page.tsx:385-395`, `use-bookmarks-data.ts`).
+2. **[FIXED 2026-07-31]** ~~`/api/bookmarks/search` ignores `folder_id`~~ — migration 012 adds `p_folder_id` to the RPC; route passes it. **Requires migration 012 applied to prod before deploy.**
+3. **[FIXED 2026-07-31]** ~~Tag filtering is client-side-only~~ — `tag_ids[]` now filters server-side on both list (aliased `!inner` embed) and search (migration 012 `p_tag_ids`); client post-filter removed, paging honest. *Semantics note: sub-threshold AI-label chips no longer match the filter — only real tag rows do.* **Requires migration 012.**
 4. **Extension side panel can't open from the toolbar** — `manifest.json` sets `action.default_popup`, so the `chrome.action.onClicked → sidePanel.open()` handler never fires (`background.ts:705-709`).
 5. **`/api/mobile/share` response mismatch** — `MobileShareSheet` reads `data.bookmark.*` and treats HTTP 409 as duplicate; the route returns `{status, id, tags}` with HTTP 200 for duplicates. Tags never display; duplicates render as successful saves.
 6. **iOS Share Extension missing** — `capacitor.config.ts` names `ShareExtension` and onboarding step 4 (iOS) teaches users to enable it, but the Xcode project has no app-extension target. Native iOS share-sheet ingestion is non-functional.
-7. **X-sync classification discards enrichment** — `api/sync/background/route.ts:185-193` writes only `primary_category`/`primary_domain`, dropping the `ai_summary`/`ai_tags` that `classifyBookmark` returns.
+7. **[FIXED 2026-07-31]** ~~X-sync classification discards enrichment~~ — sync now writes all four enrichment columns like `/api/bookmarks/classify`.
 8. **Unmetered Grok cost paths** — `/api/ai/assistant` (live from mobile AI page), `/api/ai/duplicate-check`, and `blend-engine.ts` never call `enforceQuota`; `blend-engine` also defaults to decommissioned `grok-3` if `GROK_MODEL_FULL` is unset.
 9. **Stripe drift** — `customer.subscription.updated` updates `subscriptions` but never re-syncs `profiles.plan`; no webhook idempotency/event-dedup store.
 10. **[FIXED 2026-07-31]** ~~Free-tier Blend cap leaky~~ — invite creation now counts `blend_invites` (pending+accepted) and acceptance checks the invitee's own monthly blend count.
 11. **Plan-gating inconsistency** — AskTab hard-locks free users client-side while the server grants a 25-message lifetime chat trial; the trial *is* reachable via `/dashboard/assistant` and (unmetered) the mobile AI page.
-12. **Dashboard "Recent" order/label mismatch** — sorted by `bookmarked_at` but rows display `post_created_at`, so visible dates can appear out of order.
-13. **Legacy `/api/ai/assistant` prompt bug** — `countData?.length` on a `head:true` count query is always `undefined`; the prompt always claims "Total bookmarks: 0".
+12. **[FIXED 2026-07-31]** ~~Dashboard "Recent" order/label mismatch~~ — Recent now sorts by `post_created_at`, matching the displayed dates.
+13. **[FIXED 2026-07-31]** ~~Legacy `/api/ai/assistant` prompt bug~~ — uses the head-query `count` instead of `countData?.length`.
 
 **Dead code inventory (compiles, zero callers):** `/api/ai/search`, `/api/ai/summarize`, `/api/ai/related/[bookmarkId]`, `/api/ai/duplicate-check` (all orphaned; live equivalents are `/api/bookmarks/search`, enrichment `ai_summary`, `/api/bookmarks/[id]/related`), `/api/bookmarks/[id]/folder`, `/api/bookmarks/bulk-delete`, `/api/auth/login` (superseded by the hand-rolled `/api/auth/x-login` PKCE flow), `MobileShareListener.tsx`, `components/hal/{HalMobileBar,HalDrawer}.tsx`, extension `HAL_FOLDERS_IMPORT_X` relay + `fetchServerQueryId()`.
 

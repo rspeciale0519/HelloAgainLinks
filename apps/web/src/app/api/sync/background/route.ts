@@ -182,13 +182,22 @@ async function syncUser(
 
   // Two-tier classify + auto-tag newly created bookmarks
   for (const bm of allInsertedRows) {
-    const { tags, category, domain } = await classifyBookmark(bm.content_text || '');
+    const { tags, category, domain, ai_summary, ai_tags } = await classifyBookmark(
+      bm.content_text || ''
+    );
 
-    // Write classification to bookmark row
-    if (category || domain) {
+    // Write all four enrichment columns, like /api/bookmarks/classify does —
+    // dropping ai_summary/ai_tags here left sync-imported rows without the
+    // Spread analysis surface (2026-07-31 audit defect #7).
+    if (category || domain || ai_summary || ai_tags) {
       await serviceClient
         .from('bookmarks')
-        .update({ primary_category: category, primary_domain: domain })
+        .update({
+          ...(category ? { primary_category: category } : {}),
+          ...(domain ? { primary_domain: domain } : {}),
+          ...(ai_summary ? { ai_summary } : {}),
+          ...(ai_tags ? { ai_tags } : {}),
+        })
         .eq('id', bm.id);
     }
 

@@ -30,14 +30,14 @@ export async function POST(req: NextRequest) {
       .select('name')
       .eq('user_id', ctx.userId);
 
-    const { data: countData } = await ctx.serviceClient
+    const { count: totalBookmarks } = await ctx.serviceClient
       .from('bookmarks')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', ctx.userId);
 
     // Build context string
     const bookmarkContext = [
-      `Total bookmarks: ${countData?.length || 0}`,
+      `Total bookmarks: ${totalBookmarks ?? 0}`,
       `Tags: ${(tags || []).map((t: { name: string }) => t.name).join(', ') || 'None'}`,
       `Folders: ${(folders || []).map((f: { name: string }) => f.name).join(', ') || 'None'}`,
       '',
