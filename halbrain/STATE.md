@@ -2,10 +2,10 @@
 Updated: 2026-07-31
 
 ## Current focus
-None active. Audit → defect sweep → Blend viral loop all shipped to `develop`
-(2026-07-31). **`develop` is AHEAD of `main`** — prod web still runs the old
-`main`; a develop→main release is the next deploy step. Migration 012 is
-already applied to the prod DB (correct order: schema before code).
+None active. Everything from 2026-07-31 is **released to production**: `main` at
+`b408e97` (PR #49), Vercel deploy READY, migration 012 applied. `main`/`develop`
+at parity apart from brain docs. Smoke-tested live: legal pages, invite page
+(defect #1), no regressions.
 
 ## Latest synopsis
 Comprehensive audit (5 parallel verification passes over `develop` @ `8ac341f`;

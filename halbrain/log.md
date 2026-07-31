@@ -49,3 +49,9 @@ Append-only timeline. Entry format: `## [YYYY-MM-DD] <op> | <title>`.
 - New [[skills/supabase-prod-migration-route]]; [[knowledge/superseded]]
   corrected — ALL `.env.local` DB passwords are stale, no psql route to prod.
 - PR #48 merged as a merge commit (c878e90), phase commits preserved.
+
+## [2026-07-31] release | develop → main (PR #49, b408e97)
+- Audit defect sweep + Blend viral loop + legal pages live in prod.
+- Pre-flight: migration 012 already applied; NEXT_PUBLIC_APP_URL verified via
+  the public x-login 302. Post-deploy smoke green.
+- Open: blend card image path unverified (zero blends exist in prod).
