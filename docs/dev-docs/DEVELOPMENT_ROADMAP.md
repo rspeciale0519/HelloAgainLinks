@@ -23,7 +23,7 @@ Evidence-gated detail lives in `halbrain/knowledge/features.md`.
 - **Cross-cutting: zero automated tests, no error tracking/analytics, no privacy policy or ToS pages** (the login page renders dead "Terms"/"Privacy Policy" spans).
 
 **Defects found by this audit (open):**
-1. **Blend invite links 404** — `POST /api/blends` returns `${appUrl}/blend/invite/${code}` but no `/blend/**` page route exists; accept is reachable only by direct API POST (`api/blends/route.ts:57`).
+1. **[FIXED 2026-07-31]** ~~Blend invite links 404~~ — `/blend/invite/[code]` landing page added (inviter preview, accept CTA, login redirect for signed-out users).
 2. **`/api/bookmarks/search` ignores `folder_id`** — the client sends it, the Zod schema accepts it, the route never applies it: searching inside a folder silently searches the whole archive (`api/bookmarks/search/route.ts:18-35`).
 3. **Tag filtering is client-side-only** — filters the current 20-row page while `total` stays server-side; paging + tag filter disagree (`dashboard/bookmarks/page.tsx:385-395`, `use-bookmarks-data.ts`).
 4. **Extension side panel can't open from the toolbar** — `manifest.json` sets `action.default_popup`, so the `chrome.action.onClicked → sidePanel.open()` handler never fires (`background.ts:705-709`).
@@ -32,7 +32,7 @@ Evidence-gated detail lives in `halbrain/knowledge/features.md`.
 7. **X-sync classification discards enrichment** — `api/sync/background/route.ts:185-193` writes only `primary_category`/`primary_domain`, dropping the `ai_summary`/`ai_tags` that `classifyBookmark` returns.
 8. **Unmetered Grok cost paths** — `/api/ai/assistant` (live from mobile AI page), `/api/ai/duplicate-check`, and `blend-engine.ts` never call `enforceQuota`; `blend-engine` also defaults to decommissioned `grok-3` if `GROK_MODEL_FULL` is unset.
 9. **Stripe drift** — `customer.subscription.updated` updates `subscriptions` but never re-syncs `profiles.plan`; no webhook idempotency/event-dedup store.
-10. **Free-tier Blend cap leaky** — counts `blends` rows for `user_a_id` only at invite creation; unlimited invites until acceptance, unlimited accepts as `user_b_id` (each triggers a Grok call).
+10. **[FIXED 2026-07-31]** ~~Free-tier Blend cap leaky~~ — invite creation now counts `blend_invites` (pending+accepted) and acceptance checks the invitee's own monthly blend count.
 11. **Plan-gating inconsistency** — AskTab hard-locks free users client-side while the server grants a 25-message lifetime chat trial; the trial *is* reachable via `/dashboard/assistant` and (unmetered) the mobile AI page.
 12. **Dashboard "Recent" order/label mismatch** — sorted by `bookmarked_at` but rows display `post_created_at`, so visible dates can appear out of order.
 13. **Legacy `/api/ai/assistant` prompt bug** — `countData?.length` on a `head:true` count query is always `undefined`; the prompt always claims "Total bookmarks: 0".

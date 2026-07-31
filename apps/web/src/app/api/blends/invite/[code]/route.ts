@@ -68,6 +68,24 @@ export async function POST(
     return NextResponse.json({ error: 'Cannot blend with yourself' }, { status: 400 });
   }
 
+  // Free-tier cap applies to the accepting side too — each acceptance creates
+  // a blend and triggers a Grok analysis call.
+  if (ctx.plan === 'free') {
+    const monthAgo = new Date();
+    monthAgo.setMonth(monthAgo.getMonth() - 1);
+    const { count } = await ctx.serviceClient
+      .from('blends')
+      .select('id', { count: 'exact', head: true })
+      .or(`user_a_id.eq.${ctx.userId},user_b_id.eq.${ctx.userId}`)
+      .gte('created_at', monthAgo.toISOString());
+    if ((count || 0) >= 1) {
+      return NextResponse.json(
+        { error: 'Free plan allows 1 Blend per month. Upgrade to Pro for unlimited.' },
+        { status: 403 }
+      );
+    }
+  }
+
   // Accept invite
   await ctx.serviceClient
     .from('blend_invites')

@@ -24,14 +24,16 @@ export async function POST(req: NextRequest) {
   const ctx = await getAuthContext(req);
   if (isAuthError(ctx)) return ctx;
 
-  // Check free tier limit (1 blend per month)
+  // Check free tier limit (1 blend per month). Count invites, not blends —
+  // otherwise a free user can mint unlimited invite codes until one is accepted.
   if (ctx.plan === 'free') {
     const monthAgo = new Date();
     monthAgo.setMonth(monthAgo.getMonth() - 1);
     const { count } = await ctx.serviceClient
-      .from('blends')
+      .from('blend_invites')
       .select('id', { count: 'exact', head: true })
-      .eq('user_a_id', ctx.userId)
+      .eq('inviter_id', ctx.userId)
+      .in('status', ['pending', 'accepted'])
       .gte('created_at', monthAgo.toISOString());
     if ((count || 0) >= 1) {
       return NextResponse.json(
