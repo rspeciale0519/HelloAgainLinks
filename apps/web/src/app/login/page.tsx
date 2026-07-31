@@ -142,8 +142,8 @@ function LoginContent() {
 
         <div style={{ marginTop: '24px', fontSize: '12px', color: '#7e7e8c', lineHeight: 1.6 }}>
           By continuing, you agree to our{' '}
-          <span style={{ color: '#00d4ff', cursor: 'pointer' }}>Terms</span> and{' '}
-          <span style={{ color: '#00d4ff', cursor: 'pointer' }}>Privacy Policy</span>
+          <Link href="/terms" style={{ color: '#00d4ff' }}>Terms</Link> and{' '}
+          <Link href="/privacy" style={{ color: '#00d4ff' }}>Privacy Policy</Link>
         </div>
 
         <div style={{ marginTop: '24px' }}>

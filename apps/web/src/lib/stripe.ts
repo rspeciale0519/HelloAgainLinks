@@ -72,3 +72,22 @@ export function planForPriceId(priceId: string | undefined | null) {
   if (!priceId) return null;
   return PRICE_CONFIG[priceId as PriceId]?.plan ?? null;
 }
+
+/**
+ * Fallback tier resolution for subscriptions created before the internal
+ * price_id was stamped into subscription metadata: match the inline-price
+ * amount + interval against PRICE_CONFIG. Amounts are unique per (amount,
+ * interval) pair by construction.
+ */
+export function planForPriceAmount(
+  unitAmount: number | undefined | null,
+  interval: string | undefined | null,
+) {
+  if (!unitAmount) return null;
+  for (const config of Object.values(PRICE_CONFIG)) {
+    if (config.amount === unitAmount && (config.interval ?? null) === (interval ?? null)) {
+      return config.plan;
+    }
+  }
+  return null;
+}

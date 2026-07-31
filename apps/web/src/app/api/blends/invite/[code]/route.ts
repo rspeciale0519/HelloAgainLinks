@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext, isAuthError } from '@/lib/auth';
 import { getServiceClient } from '@/lib/supabase-server';
+import { enforceQuota } from '@/lib/quota';
 
 export const dynamic = 'force-dynamic';
 
@@ -67,6 +68,29 @@ export async function POST(
   if (invite.inviter_id === ctx.userId) {
     return NextResponse.json({ error: 'Cannot blend with yourself' }, { status: 400 });
   }
+
+  // Free-tier cap applies to the accepting side too — each acceptance creates
+  // a blend and triggers a Grok analysis call.
+  if (ctx.plan === 'free') {
+    const monthAgo = new Date();
+    monthAgo.setMonth(monthAgo.getMonth() - 1);
+    const { count } = await ctx.serviceClient
+      .from('blends')
+      .select('id', { count: 'exact', head: true })
+      .or(`user_a_id.eq.${ctx.userId},user_b_id.eq.${ctx.userId}`)
+      .gte('created_at', monthAgo.toISOString());
+    if ((count || 0) >= 1) {
+      return NextResponse.json(
+        { error: 'Free plan allows 1 Blend per month. Upgrade to Pro for unlimited.' },
+        { status: 403 }
+      );
+    }
+  }
+
+  // Acceptance triggers a Grok analysis call — meter it like the other AI ops
+  // (this path was unmetered; 2026-07-31 audit defect #8).
+  const denied = await enforceQuota(ctx.serviceClient, ctx.userId, ctx.plan, 'ai_op');
+  if (denied) return denied;
 
   // Accept invite
   await ctx.serviceClient

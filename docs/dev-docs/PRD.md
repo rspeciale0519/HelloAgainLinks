@@ -2,7 +2,7 @@
 
 > **Version:** 1.0  
 > **Date:** February 7, 2026  
-> **Status:** Draft  
+> **Status:** Draft — see the **Implementation Status Addendum (2026-07-31)** at the end of this file for where the built product diverges from this document  
 > **Authors:** Jarvis (AI Partner) & Rob
 
 ---
@@ -315,7 +315,7 @@ The core insight: **bookmarks are the highest-signal user behavior on X.** Likes
 ## 10. Out of Scope (Post-MVP)
 
 - Firefox extension
-- Mobile app (iOS/Android)
+- ~~Mobile app (iOS/Android)~~ — *superseded: shipped via Capacitor (see "Mobile App Support" section below)*
 - Signal Boards (Phase 4)
 - The Pulse (Phase 5)
 - Community Knowledge Graphs (Phase 6)
@@ -360,3 +360,54 @@ The core insight: **bookmarks are the highest-signal user behavior on X.** Likes
 ### Non-Functional Requirements
 - No requirement for app to remain open for sync
 - Graceful no-op behavior for native-only features on web
+
+---
+
+## Implementation Status Addendum (2026-07-31)
+
+This PRD is the original requirements document; the shipped product diverges from it in
+specific, verified ways. Full evidence-gated status: `halbrain/knowledge/features.md`;
+per-checkbox status: `DEVELOPMENT_ROADMAP.md` (audited the same date). The deltas that
+matter when reading this PRD:
+
+**Claims in this PRD that are NOT built:**
+- **§3.1 Export (CSV/JSON)** — no export code exists anywhere (extension, web, or API).
+- **§3.2 AI Assistant "function calling"** — the assistant is real (streaming chat with
+  citations over retrieved bookmarks) but uses **no function calling**: no `tools`
+  parameter exists anywhere. Chat-based bookmark *actions* (AI-07) and *discovery*
+  (AI-08) are therefore unbuilt.
+- **§3.2 Related Content via `x_search()`** — related content ships via a SQL RPC
+  (category + tag-Jaccard similarity), not Grok tool use. `x_search()` and the
+  Collections API are wired nowhere.
+- ~~**§3.3 Shareable Blend Card (BL-03)** — no OG-image generation, no card, no
+  Blend public page, and every invite link 404s.~~ **RESOLVED 2026-07-31:** the
+  invite landing page (`/blend/invite/[code]`), OG share card
+  (`/api/blends/[id]/card`), and public page (`/blend/[id]` with OG/twitter
+  meta + Share-on-X + create-your-own CTA) are all built. BL-01/BL-03 now hold.
+- **§3.3 Blend Feed (BL-04)** and **Blend privacy controls (BL-05, AC-04)** — unbuilt.
+- **Tech stack table:** Supabase **Storage** (no usage), **pgvector/embeddings** (never
+  enabled; search is tsvector FTS), real-time subscriptions (no usage), and **PostHog/
+  Plausible analytics** (nothing installed) are all aspirational. Duplicate detection
+  (AI-05) exists only as an orphaned, unwired endpoint.
+- **AC-03 (delete account + all data)** — no self-serve account deletion exists.
+- **§5 Security:** "OAuth tokens stored encrypted" — X access tokens are stored in
+  `profiles` columns (protected by RLS/service-role access, not app-level encryption).
+
+**Built beyond / differently than this PRD:**
+- Mobile app (Capacitor iOS/Android) with TestFlight + Android CI — §10 originally
+  excluded it (line struck through above).
+- Bulk import runs primarily through the extension's **direct-GraphQL capture** of
+  X's own API (with scroll-intercept fallback), not the official X API; the official
+  X API path exists server-side (`/api/sync/background`) but is currently starved —
+  the X developer account is out of API credits (402).
+- Two-tier auto-tagging (instant regex + Grok enrichment with confidence-scored
+  `ai_tags` + `ai_summary`), save-order-preserving ingest with a user-triggerable
+  REBUILD ORDER repair, quota metering with a platform-wide circuit breaker
+  (`usage_counters` + `consume_quota`), per-call LLM cost logging, shared lists
+  (`/dashboard/lists` + public join links), and the HAL 3-pane dashboard redesign
+  (⌘K palette, Spread modal, Signal rail, bulk actions) — none of which this PRD
+  describes.
+- Auth is a **hand-rolled X OAuth 2.0 PKCE flow** minting Supabase sessions via the
+  admin API, not Supabase's built-in Twitter provider.
+- Free-tier AI gating shipped as a 25-message lifetime chat trial (quota-metered),
+  not the "5 assistant queries/day" model.

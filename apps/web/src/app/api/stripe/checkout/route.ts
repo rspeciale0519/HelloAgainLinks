@@ -59,6 +59,13 @@ export async function POST(req: NextRequest) {
     if (config.mode === 'subscription') {
       Object.assign(sessionParams, {
         mode: 'subscription',
+        // Stamp the internal price id onto the subscription itself so
+        // customer.subscription.updated events can resolve the tier — the
+        // session metadata is not available on those events, and inline
+        // price_data means the Stripe price id is meaningless to us.
+        subscription_data: {
+          metadata: { user_id: ctx.userId, price_id: priceId },
+        },
         line_items: [
           {
             price_data: {

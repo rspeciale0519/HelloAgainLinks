@@ -701,9 +701,7 @@ async function handleGetBookmarks(params?: Record<string, string>) {
   return apiCall(`/api/bookmarks${qs}`);
 }
 
-// Open side panel on action click
-chrome.action.onClicked.addListener((tab) => {
-  if (tab.id) {
-    chrome.sidePanel.open({ tabId: tab.id });
-  }
-});
+// NOTE: no chrome.action.onClicked listener — the manifest declares
+// action.default_popup, which means toolbar clicks always show the popup and
+// onClicked can never fire. The side panel opens from the popup's "Side
+// panel" button instead (a previous listener here was dead code).

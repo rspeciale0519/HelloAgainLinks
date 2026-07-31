@@ -21,3 +21,31 @@ Append-only timeline. Entry format: `## [YYYY-MM-DD] <op> | <title>`.
   correction). All 4 remain `status: current` — no `needs-reconcile`.
 - STATE trimmed and re-sectioned (external vs product threads); index refreshed.
 
+
+## [2026-07-31] audit | full codebase-vs-docs audit + doc reconciliation
+- 5 parallel verification passes over develop @ 8ac341f; build + lint green.
+- DEVELOPMENT_ROADMAP.md checkboxes audited (13-defect list added); PRD.md
+  gained an Implementation Status Addendum; features/superseded/roadmap
+  knowledge docs refreshed to 2026-07-31. See [[journal/2026-07-31]].
+
+## [2026-07-31] consolidation | second consolidation pass (window 2026-07-24 → 2026-07-31)
+- Distilled 2 skills: [[skills/build-stale-artifact-traps]] (dist/extension/
+  mobile-bundle/Vercel staleness, hit 5+ times) and
+  [[skills/integrations-x-api-cost-model]] (24h UTC dedup reframes X spend).
+- Journal-vs-git gap check: PRs #36, #38, #39, #41, #43 (07-26 21:35-23:41
+  local) have NO journal entries — the window between the 07-27 20:42 entry
+  and the 07-28 00:12 entry went unjournaled. Facts are covered by STATE's
+  synopsis and the 07-31 audit ([[knowledge/features]]); gap recorded, not
+  backfilled.
+- Knowledge reconcile was performed by the 07-31 audit itself (features/
+  superseded/roadmap all refreshed; superseded set-session item resolved via
+  PR #32). orientation.md left at 2026-07-24 — nothing in the audit
+  contradicted it.
+- Index refreshed; STATE trimmed (consolidation-owed note cleared).
+
+## [2026-07-31] migration | 012 applied to prod + PR #48 merged
+- `search_bookmarks` now 9-arg (p_folder_id, p_tag_ids), service_role-only,
+  verified via PostgREST (9-arg 200 / 7-arg 200 / anon 42501).
+- New [[skills/supabase-prod-migration-route]]; [[knowledge/superseded]]
+  corrected — ALL `.env.local` DB passwords are stale, no psql route to prod.
+- PR #48 merged as a merge commit (c878e90), phase commits preserved.

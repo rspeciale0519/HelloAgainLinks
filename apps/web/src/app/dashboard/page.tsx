@@ -55,8 +55,11 @@ export default function DashboardPage() {
         handle: meta.preferred_username || meta.user_name || '',
       });
 
+      // Sort by publication time to match the dates the rows display —
+      // sorting by ingest time made visible dates appear shuffled (audit
+      // defect #12).
       const bmRes = await authFetch(
-        `/api/bookmarks?pageSize=${RECENT_LIMIT}&sort=bookmarked_at&order=desc`,
+        `/api/bookmarks?pageSize=${RECENT_LIMIT}&sort=post_created_at&order=desc`,
       );
       if (bmRes?.ok) {
         const data = await bmRes.json();

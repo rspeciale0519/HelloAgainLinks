@@ -1,18 +1,55 @@
 # HelloAgain — Development Roadmap
 
-> **Version:** 1.0  
-> **Date:** February 7, 2026  
+> **Version:** 1.1  
+> **Date:** February 7, 2026 (checkbox statuses audited against code: **July 31, 2026**)  
 > **MVP Scope:** Phases 1-3 (Core Extension + AI + Bookmark Blend)  
 > **Estimated MVP Timeline:** 4 weeks
 
 ---
 
-## Active Initiative: HAL Dashboard Redesign
+## Codebase Audit — 2026-07-31
+
+Every checkbox below was reconciled against the code on `develop` (`8ac341f`).
+`[x]` = verified built and wired; `[ ]` = not built (or noted as **PARTIAL**).
+Where the implementation diverges from the item's wording, an *italic note* says how.
+Evidence-gated detail lives in `halbrain/knowledge/features.md`.
+
+**Phase status at a glance**
+- **Phase 1 (Foundation & Core Extension): built** — gaps: no CSV/JSON export, no offline save queue, no Save+Tag quick selector, no recent-searches history, no nested folders/drag-and-drop, no search highlighting, side-panel toolbar open path broken.
+- **Phase 2 (AI): largely built, different shape than planned** — no embeddings/pgvector, no Grok function calling, no `x_search()`/Collections; four of six `/api/ai/*` routes are orphaned (no UI callers). Quota metering + LLM cost logging exist (better than planned); response caching and retry/backoff do not.
+- **Phase 3 (Bookmark Blend): PARTIAL — the viral loop is broken.** Invite create/accept APIs and analysis engine work, but generated invite links point to `/blend/invite/[code]` which has **no page — every invite link 404s**. No decline route, no shareable card, no public page, no Blend Feed, no privacy controls.
+- **Phases 4-6 (Signal Boards / Pulse / CKG): not started** (consistent with PRD's post-MVP scope).
+- **Mobile (Capacitor): built and shipping via CI** — but the iOS Share Extension referenced by config + onboarding does not exist in the Xcode project, and there is still no server-side sync cron.
+- **Cross-cutting: zero automated tests, no error tracking/analytics, no privacy policy or ToS pages** (the login page renders dead "Terms"/"Privacy Policy" spans).
+
+**Defects found by this audit (open):**
+1. **[FIXED 2026-07-31]** ~~Blend invite links 404~~ — `/blend/invite/[code]` landing page added (inviter preview, accept CTA, login redirect for signed-out users).
+2. **[FIXED 2026-07-31]** ~~`/api/bookmarks/search` ignores `folder_id`~~ — migration 012 adds `p_folder_id` to the RPC; route passes it. **Requires migration 012 applied to prod before deploy.**
+3. **[FIXED 2026-07-31]** ~~Tag filtering is client-side-only~~ — `tag_ids[]` now filters server-side on both list (aliased `!inner` embed) and search (migration 012 `p_tag_ids`); client post-filter removed, paging honest. *Semantics note: sub-threshold AI-label chips no longer match the filter — only real tag rows do.* **Requires migration 012.**
+4. **[FIXED 2026-07-31, extension 0.5.5]** ~~Extension side panel can't open from the toolbar~~ — dead `onClicked` handler removed; the popup now has a "Side panel" button (user-gesture `sidePanel.open`).
+5. **[FIXED 2026-07-31]** ~~`/api/mobile/share` response mismatch~~ — route now returns HTTP 409 for duplicates and a `bookmark` object with applied tags, matching what the shipped `MobileShareSheet` binary reads.
+6. **iOS Share Extension missing** — `capacitor.config.ts` names `ShareExtension` and onboarding step 4 (iOS) teaches users to enable it, but the Xcode project has no app-extension target. Native iOS share-sheet ingestion is non-functional. **[DEFERRED — needs a new native Xcode target + Apple provisioning decisions.]**
+7. **[FIXED 2026-07-31]** ~~X-sync classification discards enrichment~~ — sync now writes all four enrichment columns like `/api/bookmarks/classify`.
+8. **[FIXED 2026-07-31]** ~~Unmetered Grok cost paths~~ — `/api/ai/assistant` meters `chat`, `/api/ai/duplicate-check` and blend acceptance meter `ai_op`; `blend-engine` defaults to `grok-4.5` and logs `[llm-usage]`.
+9. **[PARTIALLY FIXED 2026-07-31]** Stripe drift — `subscription.updated` now re-syncs `profiles.plan` (tier from subscription metadata stamped at checkout, amount+interval fallback for older subs). *Still open: no webhook idempotency/event-dedup store (needs a table; low risk while events are effectively idempotent updates).*
+10. **[FIXED 2026-07-31]** ~~Free-tier Blend cap leaky~~ — invite creation now counts `blend_invites` (pending+accepted) and acceptance checks the invitee's own monthly blend count.
+11. **Plan-gating inconsistency** — AskTab hard-locks free users client-side while the server grants a 25-message lifetime chat trial; the trial *is* reachable via `/dashboard/assistant` and the mobile AI page (now metered — see #8). **[DEFERRED — product decision: either surface the trial in AskTab or lock all free chat surfaces.]**
+12. **[FIXED 2026-07-31]** ~~Dashboard "Recent" order/label mismatch~~ — Recent now sorts by `post_created_at`, matching the displayed dates.
+13. **[FIXED 2026-07-31]** ~~Legacy `/api/ai/assistant` prompt bug~~ — uses the head-query `count` instead of `countData?.length`.
+
+**Dead code inventory (compiles, zero callers):** `/api/ai/search`, `/api/ai/summarize`, `/api/ai/related/[bookmarkId]`, `/api/ai/duplicate-check` (all orphaned; live equivalents are `/api/bookmarks/search`, enrichment `ai_summary`, `/api/bookmarks/[id]/related`), `/api/bookmarks/[id]/folder`, `/api/bookmarks/bulk-delete`, `/api/auth/login` (superseded by the hand-rolled `/api/auth/x-login` PKCE flow), `MobileShareListener.tsx`, `components/hal/{HalMobileBar,HalDrawer}.tsx`, extension `HAL_FOLDERS_IMPORT_X` relay + `fetchServerQueryId()`.
+
+**File-size cap (450 LOC) violations:** `extension/background.ts` 709, `dashboard/bookmarks/page.tsx` 680, `extension/content.ts` 580, `Popup.tsx` 579.
+
+---
+
+## Shipped Initiative: HAL Dashboard Redesign (complete, merged to `develop`)
 
 > **Spec:** `docs/superpowers/specs/2026-04-22-hal-redesign-design.md`  
 > **Plan:** `.claude/plans/feature-hal-redesign.md`  
-> **Branch:** `feature/hal-redesign`  
-> **Goal:** Replace `/dashboard/bookmarks` with the new obsidian+lime 3-pane design while preserving every existing feature; add user-editable folders with X-import, fully-wired Signal AI rail, ⌘K palette, Spread modal, Tweaks panel, bulk selection.
+> **Branch:** `feature/hal-redesign` (merged)  
+> **Goal:** Replace `/dashboard/bookmarks` with the new obsidian+lime 3-pane design while preserving every existing feature; add user-editable folders with X-import, fully-wired Signal AI rail, ⌘K palette, Spread modal, Tweaks panel, bulk selection.  
+> **2026-07-31 audit:** all six phases verified in code (extension now at **0.5.4**, well past the 0.4.2 noted below; the phase-3 "user verification still needed" items have since been exercised through real imports). Post-redesign work shipped on top: a11y/legibility pass (PRs #34/#36), sort control + unclassified filter (#39), save-order preservation (#38/#41) and REBUILD ORDER (#43), dashboard Recent date fix (#45). Known remaining gaps from the redesign era: client-side-only tag filtering (defect #3), `HalSearchBar` never absorbed into the ⌘K palette, dead `HalMobileBar`/`HalDrawer` components, `page.tsx` at 680 LOC.
 
 - [x] **Phase 1 — Foundation** *(complete)*
   - [x] Migration 005 (folders, conversations, messages, bookmarks AI annotation columns)
@@ -80,11 +117,11 @@
 |---|---|---|
 | Extension | Chrome Extension (Manifest V3), TypeScript, React 19 | MV3 |
 | Backend | Next.js 16, React 19, TypeScript | 16.x |
-| Database | Supabase (PostgreSQL + pgvector + Auth + RLS) | Latest |
-| AI | Grok API (xAI) — `x_search()`, Collections, Chat | Latest |
+| Database | Supabase (PostgreSQL + Auth + RLS) — *pgvector never enabled; search is tsvector FTS* | Latest |
+| AI | Grok API (xAI) — Chat completions only. *`x_search()` and Collections are not wired (plain chat calls)* | Latest |
 | Payments | Stripe (Subscriptions + Checkout + Portal) | Latest |
 | Hosting | Vercel | Latest |
-| Package Manager | pnpm | 9.x |
+| Package Manager | pnpm | 10.x (`packageManager: pnpm@10.28.2`) |
 | Monorepo | Turborepo | Latest |
 
 ---
@@ -95,162 +132,159 @@
 
 ### 1.1 Project Setup & Infrastructure
 
-- [ ] **Initialize monorepo with Turborepo**
-  - [ ] Create root `package.json` with pnpm workspaces
-  - [ ] Configure `turbo.json` with build/dev/lint/test pipelines
-  - [ ] Create workspace packages: `apps/web`, `apps/extension`, `packages/shared`, `packages/ui`
-  - [ ] Set up shared TypeScript config (`tsconfig.base.json`)
-  - [ ] Set up shared ESLint config (`eslint.config.mjs`)
-  - [ ] Add `.nvmrc` with Node 22 LTS
+- [x] **Initialize monorepo with Turborepo**
+  - [x] Create root `package.json` with pnpm workspaces
+  - [x] Configure `turbo.json` with build/dev/lint pipelines — *no `test` pipeline (no tests exist)*
+  - [x] Create workspace packages: `apps/web`, `apps/extension`, `packages/shared`, `packages/ui` — *plus `packages/ui/hal`*
+  - [x] Set up shared TypeScript config (`tsconfig.base.json`)
+  - [ ] Set up shared ESLint config (`eslint.config.mjs`) — *not built: only `apps/web` lints (`next lint`); `ui-hal` lint script is a no-op echo*
+  - [x] Add `.nvmrc` with Node 22 LTS
 
-- [ ] **Set up Next.js 16 backend (`apps/web`)**
-  - [ ] Initialize Next.js 16 with App Router and TypeScript
-  - [ ] Configure environment variables (`.env.local.example`)
-  - [ ] Set up `src/app` directory structure: `(auth)`, `(dashboard)`, `api/`
-  - [ ] Add Tailwind CSS 4 + shadcn/ui component library
-  - [ ] Create base layout with responsive design
-  - [ ] Set up error boundary and loading states
+- [x] **Set up Next.js 16 backend (`apps/web`)**
+  - [x] Initialize Next.js 16 with App Router and TypeScript
+  - [x] Configure environment variables
+  - [x] Set up `src/app` directory structure — *flat dirs (`api/`, `auth/`, `dashboard/`, `mobile/`, …), no `(auth)`/`(dashboard)` route groups*
+  - [ ] Add Tailwind CSS 4 + shadcn/ui component library — *not used: styling is hand-rolled CSS + inline styles with the HAL token system*
+  - [x] Create base layout with responsive design
+  - [x] Set up error boundary and loading states — *loading/error handling is per-page state, not App Router `error.tsx`/`loading.tsx` conventions*
 
-- [ ] **Set up Supabase project**
-  - [ ] Create Supabase project (production + staging)
-  - [ ] Enable pgvector extension for future embedding storage
-  - [ ] Configure Auth providers (X/Twitter OAuth 2.0)
-  - [ ] Set up Row Level Security policies for all tables
-  - [ ] Create database migration system using Supabase CLI
-  - [ ] Set up Supabase client (`@supabase/ssr` for Next.js, `@supabase/supabase-js` for extension)
+- [x] **Set up Supabase project**
+  - [x] Create Supabase project — *production only; no staging project*
+  - [ ] Enable pgvector extension for future embedding storage — *never enabled; no embeddings anywhere, search is tsvector FTS*
+  - [x] Configure Auth providers (X/Twitter OAuth 2.0) — *live flow is a hand-rolled X OAuth 2.0 PKCE (`/api/auth/x-login` → `/api/auth/x-callback` minting sessions via Supabase admin API); the Supabase `signInWithOAuth` route (`/api/auth/login`) is dead code*
+  - [x] Set up Row Level Security policies — *tracked in migrations only for `folders`/`conversations`/`messages`/`usage_counters`; core tables (`bookmarks`, `bookmark_tags`) verified RLS-enabled against prod 2026-07-24 but their DDL predates migration tracking*
+  - [x] Create database migration system using Supabase CLI — *migrations 001-011; baseline schema (profiles, bookmarks, tags, subscriptions, blends, shared-lists) predates tracking*
+  - [x] Set up Supabase clients
 
-- [ ] **Design and create database schema**
-  - [ ] `profiles` table (id, x_user_id, x_handle, display_name, avatar_url, plan, created_at)
-  - [ ] `bookmarks` table (id, user_id, x_post_id, x_author_handle, x_author_name, content_text, media_urls, post_created_at, bookmarked_at, created_at)
-  - [ ] `tags` table (id, user_id, name, color, created_at)
-  - [ ] `bookmark_tags` junction table (bookmark_id, tag_id)
-  - [ ] `folders` table (id, user_id, name, parent_id, sort_order, created_at)
-  - [ ] `bookmark_folders` junction table (bookmark_id, folder_id)
-  - [ ] `subscriptions` table (id, user_id, stripe_customer_id, stripe_subscription_id, plan, status, current_period_end)
-  - [ ] Add indexes: full-text search on `bookmarks.content_text`, btree on `user_id`, `x_post_id`, `bookmarked_at`
-  - [ ] Write RLS policies: users can only CRUD their own bookmarks, tags, folders
-  - [ ] Create initial migration file and apply
+- [x] **Design and create database schema**
+  - [x] `profiles` table — *untracked baseline; includes X OAuth token columns + sync state (migration 003)*
+  - [x] `bookmarks` table — *plus enrichment columns (001/004/008): search_vector, primary_category/domain, ai_summary, ai_tags, x_author_avatar_url*
+  - [x] `tags` table (with color)
+  - [x] `bookmark_tags` junction table
+  - [x] `folders` table — *single-level; no `parent_id` nesting*
+  - [ ] `bookmark_folders` junction table — *superseded by design: single `bookmarks.folder_id` column is the source of truth; legacy multi-folder routes archived*
+  - [x] `subscriptions` table
+  - [x] Add indexes — *FTS GIN via migration 002; classification indexes via 004; baseline btrees untracked*
+  - [x] Write RLS policies — *see Supabase item above*
+  - [ ] Create initial migration file and apply — *never done: tracked migrations start mid-stream; `blends`/`blend_invites`/`shared_lists` have **no tracked DDL at all***
 
-- [ ] **Set up Chrome Extension scaffold (`apps/extension`)**
-  - [ ] Create `manifest.json` (Manifest V3) with required permissions: `activeTab`, `storage`, `identity`
-  - [ ] Set up Vite/CRXJS or Plasmo for extension bundling with HMR
-  - [ ] Create service worker (`background.ts`) — handles API communication, auth token management
-  - [ ] Create content script (`content.ts`) — injected on `x.com` pages
-  - [ ] Create popup UI (`popup/`) — React 19 app for quick access
-  - [ ] Create sidebar panel (`sidepanel/`) — React 19 app for full bookmark management
-  - [ ] Configure message passing between content script ↔ service worker ↔ popup/sidebar
-  - [ ] Set up extension storage for offline cache and auth tokens
+- [x] **Set up Chrome Extension scaffold (`apps/extension`)**
+  - [x] Create `manifest.json` (Manifest V3)
+  - [x] Extension bundling
+  - [x] Create service worker (`background.ts`) — *709 LOC, over the 450 cap*
+  - [x] Create content script (`content.ts`) — *580 LOC, over the 450 cap; plus MAIN-world `x-interceptor.ts` (fetch/XHR monkey-patch for GraphQL capture)*
+  - [x] Create popup UI (`popup/`)
+  - [x] Create sidebar panel (`sidepanel/`) — *⚠ toolbar-open path broken: `action.default_popup` means `chrome.action.onClicked → sidePanel.open()` never fires; panel reachable only via Chrome's side-panel menu*
+  - [x] Configure message passing between content script ↔ service worker ↔ popup/sidebar
+  - [x] Set up extension storage for cache and auth tokens — *saved-IDs cache (`hal_post_ids`, 5-min TTL); no offline save queue*
 
-- [ ] **Implement authentication flow**
-  - [ ] Configure X/Twitter OAuth 2.0 in Supabase Auth
-  - [ ] Build login page in Next.js (`/login`) with X OAuth button
-  - [ ] Implement extension auth: open web login → receive token → store in extension
-  - [ ] Create auth middleware for API routes (verify Supabase JWT)
-  - [ ] Build session management (auto-refresh tokens, handle expiry)
-  - [ ] Create `/api/auth/callback` route for OAuth redirect
-  - [ ] Test auth flow end-to-end: extension → web login → token → extension authenticated
+- [x] **Implement authentication flow**
+  - [x] Configure X/Twitter OAuth 2.0 — *hand-rolled PKCE flow, not Supabase's provider (see above)*
+  - [x] Build login page in Next.js (`/login`) with X OAuth button — *⚠ its "Terms"/"Privacy Policy" spans are dead (no pages, no links)*
+  - [x] Implement extension auth: open web login → receive token → store in extension
+  - [x] Create auth middleware for API routes — *per-route `getAuthContext()` (verifies via `auth.getUser`); `middleware.ts` itself enforces nothing (CORS for Capacitor origins + `/mobile` redirect only)*
+  - [x] Build session management (auto-refresh tokens, handle expiry) — *extension background refresh with retry + hard clear on 401*
+  - [x] Create `/api/auth/callback` route for OAuth redirect — *with `safeInternalPath()` open-redirect defense*
+  - [x] Test auth flow end-to-end — *manual verification only; no automated test*
 
 ### 1.2 Bookmark Import & Storage
 
-- [ ] **Build X bookmark import pipeline**
-  - [ ] Research X API v2 bookmark endpoints (GET /2/users/:id/bookmarks)
-  - [ ] Implement paginated bookmark fetch (X API returns max 100 per page)
-  - [ ] Parse bookmark response: extract post ID, author, content, media, timestamps
-  - [ ] Handle rate limits (X API: 180 requests/15 min for user auth)
-  - [ ] Build progress indicator for import (show X of Y bookmarks imported)
-  - [ ] Implement deduplication check (skip already-imported bookmarks by x_post_id)
-  - [ ] Store raw bookmark data in Supabase `bookmarks` table
-  - [ ] Handle edge cases: deleted posts, suspended accounts, private accounts
+- [x] **Build X bookmark import pipeline** — *two pipelines exist: extension direct-GraphQL import (primary, with scroll-intercept fallback) and server-side X API v2 sync (`/api/sync/background`; currently a no-op — X developer account out of API credits, 402)*
+  - [x] Research X API v2 bookmark endpoints (GET /2/users/:id/bookmarks)
+  - [x] Implement paginated bookmark fetch — *cursor pagination in both pipelines*
+  - [x] Parse bookmark response: post ID, author, content, media, timestamps — *plus engagement/thread/sensitive-content metadata*
+  - [x] Handle rate limits — *5-guard stop-condition model (`packages/shared/src/sync-guards.ts`) + rate-limit handling in `direct-import.ts`*
+  - [x] Build progress indicator for import — *phased overlay enforcing `Found = Imported + Updated + Skipped + Errored + Queued`*
+  - [x] Implement deduplication check by x_post_id
+  - [x] Store raw bookmark data in Supabase `bookmarks` table — *via score-based merge upsert (`bookmark-upsert.ts`) that never downgrades richer data; save order preserved by descending synthetic `bookmarked_at` cursor (PRs #38/#41), repairable retroactively via REBUILD ORDER (PR #43)*
+  - [x] Handle edge cases — *partial: duplicate-cursor/stale-page/time-limit guards; no specific handling for suspended/private accounts*
 
-- [ ] **Create bookmark CRUD API routes**
-  - [ ] `POST /api/bookmarks` — create bookmark (manual save or import)
-  - [ ] `GET /api/bookmarks` — list bookmarks with pagination, sorting, filtering
-  - [ ] `GET /api/bookmarks/:id` — get single bookmark with tags and folders
-  - [ ] `PATCH /api/bookmarks/:id` — update bookmark metadata
-  - [ ] `DELETE /api/bookmarks/:id` — delete single bookmark
-  - [ ] `POST /api/bookmarks/bulk-delete` — delete multiple bookmarks
-  - [ ] `GET /api/bookmarks/count` — get bookmark count for plan limit enforcement
-  - [ ] Add input validation with Zod schemas for all routes
-  - [ ] Add plan limit enforcement: reject saves above 500 for free tier
+- [x] **Create bookmark CRUD API routes**
+  - [x] `POST /api/bookmarks` — create bookmark
+  - [x] `GET /api/bookmarks` — list with pagination, sorting (3 sort options + deterministic tiebreaker, PR #39), folder + unclassified filtering — *tag filtering NOT server-side (defect #3)*
+  - [ ] `GET /api/bookmarks/:id` — *no single-bookmark GET route; detail views hydrate from the list payload*
+  - [x] `PATCH /api/bookmarks/:id` — *notes via `/api/bookmarks/[id]/notes`; folder via bulk endpoint*
+  - [x] `DELETE /api/bookmarks/:id`
+  - [x] `POST /api/bookmarks/bulk-delete` — *exists but unused; live path is `POST /api/bookmarks/bulk` `{action: 'delete'|'tag'|'move-folder'}`*
+  - [x] `GET /api/bookmarks/count`
+  - [x] Add input validation with Zod schemas for all routes
+  - [x] Add plan limit enforcement: 500 bookmarks / 5 folders / 20 tags on free — *enforced in bookmarks, batch, import, folders, tags routes; count-then-insert (non-atomic)*
 
-- [ ] **Build one-click save from X timeline**
-  - [ ] Content script: detect X bookmark button clicks (intercept or add adjacent button)
-  - [ ] Extract post data from DOM or X's internal API responses (content, author, media, timestamp)
-  - [ ] Send bookmark data to service worker → API
-  - [ ] Show save confirmation toast on X timeline
-  - [ ] Handle save failures gracefully (retry, offline queue)
-  - [ ] Add "Save + Tag" option: show quick tag selector on save
+- [x] **Build one-click save from X timeline**
+  - [x] Content script: injected HAL save button + native-bookmark mirroring (document-level capture listener; native un-bookmark mirrors deletes too)
+  - [x] Extract post data from DOM / X's internal API responses
+  - [x] Send bookmark data to service worker → API
+  - [x] Show save confirmation toast on X timeline
+  - [ ] Handle save failures gracefully (retry, offline queue) — *fails fast with an error message; no retry, no offline queue*
+  - [ ] Add "Save + Tag" option: show quick tag selector on save — *not built; tagging happens later in dashboard/popup*
 
 ### 1.3 Search & Organization
 
-- [ ] **Implement bookmark search**
-  - [ ] `GET /api/bookmarks/search?q=` — full-text search using PostgreSQL `tsvector`
-  - [ ] Create GIN index on content_text for fast full-text search
-  - [ ] Support filters: author, date range, tags, folders
-  - [ ] Support sorting: date saved, date posted, relevance
-  - [ ] Implement search highlighting (return matched snippets)
-  - [ ] Build search UI in extension sidebar with real-time results (debounced input)
-  - [ ] Add recent searches history (stored in extension local storage)
+- [x] **Implement bookmark search**
+  - [x] `GET /api/bookmarks/search?q=` — full-text search via `search_bookmarks` RPC (weighted tsvector, `ts_rank_cd`, `websearch_to_tsquery`)
+  - [x] Create GIN index on content_text (migration 002, on the generated `search_vector`)
+  - [x] Support filters: author, date range — *tags: client-side only (defect #3); folders: param accepted but silently ignored (defect #2)*
+  - [x] Support sorting: date saved, date posted, relevance — *feed sort control (PR #39); search results rank by relevance*
+  - [ ] Implement search highlighting (return matched snippets) — *no `ts_headline`/snippets*
+  - [x] Build search UI in extension sidebar with real-time results (debounced input) — *popup + side panel + dashboard (300ms) + ⌘K palette (150ms)*
+  - [ ] Add recent searches history — *not built; search state is ephemeral*
 
-- [ ] **Build folder management**
-  - [ ] `POST /api/folders` — create folder (enforce 5-folder limit on free tier)
-  - [ ] `GET /api/folders` — list folders with bookmark counts
-  - [ ] `PATCH /api/folders/:id` — rename folder
-  - [ ] `DELETE /api/folders/:id` — delete folder (bookmarks remain, unlinked)
-  - [ ] `POST /api/bookmarks/:id/folders` — add bookmark to folder
-  - [ ] `DELETE /api/bookmarks/:id/folders/:folderId` — remove from folder
-  - [ ] Build folder tree UI in sidebar with drag-and-drop (using dnd-kit)
-  - [ ] Support nested folders (parent_id reference)
+- [x] **Build folder management**
+  - [x] `POST /api/folders` — create folder (5-folder free limit enforced)
+  - [x] `GET /api/folders` — list with bookmark counts (`get_folders_with_counts` RPC, auth-hardened in migration 010)
+  - [x] `PATCH /api/folders/:id` — rename
+  - [x] `DELETE /api/folders/:id` — delete (bookmarks become `folder_id = NULL`)
+  - [x] Add/remove bookmark ↔ folder — *single-folder model: `PATCH /api/bookmarks/[id]/folder` exists but has zero callers; live path is bulk `move-folder`. Plus `POST /api/folders/import-x` (X folder import from the extension)*
+  - [x] Build folder UI in sidebar — *flat list with hover rename/delete, "+ New folder", "Import X" pill; no drag-and-drop / dnd-kit*
+  - [ ] Support nested folders (parent_id reference) — *single-level only*
 
-- [ ] **Build tag management**
-  - [ ] `POST /api/tags` — create tag with optional color
-  - [ ] `GET /api/tags` — list all tags with usage counts
-  - [ ] `PATCH /api/tags/:id` — update tag name/color
-  - [ ] `DELETE /api/tags/:id` — delete tag (removes from all bookmarks)
-  - [ ] `POST /api/bookmarks/:id/tags` — add tags to bookmark
-  - [ ] `DELETE /api/bookmarks/:id/tags/:tagId` — remove tag from bookmark
-  - [ ] Build tag input component: autocomplete, create-on-the-fly, color picker
-  - [ ] Support bulk tagging (select multiple bookmarks → apply tags)
+- [x] **Build tag management**
+  - [x] `POST /api/tags` — create tag with optional color (20-tag free limit)
+  - [x] `GET /api/tags` — list with usage counts
+  - [x] `PATCH /api/tags/:id` / `DELETE /api/tags/:id` — *delete wired in dashboard tags page*
+  - [x] Add/remove tags on bookmark — *TagPopover on cards + bulk tag action*
+  - [x] Tag input component — *create-on-the-fly in popover; dedicated tags page with color*
+  - [x] Support bulk tagging (BulkActionBar → `POST /api/bookmarks/bulk` `{action:'tag'}` with ownership check)
 
 ### 1.4 Extension UI
 
-- [ ] **Build popup UI**
-  - [ ] Quick search bar (opens sidebar with results)
-  - [ ] Recent bookmarks list (last 5)
-  - [ ] Bookmark count and plan status
-  - [ ] Quick save button for current page (if on x.com)
-  - [ ] Settings/login link
-  - [ ] "Open full dashboard" link (opens web app)
+- [x] **Build popup UI**
+  - [x] Quick search bar — *live search inside the popup*
+  - [x] Recent bookmarks list
+  - [x] Bookmark count and plan status
+  - [ ] Quick save button for current page — *not built; saving happens via the injected button / native-bookmark mirror on x.com*
+  - [x] Settings/login link — *plus show/hide-HAL-button toggle and sign-out confirm*
+  - [x] "Open full dashboard" link
 
-- [ ] **Build sidebar panel UI**
-  - [ ] Full bookmark list with virtual scrolling (handle 10K+ bookmarks)
-  - [ ] Search bar with filter chips (author, date, tags, folders)
-  - [ ] Folder navigation tree (left panel)
-  - [ ] Bookmark card component: post preview, author, date, tags, actions
-  - [ ] Bookmark detail view: full post content, all metadata, edit tags/folders
-  - [ ] Bulk selection mode (select all, select range, bulk actions)
-  - [ ] Import progress view with real-time count
-  - [ ] Empty states and onboarding prompts
+- [x] **Build sidebar panel UI**
+  - [x] Full bookmark list — *pagination/load-more, not virtual scrolling*
+  - [x] Search bar with filters — *search + tag filters + folder filters*
+  - [x] Folder navigation — *flat filter list, not a tree panel*
+  - [x] Bookmark card component: post preview, author, date, tags, actions
+  - [ ] Bookmark detail view — *not built in the side panel; detail lives in the dashboard Spread modal*
+  - [ ] Bulk selection mode in side panel — *not built there; bulk selection is a dashboard feature*
+  - [x] Import progress view with real-time count
+  - [x] Empty states — *basic; ⚠ toolbar-open path broken (defect #4)*
 
-- [ ] **Build web dashboard (`apps/web`)**
-  - [ ] Dashboard home: bookmark stats, recent saves, quick search
-  - [ ] Full bookmark library view (same as sidebar but full-page)
-  - [ ] Settings page: account, privacy, plan management
-  - [ ] Billing page: current plan, upgrade/downgrade, Stripe customer portal
-  - [ ] Data export page: download CSV/JSON
-  - [ ] Mobile-responsive design for all pages
+- [x] **Build web dashboard (`apps/web`)**
+  - [x] Dashboard home: bookmark stats, recent saves, quick search — *⚠ Recent list sorts by ingest time but displays post date (defect #12)*
+  - [x] Full bookmark library view — *the HAL 3-pane redesign (see Active Initiative above)*
+  - [x] Settings page: account, plan management, usage, API import, extension import + REBUILD ORDER
+  - [x] Billing: checkout + Stripe customer portal (within settings)
+  - [ ] Data export page: download CSV/JSON — *not built anywhere (extension, web, or API)*
+  - [x] Mobile-responsive design — *dedicated `/mobile/*` app shell for Capacitor; desktop dashboard is desktop-oriented*
 
 ### 1.5 Payments & Plan Enforcement
 
-- [ ] **Integrate Stripe**
-  - [ ] Create Stripe products and prices (Pro monthly $9, Pro annual $86, LTD $79)
-  - [ ] Implement `POST /api/stripe/checkout` — create checkout session
-  - [ ] Implement `POST /api/stripe/portal` — create customer portal session
-  - [ ] Implement `POST /api/stripe/webhook` — handle subscription events
-  - [ ] Handle webhook events: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`
-  - [ ] Sync subscription status to `subscriptions` table
-  - [ ] Build upgrade prompt component (shown when hitting free tier limits)
-  - [ ] Test full payment flow in Stripe test mode
+- [x] **Integrate Stripe**
+  - [x] Products and prices — *inline `price_data` in the checkout session (no pre-created Stripe Price objects); `PRICE_CONFIG` validated server-side*
+  - [x] Implement `POST /api/stripe/checkout` — subscription and one-time (lifetime) modes
+  - [x] Implement `POST /api/stripe/portal`
+  - [x] Implement `POST /api/stripe/webhook` — *raw-body signature verification via `constructEvent`*
+  - [x] Handle webhook events: all four listed — *⚠ `customer.subscription.updated` never re-syncs `profiles.plan` (defect #9); no idempotency/event-dedup store*
+  - [x] Sync subscription status to `subscriptions` table — *and `profiles.plan`*
+  - [x] Build upgrade prompt component (`UpgradePrompt.tsx`)
+  - [x] Test full payment flow in Stripe test mode — *manual only; no automated test*
 
 ---
 
@@ -260,115 +294,96 @@
 
 ### 2.1 Grok API Integration Layer
 
-- [ ] **Build Grok API client service**
-  - [ ] Create `packages/shared/src/grok.ts` — typed Grok API wrapper
-  - [ ] Implement chat completions endpoint (for summaries, analysis)
-  - [ ] Implement `x_search()` tool calling (keyword, semantic, user search)
-  - [ ] Implement Collections API (create, upload, search)
-  - [ ] Add rate limiting and retry logic with exponential backoff
-  - [ ] Add response caching layer (Redis or Supabase cache table) to reduce API costs
-  - [ ] Add cost tracking: log token usage per user per request
-  - [ ] Create environment config for API keys and model selection
+- [x] **Build Grok API client service**
+  - [x] Typed Grok API wrapper — *lives at `apps/web/src/lib/grok.ts` (+ `grok-conversation.ts`), not `packages/shared`*
+  - [x] Implement chat completions endpoint (non-streaming + SSE streaming with usage in final chunk)
+  - [ ] Implement `x_search()` tool calling — *never wired; only comments reference it, no `tools` param anywhere*
+  - [ ] Implement Collections API — *zero usage anywhere*
+  - [x] Add rate limiting — *quota system: `lib/quota.ts` `enforceQuota()` + atomic `consume_quota` RPC (migration 011), per-plan windows (`packages/shared/src/plans.ts`) + platform-wide daily circuit breaker; fails closed; emits `Retry-After`. **Retry/backoff: not built** — every client throws on first non-2xx*
+  - [ ] Add response caching layer — *not built; only passive xAI-side prompt caching (reported, not managed)*
+  - [x] Add cost tracking — *`lib/llm-usage.ts` logs structured per-call token + USD lines (prefers xAI billed cost ticks), wired into both call paths. ⚠ three unmetered/unlogged paths: `/api/ai/assistant`, `/api/ai/duplicate-check`, `blend-engine.ts` (defect #8)*
+  - [x] Create environment config for API keys and model selection — *⚠ `blend-engine.ts` defaults to decommissioned `grok-3` when `GROK_MODEL_FULL` unset*
 
 ### 2.2 Auto-Tagging System
 
-- [ ] **Implement AI auto-tagging pipeline**
-  - [ ] Create `POST /api/ai/auto-tag` endpoint
-  - [ ] Build prompt template: given bookmark content, return 1-5 topic tags from a curated taxonomy
-  - [ ] Define initial tag taxonomy (50-100 topics: "AI/ML", "Web Dev", "Startups", "Crypto", "Design", etc.)
-  - [ ] Allow user-defined custom tags to be included in the taxonomy for personalization
-  - [ ] Batch processing: auto-tag new bookmarks in background (queue with pg_cron or Supabase Edge Function)
-  - [ ] Run auto-tag on bulk import (process in batches of 20 to manage API costs)
-  - [ ] Build UI: show suggested tags with accept/reject, show confidence indicator
-  - [ ] Store auto-generated tags with `source: 'ai'` flag to distinguish from manual tags
-  - [ ] Add toggle in settings: enable/disable auto-tagging
+- [x] **Implement AI auto-tagging pipeline** — *shipped as the two-tier classification system: Tier 1 instant regex (`packages/shared/src/classify-regex.ts`, runs on every upsert) + Tier 2 Grok enrichment (`enrichBookmarkLLM` → `ai_summary` + confidence-scored `ai_tags`)*
+  - [x] Create `POST /api/ai/auto-tag` endpoint — *exists; only reachable by direct API call (mobile share route calls `autoTagBookmark` directly). The live UI path is `POST /api/bookmarks/classify`*
+  - [x] Prompt template returning tags — *Zod-validated `{ai_summary, ai_tags:[{label, confidence}]}`; tags ≥0.6 confidence become tag rows*
+  - [x] Define initial tag taxonomy — *regex rule set (URL + text rules) serves as the deterministic taxonomy; LLM tags are open-vocabulary, not from a curated list*
+  - [ ] Allow user-defined custom tags in the taxonomy — *not built*
+  - [ ] Batch processing in background (pg_cron / Edge Function) — *no queue; X-API sync path classifies inline (⚠ but discards `ai_summary`/`ai_tags` — defect #7)*
+  - [ ] Run auto-tag on bulk import — *deliberate gap: `/api/bookmarks/batch` (extension import) gets Tier 1 regex only; Tier 2 requires the manual "Classify N unclassified" banner click (plan-gated)*
+  - [x] Build UI — *`ClassificationBanner` + `ai_tags` chips and `ai_summary` strip on cards/Spread; auto-applied at ≥0.6 rather than accept/reject*
+  - [x] Store auto-generated tags distinctly — *`ai_tags` JSON column is separate from manual `tags` rows*
+  - [ ] Add settings toggle: enable/disable auto-tagging — *not built*
 
 ### 2.3 Smart Search (Natural Language)
 
-- [ ] **Implement AI-powered search**
-  - [ ] Create `POST /api/ai/search` endpoint
-  - [ ] Build search pipeline: user query → Grok extracts intent (keywords, author, date hints, topic) → construct PostgreSQL query → return results
-  - [ ] Generate and store embeddings for bookmarks using Grok (store in pgvector column)
-  - [ ] Implement semantic search: embed query → cosine similarity against bookmark embeddings
-  - [ ] Hybrid search: combine full-text (BM25) + semantic (vector) scores
-  - [ ] Build "smart search" UI toggle in search bar (basic search vs. AI search)
-  - [ ] Free tier: basic keyword search only; Pro tier: AI natural language search
-  - [ ] Cache frequent queries to reduce Grok API calls
+- [ ] **Implement AI-powered search** — **PARTIAL, orphaned:** *the endpoint exists but nothing calls it; natural-language querying actually ships through the HAL chat (query-rewrite + FTS retrieval + cited answers)*
+  - [x] Create `POST /api/ai/search` endpoint — *⚠ zero UI callers; the live search path is `GET /api/bookmarks/search` (plain FTS)*
+  - [x] Build search pipeline: `parseSearchIntent()` → PostgREST query with author/date-hint filters — *in the orphaned route*
+  - [ ] Generate and store embeddings (pgvector) — *not built; no pgvector anywhere*
+  - [ ] Implement semantic search — *not built*
+  - [ ] Hybrid search — *not built*
+  - [ ] "Smart search" UI toggle — *not built*
+  - [x] Free tier gating — *the orphaned route 403s free plans; keyword search is free*
+  - [ ] Cache frequent queries — *not built*
 
 ### 2.5 AI Assistant (Conversational Interface)
 
-- [ ] **Build AI Assistant chat UI**
-  - [ ] Create `/dashboard/assistant` page with full chat interface
-  - [ ] Add "Assistant" nav item to dashboard sidebar with sparkle/AI icon
-  - [ ] Design chat panel with dark Stark/Iron Man theme consistent with existing UI
-  - [ ] User messages right-aligned, assistant messages left-aligned with subtle cyan glow
-  - [ ] Input bar at bottom with send button and mic icon placeholder
-  - [ ] Typing indicator animation (pulsing dots with cyan glow)
-  - [ ] Framer Motion animations for messages appearing (slide-in + fade)
-  - [ ] Suggested prompt chips for new users above input bar
+- [x] **Build AI Assistant chat UI** — *two surfaces: `/dashboard/assistant` full page and the Signal-rail AskTab (SSE streaming, citations)*
+  - [x] Create `/dashboard/assistant` page with full chat interface — *shares the conversations/messages tables; keeps its own SSE consumer copy (noted in `sse-consumer.ts`)*
+  - [x] Add "Assistant" nav item
+  - [x] Dark theme consistent with the HAL design system
+  - [x] Message alignment/styling
+  - [x] Input bar with send
+  - [x] Typing/streaming indicator
+  - [x] Message animations
+  - [x] Suggested prompt chips (`AskSuggestions.tsx`)
 
-- [ ] **Implement conversational bookmark queries**
-  - [ ] Natural language understanding: "Show me everything about startup fundraising from last week"
-  - [ ] Context-aware responses: assistant knows user's bookmarks, tags, folders
-  - [ ] Parse date-relative queries ("last week", "this month", "yesterday")
-  - [ ] Parse topic queries (map to existing tags and full-text search)
-  - [ ] Parse author queries ("everything from @naval")
-  - [ ] Return formatted bookmark results inline in chat
+- [x] **Implement conversational bookmark queries** — *mechanism: deterministic query-rewrite (`rewriteQueryForSearch`, 60-term stopword list) → FTS retrieval → context-stuffed prompt with `[bm:<uuid>]` citation contract, resolved server-side to numbered citations*
+  - [x] Natural language understanding over the library
+  - [x] Context-aware responses (retrieved bookmarks in prompt)
+  - [x] Date/topic/author queries — *handled by the LLM over retrieved context, not structured parsers*
+  - [x] Return formatted bookmark results inline — *per-bullet "View post by @handle on X →" citation links*
 
-- [ ] **Implement chat-based bookmark actions**
-  - [ ] Tag operations: "Tag all my AI bookmarks as 'machine-learning'"
-  - [ ] Folder operations: "Create a folder called 'Fundraising' and move these there"
-  - [ ] Bulk actions: "Delete all bookmarks older than 6 months with no tags"
-  - [ ] Confirmation prompts before destructive actions
-  - [ ] Success/failure feedback in chat after action execution
+- [ ] **Implement chat-based bookmark actions** — **NOT BUILT** *(requires function calling, which was never wired)*
+  - [ ] Tag / folder / bulk operations via chat
+  - [ ] Confirmation prompts, success/failure feedback
 
-- [ ] **Implement bookmark discovery via chat**
-  - [ ] "Find me X posts similar to my saved ones about distributed systems"
-  - [ ] Use Grok `x_search()` with user's interest profile for discovery
-  - [ ] Show discoverable posts inline with "Save" action buttons
-  - [ ] Related bookmark suggestions based on conversation context
+- [ ] **Implement bookmark discovery via chat** — **NOT BUILT** *(no `x_search()`; assistant only answers over the saved library)*
 
-- [ ] **Build Grok API function calling integration**
-  - [ ] Define function schemas for bookmark CRUD operations
-  - [ ] Implement Grok chat completions with function calling enabled
-  - [ ] Map function calls to existing API endpoints (search, tag, folder, delete)
-  - [ ] Handle multi-step function chains (e.g., search → tag results)
-  - [ ] Rate limit and cost tracking per assistant conversation
+- [ ] **Build Grok API function calling integration** — **NOT BUILT.** *No `tools`/`tool_choice`/`function_call` parameter exists anywhere in the codebase (PRD §3.2 overclaims this). Rate-limit + cost tracking per conversation DO exist (quota `chat` metric + `[llm-usage]` logging)*
 
-- [ ] **Chat history and persistence**
-  - [ ] `chat_sessions` table (id, user_id, title, created_at, updated_at)
-  - [ ] `chat_messages` table (id, session_id, role, content, function_calls_json, created_at)
-  - [ ] Auto-generate session titles from first user message
-  - [ ] List previous chat sessions in sidebar or assistant page
-  - [ ] Load and continue previous conversations
+- [x] **Chat history and persistence**
+  - [x] Tables — *shipped as `conversations`/`messages` (migration 005, RLS'd), not `chat_sessions`/`chat_messages`*
+  - [x] Session titles — *derived from first message*
+  - [x] List previous chats — *ThreadsTab + assistant page list*
+  - [x] Load and continue previous conversations — *`?conversation=<id>` deep links on both surfaces*
 
-- [ ] **Suggested prompts and onboarding**
-  - [ ] Show suggested prompt chips for new users: "Find my most saved topics", "Summarize my bookmarks from this week", "Show bookmarks about AI"
-  - [ ] Context-aware suggestions based on user's library (e.g., if they have many AI bookmarks, suggest AI-related queries)
-  - [ ] Empty state with welcome message and feature overview
-  - [ ] Pro-only gating: free tier gets 5 assistant queries/day, Pro unlimited
+- [x] **Suggested prompts and onboarding**
+  - [x] Suggested prompt chips
+  - [ ] Context-aware suggestions from the user's library — *static chips only*
+  - [x] Empty state
+  - [x] Gating — *shipped differently than planned: free tier gets a **25-message lifetime trial** via the quota system (not 5/day). ⚠ inconsistent: AskTab hard-locks free users client-side while `/dashboard/assistant` allows the trial, and the mobile AI page uses the unmetered legacy `/api/ai/assistant` (defects #8/#11)*
 
 ### 2.4 Content Intelligence
 
-- [ ] **Implement bookmark summaries**
-  - [ ] Create `POST /api/ai/summarize` endpoint
-  - [ ] Single bookmark summary: Grok summarizes long threads into 2-3 sentences
-  - [ ] Folder/tag summary: Grok summarizes all bookmarks in a folder/tag ("Your AI/ML collection covers: ...")
-  - [ ] Build summary UI: expandable summary card on bookmark detail view
-  - [ ] Cache summaries in database (regenerate only if new bookmarks added)
+- [x] **Implement bookmark summaries** — *live path is the enrichment pipeline: `ai_summary` written by classify/enrichment and rendered on cards + Spread Analysis tab*
+  - [x] Create `POST /api/ai/summarize` endpoint — *⚠ orphaned: exists (single + collection summaries) but has zero UI callers*
+  - [x] Single bookmark summary — *via `ai_summary` enrichment (live)*
+  - [ ] Folder/tag collection summary surfaced in UI — *`summarizeCollection()` exists in the orphaned route only*
+  - [x] Summary UI — *`ai_summary` annotation strip on cards; Analysis tab in Spread*
+  - [x] Cache summaries in database — *`ai_summary` column persists; classify guards against clobbering existing values*
 
-- [ ] **Implement related content discovery**
-  - [ ] Create `GET /api/ai/related/:bookmarkId` endpoint
-  - [ ] Use bookmark's embedding to find similar bookmarks in user's library
-  - [ ] Use Grok `x_search()` to find similar public posts the user hasn't saved
-  - [ ] Build "Related" tab on bookmark detail view
-  - [ ] Limit: 5 related bookmarks + 5 related public posts
+- [x] **Implement related content discovery**
+  - [x] Endpoint — *live route is `GET /api/bookmarks/[id]/related` using the `get_related_bookmarks` RPC (0.5×shared-category + 0.5×tag-Jaccard, migration 007). The LLM-driven `GET /api/ai/related/[bookmarkId]` also exists but is orphaned*
+  - [ ] Use embeddings — *not built; similarity is category/tag-based, no vectors*
+  - [ ] Use Grok `x_search()` for unsaved public posts — *not built*
+  - [x] Build "Related" tab — *RelatedTab in the Signal rail + RelatedSidebar in Spread*
+  - [x] Limits on result count
 
-- [ ] **Implement duplicate detection**
-  - [ ] On new bookmark save, check cosine similarity against existing embeddings
-  - [ ] Flag duplicates above 0.92 similarity threshold
-  - [ ] Show "You may have already saved this" warning with link to existing bookmark
-  - [ ] Build merge UI: keep one, transfer tags/folders from the other
+- [ ] **Implement duplicate detection** — **PARTIAL, orphaned:** *`POST /api/ai/duplicate-check` exists (Grok-based, no embeddings) but nothing calls it, it has no plan gate and no quota (defect #8). No on-save duplicate check, no warning UI, no merge UI. (Note: `bookmark-merge.ts` score-based merge on re-import is a different, live mechanism that prevents exact-dup rows by `x_post_id`.)*
 
 ---
 
@@ -378,85 +393,59 @@
 
 ### 3.1 Blend Infrastructure
 
-- [ ] **Design Blend database schema**
-  - [ ] `blends` table (id, user_a_id, user_b_id, status: pending/active/expired, blend_score, analysis_json, card_image_url, created_at, expires_at)
-  - [ ] `blend_invites` table (id, inviter_id, invite_code, invitee_id nullable, status: pending/accepted/declined, created_at)
-  - [ ] Add RLS policies: users can only see Blends they're part of
-  - [ ] Add indexes on user_a_id, user_b_id, invite_code
+- [x] **Design Blend database schema**
+  - [x] `blends` table — *exists in prod and is used by code, but has **no tracked migration DDL***
+  - [x] `blend_invites` table — *same: used by code, no tracked DDL*
+  - [ ] Add RLS policies — *unverifiable from the repo (no tracked DDL); every `api/blends/*` handler uses the RLS-bypassing service client with hand-written `.or()` ownership filters — no DB-level backstop*
+  - [ ] Add indexes — *unverifiable from the repo*
 
-- [ ] **Build Blend invite system**
-  - [ ] `POST /api/blends/invite` — generate invite link with unique code
-  - [ ] `GET /api/blends/invite/:code` — view invite details (inviter's display name, avatar)
-  - [ ] `POST /api/blends/invite/:code/accept` — accept invite, trigger Blend generation
-  - [ ] `POST /api/blends/invite/:code/decline` — decline invite
-  - [ ] Build invite landing page (`/blend/invite/:code`) — shows inviter info, CTA to sign up or accept
-  - [ ] If invitee doesn't have HelloAgain: show signup flow, then auto-accept after onboarding
-  - [ ] Enforce free tier limit: 1 Blend per calendar month (check `blends` count)
+- [x] **Build Blend invite system** — **PARTIAL: APIs work, the shareable link is broken**
+  - [x] Generate invite link with unique code — *`POST /api/blends` (route shape differs from plan)*
+  - [x] `GET /api/blends/invite/:code` — public invite details (inviter name/handle/avatar)
+  - [x] Accept — *`POST /api/blends/invite/:code` marks accepted, inserts blend, runs analysis inline*
+  - [ ] Decline — *no decline/reject route exists*
+  - [ ] Build invite landing page (`/blend/invite/:code`) — **NOT BUILT — this is defect #1: the API returns `${appUrl}/blend/invite/${code}` and every generated link 404s.** *(Contrast: shared lists has a real `/lists/join/[code]` page.)*
+  - [ ] Signup-then-auto-accept flow for non-users — *not built*
+  - [x] Enforce free tier 1 Blend/month — *⚠ leaky (defect #10): counts `blends` for `user_a_id` at invite creation only; unlimited invites until accept, unlimited accepts as `user_b_id`; not part of the atomic quota system*
 
 ### 3.2 Blend Analysis Engine
 
-- [ ] **Build taste analysis pipeline**
-  - [ ] Compute topic distribution for each user (aggregate tag frequencies + embeddings centroid per topic cluster)
-  - [ ] Use Grok to identify **Common Ground**: topics/authors both users save frequently
-  - [ ] Use Grok to identify **Unique Tastes**: topics distinctive to each user
-  - [ ] Use Grok to identify **Hidden Connections**: semantic overlaps not obvious from surface tags
-  - [ ] Compute Blend Score (0-100) based on cosine similarity of user topic vectors
-  - [ ] Map score to tier label: 0-25% "Expanding Each Other's Horizons", 26-50% "Interesting Crossovers", 51-75% "Bookmark Buddies", 76-100% "Intellectual Twins"
-  - [ ] Generate natural language summary: "You both obsess over distributed systems. [User A] brings biotech insights while [User B] adds game design perspective."
-  - [ ] Store full analysis as JSON in `blends.analysis_json`
-  - [ ] Handle edge cases: user with < 10 bookmarks (not enough data), users with identical libraries
+- [x] **Build taste analysis pipeline** — *mechanism differs from plan: one Grok chat call over each user's last 25 bookmarks + tag lists; the **model invents the 0-100 score** (no cosine/topic-vector math anywhere); JSON-parse failure falls back to a hardcoded score of 50 with canned strings. Unmetered (defect #8)*
+  - [x] Common Ground / Unique Tastes / Hidden Connections — *LLM-generated fields of the single call*
+  - [x] Blend Score 0-100 — *LLM-asserted, not computed*
+  - [x] Map score to tier label — *the four tiers, computed deterministically from the score*
+  - [x] Generate natural language summary
+  - [x] Store full analysis as JSON in `blends.analysis_json`
+  - [ ] Handle edge cases (<10 bookmarks, identical libraries) — *not handled; failure path is the hardcoded-50 fallback*
 
-- [ ] **Build Blend Feed generation**
-  - [ ] Find the intersection of both users' topic interests
-  - [ ] Use Grok `x_search()` with intersection topics to find posts neither user has bookmarked
-  - [ ] Rank results by relevance to both users' profiles
-  - [ ] Return top 10-20 posts as the Blend Feed
-  - [ ] `GET /api/blends/:id/feed` — paginated Blend Feed endpoint
-  - [ ] Cache Blend Feed for 24 hours (regenerate on demand)
+- [ ] **Build Blend Feed generation** — **NOT BUILT** *(no feed endpoint, no `x_search()`, nothing)*
 
 ### 3.3 Shareable Blend Card
 
-- [ ] **Design Blend card visual**
-  - [ ] Create card template (1200x630px for X card preview): both user avatars, Blend Score prominently displayed, tier label, top 3 shared topics, each user's "signature interest"
-  - [ ] Design 4 card color themes (one per score tier)
-  - [ ] Use Satori (Vercel's OG image library) or Canvas API for server-side image generation
-  - [ ] Implement `GET /api/blends/:id/card` — returns generated PNG image
-  - [ ] Add OG meta tags on Blend public page for rich X card preview
+- [x] **Design Blend card visual** — **BUILT 2026-07-31** — `GET /api/blends/[id]/card` renders a 1200×630 PNG via `next/og` `ImageResponse`: score scan-line joining both avatars (filled length = score), tier label, top-3 common-ground chips, Geist Mono (fetched TTF with graceful fallback), four tier-keyed accent themes. Public by capability URL, active blends only.
 
-- [ ] **Build Blend public page**
-  - [ ] Create `/blend/:id` public page (viewable by anyone with the link)
-  - [ ] Show Blend Score, tier label, topic analysis, both users' handles
-  - [ ] "Create your own Blend" CTA for non-users (viral loop)
-  - [ ] Download card as image button
-  - [ ] "Share on X" button with pre-filled tweet text: "My bookmark blend with @[user] — we're [tier label]! 🔖 [link]"
-  - [ ] Add `<meta>` OG tags: title, description, image (card), twitter:card = summary_large_image
+- [x] **Build Blend public page** — **BUILT 2026-07-31** — `/blend/[id]` (public, active blends only): score + tier, common ground, per-user signatures/unique topics, hidden connections, "Share on X" intent link with pre-filled text, "Download card", "Create your own Blend" CTA; `generateMetadata` emits og:image → the card route + `twitter:card = summary_large_image`. Aggregate themes only, never bookmark contents. Linked from `/dashboard/blend` rows ("VIEW SHARE PAGE →").
 
 ### 3.4 Blend UI in Extension & Dashboard
 
-- [ ] **Build Blend management UI**
-  - [ ] "Blends" tab in sidebar/dashboard navigation
-  - [ ] "Create New Blend" button → generate invite link or enter X handle
-  - [ ] Pending Blends list (invites sent/received)
-  - [ ] Active Blends list with score preview cards
-  - [ ] Blend detail view: full analysis, Blend Feed, share options
-  - [ ] Blend privacy controls: exclude specific bookmarks or tags from analysis
-  - [ ] Free tier: show Blend count (1/1 used this month) with upgrade prompt
+- [x] **Build Blend management UI** — **PARTIAL**
+  - [x] "Blend" in dashboard navigation (`/dashboard/blend`) + mobile tab (`/mobile/blend`)
+  - [x] Create invite → copy link to clipboard — *⚠ the copied link 404s (defect #1)*
+  - [x] Blends list with score/tier
+  - [ ] Blend detail view (full analysis, feed, share options) — *not built*
+  - [ ] Blend privacy controls — *not built*
+  - [ ] Free tier count display (1/1 used) — *not built; the cap just 403s*
 
 ### 3.5 Blend Privacy & Safety
 
-- [ ] **Implement privacy controls**
-  - [ ] Add `blend_opt_in` boolean to profiles (default: true for new users)
-  - [ ] Add `blend_excluded_tags` and `blend_excluded_bookmark_ids` to profiles
-  - [ ] Blend analysis only processes non-excluded bookmarks
-  - [ ] Public Blend page shows aggregate themes only — never specific bookmark URLs or content
-  - [ ] Users can delete a Blend at any time (removes analysis, card, and public page)
-  - [ ] Rate limit Blend creation to prevent abuse (max 10 per user per month even on Pro)
+- [ ] **Implement privacy controls** — **NOT BUILT.** *No `blend_opt_in`, no excluded tags/bookmarks columns or UI anywhere; analysis reads the counterparty's bookmarks/tags unconditionally once an invite is accepted. Delete-a-blend does exist (`DELETE /api/blends/[id]`). No abuse rate-limit beyond the leaky free-tier check.*
 
 ---
 
 ## Phase 4: Signal Boards (Month 2)
 
 > **Goal:** Small-group collaborative bookmark collections with Grok-powered AI scout.
+> **Status 2026-07-31: not started — zero code** (consistent with PRD post-MVP scope).
 
 ### 4.1 Signal Board Infrastructure
 
@@ -517,6 +506,7 @@
 ## Phase 5: Social Proof & The Pulse (Month 3)
 
 > **Goal:** Collective intelligence layer — "X users who bookmarked this also bookmarked..." and niche trending.
+> **Status 2026-07-31: not started — zero code.**
 
 ### 5.1 Anonymous Signal Collection
 
@@ -562,6 +552,7 @@
 ## Phase 6: Community Knowledge Graphs (Month 4+)
 
 > **Goal:** Self-assembling knowledge maps from community bookmark behavior.
+> **Status 2026-07-31: not started — zero code** (would also need an email provider; none is integrated).
 
 ### 6.1 Community Infrastructure
 
@@ -617,50 +608,36 @@
 
 ### Testing
 
-- [ ] **Unit tests**
-  - [ ] API route tests with Vitest (all CRUD operations, edge cases, auth)
-  - [ ] Grok API client tests with mocked responses
-  - [ ] Blend analysis algorithm tests with sample data
-  - [ ] Database query tests against Supabase local dev
+> **Status 2026-07-31: zero automated tests.** No vitest/jest/playwright configs, no `*.test.*`/`*.spec.*` files, no `test` script in any `package.json`, no testing dependencies anywhere in the workspace. All verification to date has been manual.
 
-- [ ] **Integration tests**
-  - [ ] Auth flow: signup → login → token refresh → logout
-  - [ ] Bookmark lifecycle: import → save → tag → search → delete
-  - [ ] Blend lifecycle: invite → accept → generate → share
-  - [ ] Payment flow: checkout → webhook → plan update → feature access
-
-- [ ] **E2E tests**
-  - [ ] Extension installed and functional in Chrome
-  - [ ] Import flow with mock X API
-  - [ ] Search returns correct results
-  - [ ] Blend card generates and displays correctly
+- [ ] **Unit tests** — none
+- [ ] **Integration tests** — none
+- [ ] **E2E tests** — none
 
 ### DevOps & CI/CD
 
-- [ ] **Set up CI/CD pipeline (GitHub Actions)**
-  - [ ] Lint + type check on every PR
-  - [ ] Run unit + integration tests on every PR
-  - [ ] Build extension and web app on every PR
-  - [ ] Auto-deploy web app to Vercel on merge to `main`
-  - [ ] Extension build artifact uploaded to GitHub releases
-  - [ ] Environment-specific deploys: staging (on PR), production (on release tag)
+- [x] **Set up CI/CD pipeline** — **PARTIAL: mobile-only**
+  - [ ] Lint + type check on every PR — *no such workflow; the only GH Actions are mobile builds*
+  - [ ] Run unit + integration tests on every PR — *no tests exist*
+  - [x] Build pipelines — *`codemagic.yaml`: iOS → TestFlight ("Internal Testers", shipped through build 15) + Android release AAB/APK, both on push to `develop`; GH Actions `build-ios.yml`/`build-android.yml` (smoke builds on `develop`), `release-mobile.yml` (manual, tags GitHub release with debug APK + simulator zip)*
+  - [x] Auto-deploy web app to Vercel — *via the Vercel Git integration (not in-repo config)*
+  - [ ] Extension build artifact uploaded to GitHub releases — *not automated*
+  - [ ] Environment-specific deploys (staging) — *no staging environment*
 
-- [ ] **Monitoring & observability**
-  - [ ] Error tracking with Sentry (web app + extension)
-  - [ ] API performance monitoring (Vercel Analytics or custom)
-  - [ ] Grok API cost tracking dashboard
-  - [ ] Supabase database performance monitoring
-  - [ ] Uptime monitoring (Checkly or BetterStack)
+- [ ] **Monitoring & observability** — **NOT BUILT except LLM cost logging**
+  - [ ] Error tracking with Sentry — *absent (error handling is `console.error`)*
+  - [ ] API performance monitoring — *absent (no analytics packages at all)*
+  - [x] Grok API cost tracking — *structured `[llm-usage]` log lines per call (`lib/llm-usage.ts`); no dashboard on top*
+  - [ ] Supabase database performance monitoring — *absent*
+  - [ ] Uptime monitoring — *absent*
 
 ### Chrome Web Store Launch
 
-- [ ] **Prepare for Chrome Web Store submission**
-  - [ ] Write extension description, screenshots (5+), promotional images
-  - [ ] Create privacy policy page (hosted on web app)
-  - [ ] Create terms of service page
-  - [ ] Justify all requested permissions in the CWS developer dashboard
-  - [ ] Submit for review (allow 3-7 days for initial review)
-  - [ ] Prepare Product Hunt launch assets in parallel
+- [ ] **Prepare for Chrome Web Store submission** — **NOT STARTED, and blocked by missing legal pages**
+  - [ ] Extension description, screenshots, promotional images
+  - [x] Create privacy policy page — **BUILT 2026-07-31** — `/privacy`, linked from the login consent line
+  - [x] Create terms of service page — **BUILT 2026-07-31** — `/terms`, same
+  - [ ] Permission justifications / review submission / Product Hunt assets
 
 ---
 
@@ -701,18 +678,22 @@
 
 ## Mobile Delivery Track (Capacitor)
 
-### ✅ Completed
-- Added Capacitor to `apps/web`
+### ✅ Completed (re-verified 2026-07-31)
+- Added Capacitor to `apps/web` (`appId: com.helloagainlinks.app`, `appStartPath: /mobile`)
 - Added Android/iOS platforms
-- Added Share Target plugin + Android intent filters
-- Added shared URL ingestion endpoint (`/api/mobile/share`)
-- Added background sync endpoint (`/api/sync/background`)
+- Added Share Target plugin + Android `SEND`/`SEND_MULTIPLE` intent filters — *⚠ `MobileShareSheet` ↔ `/api/mobile/share` response-shape mismatch (defect #5); `MobileShareListener.tsx` is dead code*
+- Added shared URL ingestion endpoint (`/api/mobile/share`) with auto-tag on save
+- Added background sync endpoint (`/api/sync/background`) — 5-guard model, cron + user modes; order-preserving descending-cursor ingest; X-402 credit exhaustion surfaced via `xApiError` body field (HTTP 200 — only the mobile settings page decodes it)
+- Added client-side app-open/resume auto-sync (`lib/use-auto-sync.ts`) — native-only, **15-minute throttle** (widened from 2 min for X API cost), wired in `mobile/layout.tsx`
 - Added pull-to-refresh + haptic feedback improvements
-- Added mobile scripts and README mobile docs
+- Added mobile sort control + unclassified filter (PR #39), 5-tab mobile shell, 5-step (iOS) / 4-step (Android) onboarding, `helloagainlinks://` deep links + App Links
+- **iOS TestFlight + Android release CI via Codemagic** — shipping since 2026-07-19, through TestFlight build 15
+- Added mobile scripts (`scripts/mobile-build.mjs` static-export shuffle) and README mobile docs
 
 ### 🔜 Next
-- Finalize iOS Share Extension setup/verification in Xcode release pipeline
-- Add background sync scheduler wiring (Vercel Cron/GitHub Actions/worker)
-- Add telemetry for share ingestion success/failure rates
-- Add retry/backoff for sync runs across large user sets
-- **iOS TestFlight pipeline via Codemagic** — `codemagic.yaml` added (no Mac required for build/sign/distribute). Blocked on one-time portal setup (Apple Developer App ID + App Store Connect API key + Codemagic integration) — checklist: `docs/dev-docs/IOS_CODEMAGIC_SETUP.md`.
+- **Create the iOS Share Extension target** — it does not exist in the Xcode project, yet `capacitor.config.ts` names it and onboarding step 4 (iOS) teaches users to enable it (defect #6). Native iOS share-sheet ingestion is non-functional until this ships.
+- Fix the `/api/mobile/share` ↔ `MobileShareSheet` response contract (defect #5)
+- Add background sync scheduler wiring (Vercel Cron/GitHub Actions/worker) — *still missing: `vercel.json` has no `crons`, no scheduled workflow anywhere*
+- Add telemetry for share ingestion success/failure rates — *absent*
+- Add retry/backoff for sync runs across large user sets — *absent; cron loop is sequential with no retry*
+- External blocker: X developer account out of API credits (402) — sync imports nothing on any trigger until billing is resolved
