@@ -111,9 +111,16 @@ Still present, re-verified:
 - **Tag filtering client-side-only** — unchanged; pagination math still broken.
   **Plus (new): `/api/bookmarks/search` ignores `folder_id`** — accepted by schema,
   sent by client, never applied → in-folder search searches everything.
-- **`.env.local` issues** — `NEXT_PUBLIC_APP_URL` localhost value; stale
-  `SUPABASE_DB_PASSWORD`; `DIRECT_DATABASE_URL` password not percent-encoded
-  (names only, no values — see [[skills/supabase-definer-rpc-authz]]).
+- **`.env.local` DB credentials are ALL stale (corrected 2026-07-31)** — the
+  earlier note ("only `SUPABASE_DB_PASSWORD` is stale; the password inside
+  `DIRECT_DATABASE_URL` authenticates") is **wrong as of now**. Tested directly
+  with psql 17 against `db.<ref>.supabase.co:5432`: `DIRECT_DATABASE_URL`,
+  `DATABASE_URL`, and `SUPABASE_DB_PASSWORD` all carry the **same** 27-char
+  password and it returns `FATAL: password authentication failed for user
+  "postgres"`. Network path is fine (server reached, IPv6). So **there is no
+  working direct-psql route to prod today** — the DB password must be reset in
+  the dashboard before CLI/psql migration workflows work. `NEXT_PUBLIC_APP_URL`
+  localhost value still applies. (Names only, no values.)
 - **`@helloagain/ui-hal` lint script no-op echo** — unchanged.
 - **LOC cap violations, worse again** — `background.ts` 709, `content.ts` 580
   (was 687/580 on 07-28, 562/541 on 04-26); plus `dashboard/bookmarks/page.tsx`

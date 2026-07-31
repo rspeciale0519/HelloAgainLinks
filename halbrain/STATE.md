@@ -2,8 +2,10 @@
 Updated: 2026-07-31
 
 ## Current focus
-None active. Full codebase-vs-docs audit completed 2026-07-31; docs and the
-knowledge layer are reconciled. Prod at `551e021`, `main`/`develop` at parity.
+None active. Audit → defect sweep → Blend viral loop all shipped to `develop`
+(2026-07-31). **`develop` is AHEAD of `main`** — prod web still runs the old
+`main`; a develop→main release is the next deploy step. Migration 012 is
+already applied to the prod DB (correct order: schema before code).
 
 ## Latest synopsis
 Comprehensive audit (5 parallel verification passes over `develop` @ `8ac341f`;
@@ -32,8 +34,11 @@ flash was FIXED in PR #32 (old memory stale), zero automated tests anywhere.
 **External / operational**
 - X developer account out of API credits (402) → sync imports nothing regardless
   of trigger — [[knowledge/features]].
-- `.env.local`: stale `SUPABASE_DB_PASSWORD`; `DIRECT_DATABASE_URL` password not
-  percent-encoded — [[knowledge/superseded]] operator corrections.
+- **Prod DB password is stale in every `.env.local` variant** (verified by psql
+  2026-07-31) → no direct psql/CLI route to prod; needs a dashboard reset.
+  Migrations go through the SQL editor — [[skills/supabase-prod-migration-route]].
+- Nested `apps/web/.git` repo + stray `apps/*/brain/`, `packages/shared/brain/`
+  dirs need manual removal (the auto-mode classifier blocks rm/mv of them).
 
 **Product / code** — see [[knowledge/roadmap]] "Defects worth fixing first"
 (10-item triage) and the gap list. Notables: server-side sync cron still missing;
@@ -45,6 +50,7 @@ sweep owed.
 - [[skills/auth-stale-shell-retest]] — read before diagnosing "the fix didn't work" on an already-logged-in shell.
 - [[skills/build-stale-artifact-traps]] — read before claiming any change "done" or debugging a fix that "didn't take".
 - [[skills/integrations-x-api-cost-model]] — read before any X API cost estimate or billing experiment.
+- [[skills/supabase-prod-migration-route]] — read before applying ANY migration to prod (no psql route exists; verify via PostgREST, not the dashboard message).
 
 ## Notes
 - dev docs reconciled 2026-07-31; on conflict prefer the newer audit date, then [[knowledge/superseded]].

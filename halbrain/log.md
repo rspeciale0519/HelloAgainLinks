@@ -42,3 +42,10 @@ Append-only timeline. Entry format: `## [YYYY-MM-DD] <op> | <title>`.
   PR #32). orientation.md left at 2026-07-24 — nothing in the audit
   contradicted it.
 - Index refreshed; STATE trimmed (consolidation-owed note cleared).
+
+## [2026-07-31] migration | 012 applied to prod + PR #48 merged
+- `search_bookmarks` now 9-arg (p_folder_id, p_tag_ids), service_role-only,
+  verified via PostgREST (9-arg 200 / 7-arg 200 / anon 42501).
+- New [[skills/supabase-prod-migration-route]]; [[knowledge/superseded]]
+  corrected — ALL `.env.local` DB passwords are stale, no psql route to prod.
+- PR #48 merged as a merge commit (c878e90), phase commits preserved.
