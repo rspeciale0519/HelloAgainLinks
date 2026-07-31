@@ -43,6 +43,8 @@ sweep owed.
 ## Active skills in play
 - [[skills/supabase-definer-rpc-authz]] — read before touching any `SECURITY DEFINER` function or RPC grant.
 - [[skills/auth-stale-shell-retest]] — read before diagnosing "the fix didn't work" on an already-logged-in shell.
+- [[skills/build-stale-artifact-traps]] — read before claiming any change "done" or debugging a fix that "didn't take".
+- [[skills/integrations-x-api-cost-model]] — read before any X API cost estimate or billing experiment.
 
 ## Notes
 - dev docs reconciled 2026-07-31; on conflict prefer the newer audit date, then [[knowledge/superseded]].
@@ -52,6 +54,5 @@ sweep owed.
   `halbrain/`, never `apps/web/brain/`.
 - The Stop-hook gate matches the **literal** labels `**What did NOT work:**` and
   `Evidence:` — variants fail the regex and re-block.
-- Consolidation was flagged overdue at session start (2026-07-31) — the 07-24
-  watermark reconcile is now largely covered by this audit; a time-boxed pass to
-  distil skills from journals 07-26→07-31 is still owed.
+- Second consolidation completed 2026-07-31 (2 new skills distilled; journal
+  gap for PRs #36/#38/#39/#41/#43 recorded in log.md, not backfilled).
