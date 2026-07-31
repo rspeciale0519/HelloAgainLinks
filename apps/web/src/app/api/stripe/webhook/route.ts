@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { stripe, planForPriceId } from '@/lib/stripe';
+import { stripe, planForPriceId, planForPriceAmount } from '@/lib/stripe';
 import { getServiceClient } from '@/lib/supabase-server';
 
 export async function POST(req: NextRequest) {
@@ -66,13 +66,32 @@ export async function POST(req: NextRequest) {
 
         if (dbSub) {
           const status = sub.status === 'active' || sub.status === 'trialing' ? 'active' : sub.status;
+          // A plan change made in the Stripe portal (e.g. Pro → Max) arrives as
+          // subscription.updated — resolve the tier and re-sync both tables,
+          // not just the status (2026-07-31 audit defect #9). Newer
+          // subscriptions carry our internal price_id in their metadata
+          // (stamped at checkout); older ones fall back to matching the
+          // inline-price amount+interval against PRICE_CONFIG, since the
+          // Stripe-generated price id is meaningless to planForPriceId.
+          const item = sub.items?.data?.[0];
+          const plan =
+            planForPriceId(sub.metadata?.price_id) ??
+            planForPriceAmount(item?.price?.unit_amount, item?.price?.recurring?.interval);
           await serviceClient
             .from('subscriptions')
             .update({
               status,
+              ...(plan ? { plan } : {}),
               current_period_end: new Date(((sub as unknown as Record<string, unknown>).current_period_end as number) * 1000).toISOString(),
             })
             .eq('user_id', dbSub.user_id);
+
+          if (plan && status === 'active') {
+            await serviceClient
+              .from('profiles')
+              .update({ plan })
+              .eq('id', dbSub.user_id);
+          }
         }
         break;
       }

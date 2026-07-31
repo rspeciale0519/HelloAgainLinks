@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext, isAuthError } from '@/lib/auth';
 import { getServiceClient } from '@/lib/supabase-server';
+import { enforceQuota } from '@/lib/quota';
 
 export const dynamic = 'force-dynamic';
 
@@ -85,6 +86,11 @@ export async function POST(
       );
     }
   }
+
+  // Acceptance triggers a Grok analysis call — meter it like the other AI ops
+  // (this path was unmetered; 2026-07-31 audit defect #8).
+  const denied = await enforceQuota(ctx.serviceClient, ctx.userId, ctx.plan, 'ai_op');
+  if (denied) return denied;
 
   // Accept invite
   await ctx.serviceClient

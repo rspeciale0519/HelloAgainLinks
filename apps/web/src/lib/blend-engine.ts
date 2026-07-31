@@ -3,9 +3,12 @@
 // ============================================================
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { logLlmUsage, type TokenUsage } from '@/lib/llm-usage';
 
 const XAI_API_KEY = process.env.XAI_API_KEY!;
-const MODEL = process.env.GROK_MODEL_FULL || 'grok-3';
+// Same fallback as lib/grok.ts — grok-3 is decommissioned on this account, so
+// the old 'grok-3' default failed outright whenever GROK_MODEL_FULL was unset.
+const MODEL = process.env.GROK_MODEL_FULL || 'grok-4.5';
 
 async function grokChat(messages: { role: string; content: string }[]): Promise<string> {
   const res = await fetch('https://api.x.ai/v1/chat/completions', {
@@ -17,7 +20,9 @@ async function grokChat(messages: { role: string; content: string }[]): Promise<
     body: JSON.stringify({ model: MODEL, messages, temperature: 0.4, max_tokens: 2048 }),
   });
   if (!res.ok) throw new Error(`Grok error: ${res.status}`);
-  const data = await res.json();
+  const data: { choices: { message: { content: string } }[]; usage?: TokenUsage } =
+    await res.json();
+  logLlmUsage('blend', MODEL, data.usage);
   return data.choices[0].message.content;
 }
 

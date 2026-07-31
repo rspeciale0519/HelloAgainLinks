@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext, isAuthError } from '@/lib/auth';
 import { assistantChat } from '@/lib/grok';
+import { enforceQuota } from '@/lib/quota';
 
 export async function POST(req: NextRequest) {
   const ctx = await getAuthContext(req);
   if (isAuthError(ctx)) return ctx;
+
+  // Same metric as the streaming chat path — this legacy route (mobile AI
+  // page) was the only unmetered chat entrypoint (2026-07-31 audit defect #8).
+  const denied = await enforceQuota(ctx.serviceClient, ctx.userId, ctx.plan, 'chat');
+  if (denied) return denied;
 
   try {
     const { message, history } = await req.json();
