@@ -17,17 +17,19 @@ evidence. As of 2026-07-31 `DEVELOPMENT_ROADMAP.md` itself is reconciled
 (audited checkboxes + defect list), so it and this file should agree; on
 conflict trust whichever has the newer audit date.
 
-## Defects worth fixing first (from the 2026-07-31 audit — full list in DEVELOPMENT_ROADMAP.md header)
-1. **Blend invite links 404** — no `/blend/invite/[code]` page; the viral loop is dead on arrival.
-2. **`/api/bookmarks/search` ignores `folder_id`** — in-folder search silently global.
-3. **Tag filtering client-side-only** — cross-page filtering/pagination broken (long-standing).
-4. **Extension side panel unreachable from toolbar** — `default_popup` blocks `onClicked`.
-5. **`/api/mobile/share` ↔ sheet contract mismatch** — tags never display; dupes look like saves.
-6. **iOS Share Extension missing** — config + onboarding reference a target that doesn't exist.
-7. **X-sync classify discards `ai_summary`/`ai_tags`** — Spread analysis never populates from sync.
-8. **Unmetered Grok paths** — `/api/ai/assistant`, `/api/ai/duplicate-check`, `blend-engine` (also defaults to dead `grok-3` model).
-9. **Stripe**: `subscription.updated` doesn't re-sync `profiles.plan`; no webhook idempotency.
-10. **Leaky Blend free-tier cap**; AskTab-lock vs 25-msg-trial gating inconsistency.
+## Audit defect triage — status after `bugfix/audit-defects` (2026-07-31)
+Fixed on the branch (see DEVELOPMENT_ROADMAP.md audit header for per-item
+detail): Blend invite 404, folder/tag search filters (**migration 012 must be
+applied to prod before deploy**), extension side panel (0.5.5), mobile share
+contract, sync enrichment write, unmetered Grok paths + `grok-3` default,
+Stripe plan re-sync on `subscription.updated`, leaky Blend cap, dashboard
+Recent sort, assistant count bug.
+
+Still open / deferred:
+- **iOS Share Extension missing** — needs a new native Xcode target + Apple
+  provisioning decisions (user).
+- **AskTab lock vs 25-msg free trial** — product decision.
+- **Stripe webhook idempotency store** — needs a table; low current risk.
 
 ## Not started (Phases 4-6 — consistent, no code)
 - **Signal Boards**, **The Pulse**, **Community Knowledge Graphs** (CKG would need an email provider — none integrated).
