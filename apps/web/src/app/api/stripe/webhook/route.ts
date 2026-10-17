@@ -1,7 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { stripe, planForPriceId, planForPriceAmount } from '@/lib/stripe';
+import { stripe, planForPriceId, planForPriceAmount, resolvePaidPlan } from '@/lib/stripe';
 import { getServiceClient } from '@/lib/supabase-server';
+
+async function alreadyProcessed(
+  serviceClient: ReturnType<typeof getServiceClient>,
+  eventId: string,
+): Promise<boolean> {
+  const { error } = await serviceClient
+    .from('stripe_processed_events')
+    .insert({ event_id: eventId });
+  if (!error) return false;
+  if (error.code === '23505') return true; // unique violation — replay
+  // Table missing until migration 013 is applied: continue without ledger.
+  console.error('[Stripe Webhook] idempotency insert failed:', error.code);
+  return false;
+}
 
 export async function POST(req: NextRequest) {
   const body = await req.text();
@@ -21,6 +35,10 @@ export async function POST(req: NextRequest) {
 
   const serviceClient = getServiceClient();
 
+  if (await alreadyProcessed(serviceClient, event.id)) {
+    return NextResponse.json({ received: true, duplicate: true });
+  }
+
   try {
     switch (event.type) {
       case 'checkout.session.completed': {
@@ -29,12 +47,16 @@ export async function POST(req: NextRequest) {
         if (!userId) break;
 
         const isLifetime = session.mode === 'payment';
-        // Resolve the tier from the price the customer actually bought. The old
-        // `subscription => 'pro'` inference would have granted Pro limits to a
-        // Max subscriber. Fall back to the mode-based guess only if metadata is
-        // missing (e.g. a session created outside this app).
-        const plan =
-          planForPriceId(session.metadata?.price_id) ?? (isLifetime ? 'lifetime' : 'pro');
+        const itemInterval = isLifetime ? null : 'month';
+        const plan = resolvePaidPlan({
+          priceId: session.metadata?.price_id,
+          amountTotal: session.amount_total,
+          interval: itemInterval,
+        });
+        if (!plan) {
+          console.error('[Stripe Webhook] Unresolved checkout plan; skipping upgrade');
+          break;
+        }
 
         await serviceClient
           .from('subscriptions')

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext, isAuthError } from '@/lib/auth';
 import { autoTagBookmark } from '@/lib/grok';
+import { enforceQuota } from '@/lib/quota';
 
 function extractPostId(url: string): string | null {
   const match = url.match(/status\/(\d+)/i);
@@ -57,8 +58,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error?.message || 'Failed to save bookmark' }, { status: 500 });
     }
 
-    // Trigger AI auto-tag immediately using existing tagging stack
-    const tags = await autoTagBookmark(created.content_text || url);
+    // Same plan + quota gate as /api/ai/auto-tag. Free users still save the
+    // bookmark; they just don't get an unbounded Grok call on every share.
+    let tags: string[] = [];
+    if (ctx.plan !== 'free') {
+      const denied = await enforceQuota(ctx.serviceClient, ctx.userId, ctx.plan, 'ai_op');
+      if (!denied) {
+        tags = await autoTagBookmark(created.content_text || url);
+      }
+    }
     const appliedTags: { name: string; color: string }[] = [];
     for (const tagName of tags) {
       const { data: tag } = await ctx.serviceClient

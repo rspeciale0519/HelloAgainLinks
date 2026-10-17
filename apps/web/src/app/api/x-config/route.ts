@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext, isAuthError } from '@/lib/auth';
+import { isValidXQueryId, sanitizeXFeatures } from '@/lib/x-query-id';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,9 +43,11 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { queryId, features } = body;
 
-    if (!queryId || typeof queryId !== 'string') {
+    if (!isValidXQueryId(queryId)) {
       return NextResponse.json({ error: 'queryId is required' }, { status: 400 });
     }
+
+    const safeFeatures = sanitizeXFeatures(features);
 
     if (currentConfig && currentConfig.queryId === queryId) {
       // Same query_id — just bump the count
@@ -54,7 +57,7 @@ export async function POST(req: NextRequest) {
       // New query_id — replace
       currentConfig = {
         queryId,
-        features: features || '',
+        features: safeFeatures,
         reportedAt: Date.now(),
         reportCount: 1,
       };

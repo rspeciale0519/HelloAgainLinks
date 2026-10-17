@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext, isAuthError } from '@/lib/auth';
 import { addFoldersSchema } from '@helloagain/shared';
+import { allIdsOwned, ownedIds } from '@/lib/owned-ids';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,6 +26,16 @@ export async function POST(req: NextRequest, { params }: Params) {
     const parsed = addFoldersSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ error: 'Validation error', details: parsed.error.issues }, { status: 400 });
+    }
+
+    const owned = await ownedIds(
+      ctx.userClient,
+      'folders',
+      parsed.data.folder_ids,
+      ctx.userId,
+    );
+    if (!allIdsOwned(parsed.data.folder_ids, owned)) {
+      return NextResponse.json({ error: 'Folder not found' }, { status: 404 });
     }
 
     const rows = parsed.data.folder_ids.map((folder_id) => ({ bookmark_id: bookmarkId, folder_id }));

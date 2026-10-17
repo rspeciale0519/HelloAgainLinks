@@ -1,14 +1,13 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { isAllowedAppOrigin } from '@/lib/cors-origin';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 const protectedRoutes = ['/dashboard'];
 const publicRoutes = ['/', '/login', '/api', '/auth', '/lists'];
-
-const APP_ORIGIN_PATTERN = /^(capacitor|ionic):\/\/localhost$|^https?:\/\/localhost(:\d+)?$/;
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -21,7 +20,7 @@ export async function middleware(req: NextRequest) {
   // the fixed app origins is safe.
   if (pathname.startsWith('/api/')) {
     const origin = req.headers.get('origin');
-    if (origin && APP_ORIGIN_PATTERN.test(origin)) {
+    if (origin && isAllowedAppOrigin(origin)) {
       const corsHeaders: Record<string, string> = {
         'Access-Control-Allow-Origin': origin,
         'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',

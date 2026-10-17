@@ -6,7 +6,9 @@ dist/
 .env.local
 *.tsbuildinfo
 .vercel
+.claude/settings.local.json
 temp/.claude/settings.local.json
+.playwright-mcp/
 .worktrees/
 .superpowers/
 temp/

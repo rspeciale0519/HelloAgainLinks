@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext, isAuthError } from '@/lib/auth';
 import { mergeUpsertBookmarks } from '@/lib/bookmark-upsert';
+import { enforceQuota } from '@/lib/quota';
 import { PLAN_LIMITS, createSyncGuards } from '@helloagain/shared';
 
 interface XBookmark {
@@ -24,6 +25,9 @@ export async function POST(req: NextRequest) {
   if (isAuthError(ctx)) return ctx;
 
   try {
+    const denied = await enforceQuota(ctx.serviceClient, ctx.userId, ctx.plan, 'sync');
+    if (denied) return denied;
+
     const { x_access_token, x_user_id } = (await req.json()) as {
       x_access_token: string;
       x_user_id: string;
@@ -31,6 +35,35 @@ export async function POST(req: NextRequest) {
 
     if (!x_access_token || !x_user_id) {
       return NextResponse.json({ error: 'Missing x_access_token or x_user_id' }, { status: 400 });
+    }
+
+    // Bind the caller-supplied X token to the HAL account: the token must
+    // belong to the same X user we store on the profile (or, on first link,
+    // the /2/users/me id must match the body). Stops User A from ingesting
+    // User B's X bookmarks with a stolen token + mismatched x_user_id.
+    const meRes = await fetch('https://api.x.com/2/users/me', {
+      headers: { Authorization: `Bearer ${x_access_token}` },
+      cache: 'no-store',
+    });
+    if (!meRes.ok) {
+      return NextResponse.json({ error: 'Invalid X access token' }, { status: 401 });
+    }
+    const meJson = (await meRes.json()) as { data?: { id?: string } };
+    const tokenUserId = meJson.data?.id;
+    if (!tokenUserId || tokenUserId !== x_user_id) {
+      return NextResponse.json({ error: 'X user does not match access token' }, { status: 403 });
+    }
+
+    const { data: profile } = await ctx.serviceClient
+      .from('profiles')
+      .select('x_user_id')
+      .eq('id', ctx.userId)
+      .maybeSingle();
+    if (profile?.x_user_id && profile.x_user_id !== tokenUserId) {
+      return NextResponse.json(
+        { error: 'X account does not match this HAL profile' },
+        { status: 403 },
+      );
     }
 
     const limit = PLAN_LIMITS[ctx.plan].bookmarks;

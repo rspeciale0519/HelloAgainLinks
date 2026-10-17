@@ -3,7 +3,7 @@
   "name": "Hello Again Links — X Bookmark Manager",
   "version": "0.5.5",
   "description": "HAL — AI-powered bookmark manager for X/Twitter with social features.",
-  "permissions": ["activeTab", "tabs", "storage", "identity", "sidePanel"],
+  "permissions": ["activeTab", "tabs", "storage", "sidePanel"],
   "host_permissions": ["https://x.com/*", "https://twitter.com/*", "https://helloagainlinks.com/*"],
   "externally_connectable": {
     "matches": ["https://helloagainlinks.com/*", "http://localhost:3000/*"]
