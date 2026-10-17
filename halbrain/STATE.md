@@ -1,11 +1,17 @@
 # hal brain — STATE
-Updated: 2026-07-31
+Updated: 2026-10-17
 
 ## Current focus
-None active. Everything from 2026-07-31 is **released to production**: `main` at
-`b408e97` (PR #49), Vercel deploy READY, migration 012 applied. `main`/`develop`
-at parity apart from brain docs. Smoke-tested live: legal pages, invite page
-(defect #1), no regressions.
+Security scan branch `cursor/security-scan-2026-10-17-2d0b` (not merged).
+Report: `SECURITY_SCAN_2026-10-17.md`. Do not deploy; do not rotate keys from
+this agent.
+
+## Latest synopsis
+Full security scan (sweep → adversarial disprove → local A/B/admin tests).
+Live Vercel tokens still in tracked `.claude/settings.local.json` — **owner
+must rotate**; the PR does not edit that file (would re-publish in the diff).
+Code fixes for Next RCE line, quota bypasses, OAuth logging, SSRF allowlist,
+webhook plan default, IDOR tag/folder attach, headers, and vitest (27 passing).
 
 ## Latest synopsis
 Comprehensive audit (5 parallel verification passes over `develop` @ `8ac341f`;

@@ -1,11 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   consumeMobileAuthHandoff,
+  hashHandoffValue,
   isExpiredMobileAuthHandoff,
   isValidMobileAuthNonce,
   matchesMobileAuthNonceHash,
   parseMobileAuthHandoff,
 } from '@/lib/mobile-auth-handoff';
+import { getServiceClient } from '@/lib/supabase-server';
+
+async function consumeHandoffOnce(handoff: string, expiresAt: number): Promise<boolean> {
+  try {
+    const { error } = await getServiceClient()
+      .from('mobile_auth_handoff_replays')
+      .insert({
+        handoff_hash: hashHandoffValue(handoff),
+        expires_at: new Date(expiresAt * 1000).toISOString(),
+      });
+    if (!error) return true;
+    if (error.code === '23505') return false;
+  } catch {
+    // Table missing until migration 013 — fall back to in-process store.
+  }
+  return consumeMobileAuthHandoff(handoff, expiresAt);
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -33,7 +51,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!consumeMobileAuthHandoff(handoff, payload.expiresAt)) {
+    if (!(await consumeHandoffOnce(handoff, payload.expiresAt))) {
       return NextResponse.json(
         { error: 'Mobile auth handoff already used' },
         { status: 409 }

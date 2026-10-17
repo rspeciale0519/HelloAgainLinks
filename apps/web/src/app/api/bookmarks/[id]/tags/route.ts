@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext, isAuthError } from '@/lib/auth';
 import { addTagsSchema } from '@helloagain/shared';
+import { allIdsOwned, ownedIds } from '@/lib/owned-ids';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +27,11 @@ export async function POST(req: NextRequest, { params }: Params) {
     const parsed = addTagsSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ error: 'Validation error', details: parsed.error.issues }, { status: 400 });
+    }
+
+    const owned = await ownedIds(ctx.userClient, 'tags', parsed.data.tag_ids, ctx.userId);
+    if (!allIdsOwned(parsed.data.tag_ids, owned)) {
+      return NextResponse.json({ error: 'Tag not found' }, { status: 404 });
     }
 
     const rows = parsed.data.tag_ids.map((tag_id) => ({ bookmark_id: bookmarkId, tag_id }));

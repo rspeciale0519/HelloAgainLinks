@@ -5,6 +5,7 @@
     "build": "turbo build",
     "dev": "turbo dev",
     "lint": "turbo lint",
+    "test": "pnpm --filter @helloagain/web test",
     "clean": "turbo clean",
     "mobile:build": "node scripts/mobile-build.mjs",
     "mobile:sync": "pnpm --filter @helloagain/web exec cap sync",
@@ -19,7 +20,7 @@
     "overrides": {
       "@xmldom/xmldom": "0.8.12",
       "glob@13.0.1>minimatch": "10.2.5",
-      "@capacitor/cli>tar": "7.5.13"
+      "@capacitor/cli>tar": "7.5.22"
     }
   },
   "packageManager": "pnpm@10.28.2",

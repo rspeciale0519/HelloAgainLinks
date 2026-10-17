@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceClient, getUserClient } from './supabase-server';
+import { planFromPrefetch } from './auth-plan';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Plan } from '@helloagain/shared';
 
@@ -48,7 +49,7 @@ export async function getAuthContext(
     userId: user.id,
     userClient,
     serviceClient,
-    plan: (profileResult.data?.plan as Plan) || 'free',
+    plan: planFromPrefetch(user.id, userId, profileResult.data?.plan as Plan | undefined),
   };
 }
 

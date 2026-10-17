@@ -1,9 +1,12 @@
 import crypto from 'crypto';
 
 const DEV_FALLBACK_HANDOFF_SECRET = 'helloagain-mobile-auth-dev-only-secret';
+// Only the local `next dev` environment may use the well-known fallback.
+// Preview/staging/test must set MOBILE_AUTH_HANDOFF_SECRET — a missing secret
+// plus NODE_ENV!=='production' used to mint forgeable session handoffs.
 const MOBILE_AUTH_HANDOFF_SECRET =
   process.env.MOBILE_AUTH_HANDOFF_SECRET ||
-  (process.env.NODE_ENV === 'production' ? null : DEV_FALLBACK_HANDOFF_SECRET);
+  (process.env.NODE_ENV === 'development' ? DEV_FALLBACK_HANDOFF_SECRET : null);
 
 const HANDOFF_TTL_SECONDS = 120;
 const AES_ALGORITHM = 'aes-256-gcm';
@@ -43,7 +46,7 @@ function getReplayStore(): MobileAuthReplayStore {
   return globalScope[replayStoreKey];
 }
 
-function hashHandoffValue(handoff: string): string {
+export function hashHandoffValue(handoff: string): string {
   return crypto.createHash('sha256').update(handoff).digest('hex');
 }
 

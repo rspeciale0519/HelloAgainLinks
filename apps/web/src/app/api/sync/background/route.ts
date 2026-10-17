@@ -5,7 +5,8 @@ import { mergeUpsertBookmarks } from '@/lib/bookmark-upsert';
 import { classifyBookmark } from '@/lib/grok';
 import { refreshXToken } from '@/lib/x-auth';
 import { enforceQuota } from '@/lib/quota';
-import { createSyncGuards } from '@helloagain/shared';
+import { secretsMatch } from '@/lib/secrets-match';
+import { createSyncGuards, type Plan } from '@helloagain/shared';
 
 const CRON_SECRET = process.env.BOOKMARK_SYNC_SECRET;
 const SYNC_TIMEOUT_MS = Number(process.env.SYNC_TIMEOUT_MS) || 55_000;
@@ -48,6 +49,7 @@ interface SyncResult {
 async function syncUser(
   serviceClient: ReturnType<typeof getServiceClient>,
   userId: string,
+  plan: Plan = 'free',
 ): Promise<SyncResult> {
   const { data: profile } = await serviceClient
     .from('profiles')
@@ -180,8 +182,23 @@ async function syncUser(
     },
   }).eq('id', userId);
 
-  // Two-tier classify + auto-tag newly created bookmarks
-  for (const bm of allInsertedRows) {
+  // Two-tier classify + auto-tag newly created bookmarks.
+  // Charge the classify meter (the dedicated /classify route already does);
+  // skipping enrichment on denial still leaves the sync itself successful.
+  const classifyDenied =
+    allInsertedRows.length === 0
+      ? true
+      : Boolean(
+          await enforceQuota(
+            serviceClient,
+            userId,
+            plan,
+            'classify',
+            allInsertedRows.length,
+          ),
+        );
+
+  for (const bm of classifyDenied ? [] : allInsertedRows) {
     const { tags, category, domain, ai_summary, ai_tags } = await classifyBookmark(
       bm.content_text || ''
     );
@@ -222,17 +239,23 @@ export async function POST(req: NextRequest) {
   const authHeader = req.headers.get('x-bookmark-sync-secret');
 
   // Cron mode (sync all connected users)
-  if (CRON_SECRET && authHeader === CRON_SECRET) {
+  if (CRON_SECRET && secretsMatch(authHeader, CRON_SECRET)) {
     const serviceClient = getServiceClient();
     const { data: users } = await serviceClient
       .from('profiles')
-      .select('id')
+      .select('id, plan')
       .not('x_access_token', 'is', null)
       .limit(100);
 
     const summary = [];
     for (const u of users || []) {
-      const res = await syncUser(serviceClient, u.id);
+      const plan = ((u as { plan?: Plan }).plan as Plan) || 'free';
+      const denied = await enforceQuota(serviceClient, u.id, plan, 'sync');
+      if (denied) {
+        summary.push({ userId: u.id, skipped: 'quota' });
+        continue;
+      }
+      const res = await syncUser(serviceClient, u.id, plan);
       summary.push({ userId: u.id, ...res });
     }
 
@@ -250,6 +273,6 @@ export async function POST(req: NextRequest) {
   const denied = await enforceQuota(ctx.serviceClient, ctx.userId, ctx.plan, 'sync');
   if (denied) return denied;
 
-  const result = await syncUser(ctx.serviceClient, ctx.userId);
+  const result = await syncUser(ctx.serviceClient, ctx.userId, ctx.plan);
   return NextResponse.json({ mode: 'user', userId: ctx.userId, ...result });
 }

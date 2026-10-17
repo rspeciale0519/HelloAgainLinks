@@ -15,6 +15,7 @@ Catalog of the hal brain. SessionStart reads this.
 - [[knowledge/roadmap]] — current (2026-07-31, includes 10-defect triage)
 
 ## Recent journal
+- [[journal/2026-10-17]] — full security scan + fixes PR (do not merge/deploy from agent).
 - [[journal/2026-07-31]] — audit (13 defects) → defect sweep → Blend viral loop → migration 012 applied to prod; second consolidation.
 - [[journal/2026-07-28]] — dashboard Recent post-date fix (#45), released to prod.
 - [[journal/2026-07-27]] — small-text legibility: real fonts, WCAG AA ramp (#34/#35).
