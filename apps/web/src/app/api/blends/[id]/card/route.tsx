@@ -1,6 +1,7 @@
 import { ImageResponse } from 'next/og';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceClient } from '@/lib/supabase-server';
+import { isAllowedAvatarUrl } from '@/lib/safe-avatar-url';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,9 +41,9 @@ function tierTheme(score: number) {
 }
 
 async function avatarDataUri(url: string | null): Promise<string | null> {
-  if (!url) return null;
+  if (!isAllowedAvatarUrl(url)) return null;
   try {
-    const res = await fetch(url);
+    const res = await fetch(url, { redirect: 'error', cache: 'no-store' });
     if (!res.ok) return null;
     const type = res.headers.get('content-type') || 'image/jpeg';
     const buf = Buffer.from(await res.arrayBuffer());

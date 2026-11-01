@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createMobileAuthHandoff } from '@/lib/mobile-auth-handoff';
+import { redactForLog } from '@/lib/redact';
 
 const X_CLIENT_ID = process.env.X_CLIENT_ID!;
 const X_CLIENT_SECRET = process.env.X_CLIENT_SECRET!;
@@ -34,7 +35,7 @@ async function fetchXUser(accessToken: string): Promise<XUserData | null> {
       if (res.ok) {
         const json = await res.json();
         if (json.data) return json.data as XUserData;
-        console.error(`[X OAuth] ${domain} returned OK but no data:`, JSON.stringify(json));
+        console.error(`[X OAuth] ${domain} returned OK but no data:`, JSON.stringify(redactForLog(json)));
         continue;
       }
 
@@ -54,7 +55,9 @@ export async function GET(req: NextRequest) {
   const error = url.searchParams.get('error');
 
   if (error) {
-    return NextResponse.redirect(`${APP_URL}/login?error=${error}`);
+    return NextResponse.redirect(
+      `${APP_URL}/login?error=${encodeURIComponent(error)}`,
+    );
   }
 
   if (!code || !state) {
@@ -103,15 +106,15 @@ export async function GET(req: NextRequest) {
     });
 
     if (!tokenRes.ok) {
-      const err = await tokenRes.text();
-      console.error('[X OAuth] Token exchange failed:', err);
+      await tokenRes.text().catch(() => '');
+      console.error('[X OAuth] Token exchange failed:', tokenRes.status);
       return NextResponse.redirect(`${APP_URL}/login?error=token_failed`);
     }
 
     const tokens = await tokenRes.json();
 
     if (!tokens.access_token) {
-      console.error('[X OAuth] Token response missing access_token:', JSON.stringify(tokens));
+      console.error('[X OAuth] Token response missing access_token');
       return NextResponse.redirect(`${APP_URL}/login?error=token_missing`);
     }
 
@@ -143,14 +146,18 @@ export async function GET(req: NextRequest) {
 
     let userId: string;
     if (createErr) {
-      // User already exists — look up by email
-      const { data: { users } } = await serviceClient.auth.admin.listUsers();
-      const matchedUsers = users?.filter((u: { email?: string }) => u.email === email);
-      if (!matchedUsers?.length) {
-        console.error('[X OAuth] User not found after create fail:', createErr);
+      // User already exists — look up by X user id on profiles. Do not call
+      // admin.listUsers() (loads every account into this process).
+      const { data: existing } = await serviceClient
+        .from('profiles')
+        .select('id')
+        .eq('x_user_id', xUser.id)
+        .maybeSingle();
+      if (!existing?.id) {
+        console.error('[X OAuth] User not found after create fail');
         return NextResponse.redirect(`${APP_URL}/login?error=user_not_found`);
       }
-      userId = matchedUsers[0].id;
+      userId = existing.id;
     } else {
       userId = newUser.user!.id;
     }
@@ -187,7 +194,7 @@ export async function GET(req: NextRequest) {
       const actionUrl = new URL(linkData.properties?.action_link || 'http://x');
       const fallbackToken = actionUrl.searchParams.get('token');
       if (!fallbackToken) {
-        console.error('[X OAuth] No token found. Properties:', JSON.stringify(linkData.properties));
+        console.error('[X OAuth] No token found in generateLink properties');
         return NextResponse.redirect(`${APP_URL}/login?error=no_token`);
       }
     }

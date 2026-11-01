@@ -74,6 +74,28 @@ export function planForPriceId(priceId: string | undefined | null) {
 }
 
 /**
+ * Resolve the tier a customer paid for. Never default to `pro` — an unknown
+ * or missing price must not grant paid limits (User A privilege escalation).
+ */
+export function resolvePaidPlan(opts: {
+  priceId?: string | null;
+  amountTotal?: number | null;
+  interval?: string | null;
+}): PlanFromPrice | null {
+  const fromId = planForPriceId(opts.priceId);
+  if (fromId) return fromId;
+  const fromAmountAndInterval = planForPriceAmount(opts.amountTotal, opts.interval);
+  if (fromAmountAndInterval) return fromAmountAndInterval;
+  if (!opts.amountTotal) return null;
+  const amountMatches = Object.values(PRICE_CONFIG).filter(
+    (config) => config.amount === opts.amountTotal,
+  );
+  return amountMatches.length === 1 ? amountMatches[0].plan : null;
+}
+
+type PlanFromPrice = (typeof PRICE_CONFIG)[PriceId]['plan'];
+
+/**
  * Fallback tier resolution for subscriptions created before the internal
  * price_id was stamped into subscription metadata: match the inline-price
  * amount + interval against PRICE_CONFIG. Amounts are unique per (amount,

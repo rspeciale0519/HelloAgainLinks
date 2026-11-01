@@ -50,6 +50,12 @@ Append-only timeline. Entry format: `## [YYYY-MM-DD] <op> | <title>`.
   corrected — ALL `.env.local` DB passwords are stale, no psql route to prod.
 - PR #48 merged as a merge commit (c878e90), phase commits preserved.
 
+## [2026-10-17] security | full scan + fixes (not merged)
+- Report `SECURITY_SCAN_2026-10-17.md`. Live Vercel tokens in tracked
+  `.claude/settings.local.json` — owner rotation; file not edited in the PR.
+- Vitest 27/27; Next 15.5.28; migration 013 (apply via SQL editor).
+- See [[journal/2026-10-17]].
+
 ## [2026-07-31] release | develop → main (PR #49, b408e97)
 - Audit defect sweep + Blend viral loop + legal pages live in prod.
 - Pre-flight: migration 012 already applied; NEXT_PUBLIC_APP_URL verified via

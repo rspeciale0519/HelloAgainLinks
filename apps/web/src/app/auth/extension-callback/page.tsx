@@ -1,8 +1,6 @@
 'use client';
 
-import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Suspense } from 'react';
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
 
 type ExtensionAuthPayload = {
@@ -18,7 +16,6 @@ type ExtensionAuthPayload = {
 };
 
 function ExtensionCallbackContent() {
-  const searchParams = useSearchParams();
   const [status, setStatus] = useState<'sending' | 'success' | 'error'>('sending');
 
   useEffect(() => {
@@ -56,19 +53,8 @@ function ExtensionCallbackContent() {
       });
     };
 
-    const legacyToken = searchParams.get('token');
-    if (legacyToken) {
-      try {
-        window.history.replaceState({}, '', '/auth/extension-callback');
-        const data = JSON.parse(decodeURIComponent(legacyToken)) as ExtensionAuthPayload;
-        sendToExtension(data);
-        return;
-      } catch {
-        setStatus('error');
-        return;
-      }
-    }
-
+    // Query-string tokens used to land session JSON in history, Referer, and
+    // proxy logs. Session now comes only from the in-page Supabase client.
     const supabase = getSupabaseBrowserClient();
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) {
@@ -91,7 +77,7 @@ function ExtensionCallbackContent() {
     }).catch(() => {
       setStatus('error');
     });
-  }, [searchParams]);
+  }, []);
 
   return (
     <div
@@ -130,9 +116,5 @@ function ExtensionCallbackContent() {
 }
 
 export default function ExtensionCallbackPage() {
-  return (
-    <Suspense>
-      <ExtensionCallbackContent />
-    </Suspense>
-  );
+  return <ExtensionCallbackContent />;
 }
