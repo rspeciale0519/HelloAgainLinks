@@ -46,17 +46,23 @@ async function main() {
   const cleanup = path.join(SCRIPT_DIR, 'cleanup.sh');
 
   let evidenceDir = null;
+  let startedByUs = false;
   try {
     await run('bash', [launch]);
+    startedByUs = true;
     await run('bash', [doctor]);
     const current = process.env.HAL_VERIFY_STATE_DIR || '/tmp/hal-verify';
     evidenceDir = (await readFile(path.join(current, 'current', 'evidence'), 'utf8')).trim();
     await run('node', [drive, '--feature', feature]);
   } finally {
-    try {
-      await run('bash', [cleanup]);
-    } catch (err) {
-      console.error(`verify-hal run: cleanup failed: ${err instanceof Error ? err.message : err}`);
+    if (!startedByUs) {
+      console.error('verify-hal run: launch did not start an instance; leaving any existing one alone');
+    } else {
+      try {
+        await run('bash', [cleanup]);
+      } catch (err) {
+        console.error(`verify-hal run: cleanup failed: ${err instanceof Error ? err.message : err}`);
+      }
     }
   }
 

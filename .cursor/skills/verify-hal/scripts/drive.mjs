@@ -111,33 +111,53 @@ async function driveSignIn(page, url, evidenceDir) {
     screenshot: path.basename(await screenshot(page, evidenceDir, 'sign-in-page.png')),
   });
 
-  const responsePromise = page.waitForResponse(
-    (res) => res.url().includes('/api/auth/x-login') || res.url().includes('oauth2/authorize'),
-    { timeout: 15000 },
-  );
-  await page.getByRole('button', { name: 'Continue with X' }).click();
-  let location = null;
-  let blocked = true;
-  let reason = 'X OAuth is the production login. Do not complete it with real credentials or user data.';
-  try {
-    const res = await responsePromise;
-    location = res.url();
-    const headers = res.headers();
-    if (headers.location) location = headers.location;
-  } catch {
-    location = page.url();
+  let xLogin = null;
+  const onResponse = (res) => {
+    try {
+      if (new URL(res.url()).pathname === '/api/auth/x-login') xLogin = res;
+    } catch {
+      /* ignore */
+    }
+  };
+  page.on('response', onResponse);
+  const started = Date.now();
+  await page.getByRole('button', { name: 'Continue with X' }).click({ noWaitAfter: true });
+  while (Date.now() - started < 15000) {
+    if (xLogin) break;
+    if (/oauth2\/authorize/i.test(page.url())) break;
+    await page.waitForTimeout(100);
   }
-  await page.waitForTimeout(1500);
+  page.off('response', onResponse);
+
+  const status = xLogin ? xLogin.status() : null;
+  const location = xLogin ? xLogin.headers().location || '' : '';
+  const finalUrl = page.url();
+  const towardX = /oauth2\/authorize/i.test(location) || /oauth2\/authorize/i.test(finalUrl);
   steps.push({
     action: 'continue-with-x',
-    result: `navigated toward ${location || page.url()}`,
+    result: `x-login HTTP ${status ?? 'none'}; location=${location || finalUrl}`,
     screenshot: path.basename(await screenshot(page, evidenceDir, 'sign-in-oauth-boundary.png')),
   });
-  if (String(location || page.url()).includes('verification-placeholder')) {
+
+  if (!xLogin && !towardX) {
+    fail(`Continue with X did not hit /api/auth/x-login (still at ${finalUrl})`);
+  }
+  if (status !== null && (status < 300 || status >= 400) && !towardX) {
+    fail(`/api/auth/x-login returned HTTP ${status}; expected a redirect toward X authorize`);
+  }
+  if (!towardX) {
+    fail(
+      `/api/auth/x-login did not redirect toward X authorize (HTTP ${status}, location=${location}, url=${finalUrl})`,
+    );
+  }
+
+  let reason =
+    'X OAuth is the production login. The authorize redirect ran; do not complete it with real credentials or user data.';
+  if (/verification-placeholder/i.test(`${location} ${finalUrl}`)) {
     reason =
       'X_CLIENT_ID is the verification placeholder. OAuth cannot complete without a real X app client. Stopped at the redirect boundary.';
   }
-  return { feature: 'sign-in', blocked, blockedReason: reason, steps };
+  return { feature: 'sign-in', blocked: true, blockedReason: reason, steps };
 }
 
 async function driveLegal(page, url, evidenceDir) {

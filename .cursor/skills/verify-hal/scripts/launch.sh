@@ -9,10 +9,7 @@ READY_TIMEOUT="${HAL_VERIFY_READY_TIMEOUT:-120}"
 PORT="$HAL_VERIFY_PORT"
 HOST="$HAL_VERIFY_HOST"
 URL="http://${HOST}:${PORT}"
-RUN_ID="$(hal_verify_run_id)"
-EVIDENCE_DIR="$(hal_verify_evidence_dir "$RUN_ID")"
-LOG_DIR="$HAL_VERIFY_STATE_DIR/$RUN_ID"
-mkdir -p "$LOG_DIR" "$EVIDENCE_DIR" "$HAL_VERIFY_STATE_DIR"
+mkdir -p "$HAL_VERIFY_STATE_DIR"
 
 if [[ -f "$HAL_VERIFY_CURRENT/pid" ]]; then
   existing_pid="$(cat "$HAL_VERIFY_CURRENT/pid")"
@@ -34,6 +31,17 @@ if [[ -n "$listeners" ]]; then
   echo "Pick another HAL_VERIFY_PORT or stop that listener. Do not steal a shared instance." >&2
   exit 1
 fi
+
+# Mint the run id AFTER any forced cleanup. Reusing the previous id would
+# point LOG_DIR at a folder cleanup just deleted, and the server would never start.
+if [[ -n "${HAL_VERIFY_RUN_ID:-}" ]]; then
+  RUN_ID="$HAL_VERIFY_RUN_ID"
+else
+  RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)"
+fi
+EVIDENCE_DIR="$(hal_verify_evidence_dir "$RUN_ID")"
+LOG_DIR="$HAL_VERIFY_STATE_DIR/$RUN_ID"
+mkdir -p "$LOG_DIR" "$EVIDENCE_DIR"
 
 # Load developer env if present (values never printed). Else verification placeholders.
 ENV_SOURCE="placeholders"

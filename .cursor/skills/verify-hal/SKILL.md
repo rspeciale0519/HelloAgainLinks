@@ -60,7 +60,7 @@ What it does:
 - Ready means `GET /` returns HTML containing `Hello Again Links` or `Your X Bookmarks`, not merely that a port is open. First compile can take ~60s; the script waits up to 120s (`HAL_VERIFY_READY_TIMEOUT`).
 - Loads `apps/web/.env.local` if present (values never printed). If that file is missing, sets verification **placeholders** for `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `X_CLIENT_ID`, `X_CLIENT_SECRET`, and `NEXT_PUBLIC_APP_URL`. Placeholder names are documented in `apps/web/.env.example`. Do not commit `.env.local`. Do not substitute real keys.
 - Writes pid/url/evidence path under `/tmp/hal-verify/current`.
-- Refuses to start if that pid is still alive or if port 4370 is already taken. Do not hijack a developer's `next dev` on 3000.
+- Refuses to start if that pid is still alive or if port 4370 is already taken. Do not hijack a developer's `next dev` on 3000. `HAL_VERIFY_FORCE=1` tears the previous verify instance down, then mints a **new** run id and recreates its log directory before starting the replacement server.
 - Isolation limit: two `next dev` processes on the same checkout share `apps/web/.next`. Run **one** verify instance per checkout.
 
 Teardown is not part of launch. Use Cleanup.
@@ -98,6 +98,8 @@ node .cursor/skills/verify-hal/scripts/drive.mjs --feature landing
 ```
 
 `--feature` is one of: `landing`, `sign-in`, `legal`, `install-extension`, `dashboard-bookmarks`.
+
+`sign-in` must observe `/api/auth/x-login` issue a redirect toward `oauth2/authorize` (or the browser URL become that authorize page). A stuck login page or an HTTP 500 is a **failed drive**, not `blocked`. `blocked` means only that completing X login is out of bounds.
 
 One-shot (launch → doctor → drive one feature → cleanup → confirm evidence survived):
 
@@ -155,7 +157,7 @@ bash .cursor/skills/verify-hal/scripts/gates.sh
 pnpm verify -- --feature landing
 ```
 
-`pnpm verify` is `node .cursor/skills/verify-hal/scripts/run.mjs`.
+`pnpm verify` is `node .cursor/skills/verify-hal/scripts/run.mjs`. It cleans up only an instance **this invocation launched**. If launch refuses because another verify server is already up, the existing instance is left running.
 
 ## Capacitor mobile (secondary)
 
