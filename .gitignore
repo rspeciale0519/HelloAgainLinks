@@ -20,3 +20,7 @@ halbrain/.obsidian/
 # mobile static export output
 apps/web/out/
 
+# verify-hal run state and proof artifacts (keep evidence/README.md)
+.cursor/skills/verify-hal/.run/
+.cursor/skills/verify-hal/evidence/*/
+

@@ -1,13 +1,21 @@
 # hal brain — STATE
-Updated: 2026-07-31
+Updated: 2026-11-16
 
 ## Current focus
-None active. Everything from 2026-07-31 is **released to production**: `main` at
+`verify-hal` skill landed on `cursor/verify-hal-skill-3a77` (not merged). Agents
+should follow `.cursor/skills/verify-hal/SKILL.md` before claiming UI work done.
+
+## Latest synopsis
+Verification skill only — no app behavior change. Public landing flow proven in
+Chromium. Unit/integration tests still absent. Authenticated dashboard / X OAuth
+blocked without real secrets (placeholders only).
+
+Prior 2026-07-31 release still stands: `main` at
 `b408e97` (PR #49), Vercel deploy READY, migration 012 applied. `main`/`develop`
 at parity apart from brain docs. Smoke-tested live: legal pages, invite page
 (defect #1), no regressions.
 
-## Latest synopsis
+## Prior synopsis (2026-07-31)
 Comprehensive audit (5 parallel verification passes over `develop` @ `8ac341f`;
 `turbo build` + lint green). Every `DEVELOPMENT_ROADMAP.md` Phase 1-3 checkbox
 now reflects audited reality, with a dated audit summary + 13-defect list at the
