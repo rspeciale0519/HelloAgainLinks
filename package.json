@@ -9,9 +9,11 @@
     "mobile:build": "node scripts/mobile-build.mjs",
     "mobile:sync": "pnpm --filter @helloagain/web exec cap sync",
     "mobile:open:android": "pnpm --filter @helloagain/web exec cap open android",
-    "mobile:open:ios": "pnpm --filter @helloagain/web exec cap open ios"
+    "mobile:open:ios": "pnpm --filter @helloagain/web exec cap open ios",
+    "verify": "node .cursor/skills/verify-hal/scripts/run.mjs"
   },
   "devDependencies": {
+    "playwright": "^1.56.1",
     "turbo": "^2.4.0",
     "typescript": "^5.7.0"
   },

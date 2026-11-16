@@ -20,3 +20,6 @@
 
 ### 5. UI work: specific design bans
 - For UI work, give specific design bans (for example no gradients, no emoji icons, no centered walls of text) instead of "make it look good".
+
+### 6. Verify before claiming done
+- Follow `.cursor/skills/verify-hal/SKILL.md` before reporting Hello Again Links UI or app work as done.

@@ -1,6 +1,11 @@
 # Log
 Append-only timeline. Entry format: `## [YYYY-MM-DD] <op> | <title>`.
 
+## [2026-11-16] verify-hal | project verification skill
+- Added `.cursor/skills/verify-hal/` (launch/doctor/drive/cleanup + 5-feature map).
+- Proof: landing driven in Chromium; tests missing; auth flows blocked without secrets.
+- See [[journal/2026-11-16]].
+
 ## [2026-07-18] init | hal brain initialized
 - Vault scaffolded from _brain engine. Knowledge layer = stub.
 
